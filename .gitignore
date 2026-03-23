@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Python virtual environment
+.venv/
+
+# Codex output
+.codex-output/
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Swift Package Manager
+.build/
+.swiftpm/

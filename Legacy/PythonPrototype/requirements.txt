@@ -1,0 +1,16 @@
+# Core transcription + diarization
+whisperx @ git+https://github.com/m-bain/whisperX.git
+torch
+torchaudio
+
+# Speaker diarization (pulled in by whisperx, but listed for clarity)
+pyannote.audio
+
+# Web UI
+gradio>=4.0
+
+# Word document export
+python-docx
+
+# Audio processing
+ffmpeg-python

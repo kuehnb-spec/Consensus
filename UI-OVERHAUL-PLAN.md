@@ -1,0 +1,334 @@
+# Consensus UI/UX Overhaul — Implementation Plan
+
+BDK Transcribo is being renamed to **Consensus** and receiving a comprehensive UI/UX overhaul to move from a "utility" aesthetic to a "high-end workstation" feel (similar to Linear or Raycast). The hallmark feature is Deep Review (multi-model reconciliation).
+
+---
+
+## Phase 0: Rename (Low Complexity)
+
+**Goal:** Replace all user-visible references to "BDK Transcribo" with "Consensus." Update internal identifiers where appropriate.
+
+**Files to change:**
+
+| File | What changes |
+|---|---|
+| `Views/ContentView.swift` | `"BDK Transcribo"` fallback title becomes `"Consensus"` |
+| `Views/WelcomeTourView.swift` | "Transcribo" and "BDK Transcribo" strings |
+| `Views/HelpCenterView.swift` | Path reference `BDK Transcribo` |
+| `Services/DemoProjectFactory.swift` | Demo text "BDK Transcribo" |
+| `Services/ProjectStore.swift` | Application Support directory name — use dual-path lookup (check new path first, fall back to old) |
+| `TranscriboApp.swift` | Struct name (optional but keeps consistency) |
+| `Package.swift` | Package name, target name |
+| `CLAUDE.md`, `PROJECT_HISTORY.md` | Documentation references |
+
+**Migration strategy for ProjectStore:** Check both `"Consensus"` and `"BDK Transcribo"` paths in Application Support. Prefer new path. If only old path exists, use it (don't move files — avoid data loss risk). New projects always save to new path.
+
+**Status:** COMPLETE (March 16, 2026)
+
+---
+
+## Phase 1: Design System Foundation (High Complexity — Everything Depends on This)
+
+**Goal:** Create a centralized design system. Without this, later phases scatter hardcoded colors/fonts throughout the codebase (the current anti-pattern).
+
+### New Files to Create
+
+**1. `Theme/ConsensusTheme.swift`** — Central namespace:
+- `Colors` struct:
+  - `background`: Deep Slate (#0F1419 or similar midnight blue)
+  - `surfacePrimary`: Slightly elevated surface (#1A1F26)
+  - `surfaceSecondary`: Card-level surface (#232A33)
+  - `accent`: Indigo (#6366F1)
+  - `accentSubtle`: Indigo at 15% opacity (for backgrounds)
+  - `textPrimary`: White at 90% opacity
+  - `textSecondary`: White at 60% opacity
+  - `textTertiary`: White at 35% opacity
+  - `border`: White at 8% opacity (1px card borders)
+  - `confidenceGreen`: #34D399
+  - `confidenceAmber`: #FBBF24
+  - `confidenceRed`: #F87171
+  - Difference tint colors (aligned, punctuation, speaker, text, missing)
+- `Fonts` struct:
+  - `body`: SF Pro (system default)
+  - `mono`: SF Mono for timestamps, confidence %, metadata
+  - `heading`: SF Pro semibold/bold
+  - `caption`: SF Pro at smaller sizes
+- `Spacing` struct: xs(4), sm(8), md(12), lg(16), xl(24), xxl(32)
+- `Radius` struct: sm(6), md(8), lg(12), xl(16)
+
+**2. `Theme/ConsensusCardStyle.swift`** — ViewModifier:
+- `.ultraThinMaterial` background
+- 1px border (`ConsensusTheme.Colors.border`)
+- Rounded corners
+- Replaces all `GroupBox` usage
+- Variants: `.consensusCard()` and `.consensusCard(labeled: "Title")`
+
+**3. `Theme/ConsensusButtonStyles.swift`** — Custom ButtonStyles:
+- `ConsensusPrimaryButtonStyle`: Indigo filled, white text
+- `ConsensusSecondaryButtonStyle`: 1px indigo border, indigo text
+- `ConsensusGhostButtonStyle`: Plain text, hover highlight
+
+### Existing Files to Modify
+
+| File | What changes |
+|---|---|
+| `TranscriboApp.swift` | `.preferredColorScheme(.dark)` on WindowGroup, `.tint(ConsensusTheme.Colors.accent)` |
+| `AppSettings.swift` | Add `@AppStorage("colorScheme")` for future light mode toggle |
+| `Views/Components/SpeakerBadge.swift` | Use theme colors, SF Mono for badge text |
+| `Views/Components/SegmentRow.swift` | SF Mono for timestamps, theme fonts for body |
+
+### Key Decisions
+
+- **Dark mode enforcement:** `.preferredColorScheme(.dark)` at WindowGroup level. A Settings toggle can override later.
+- **Glassmorphism:** `.ultraThinMaterial` with `RoundedRectangle` clip and 1px stroke. The codebase already uses `.regularMaterial` in two places.
+- **GroupBox replacement:** Every `GroupBox` (6 instances across 3 views) becomes a `ConsensusCard`. Must support labeled and unlabeled variants.
+- **No asset catalog:** The app is an SPM executable, not .xcodeproj. All colors defined in code, which suits the centralized theme approach.
+
+### Watch Out For
+- `ReconciliationView` has a hardcoded `.background(Color.white.opacity(0.82))` on TextEditors that will look wrong in dark mode. Must replace with theme token.
+- Several views use raw `.blue`, `.green`, `.secondary` etc. — all need to be replaced with `ConsensusTheme.Colors` references.
+
+**Status:** COMPLETE (March 16, 2026) — ConsensusTheme.swift, ConsensusCardStyle.swift, ConsensusButtonStyles.swift created. Dark mode + indigo accent applied at WindowGroup level. SpeakerBadge and SegmentRow updated to use theme. Build verified.
+
+---
+
+## Phase 2: Sidebar & Navigation Refactor (Medium Complexity)
+
+**Goal:** Grouped project list by date, metadata badges, animated transcription indicator.
+
+### Files to Modify
+
+| File | What changes |
+|---|---|
+| `Views/ContentView.swift` | Major refactor of `SidebarView` and `ProjectLibraryRow` |
+| `Models/TranscriptionProject.swift` | Add `isReconciled` / `hasConsensus` to `TranscriptionProjectSummary` |
+| `Services/ProjectStore.swift` | May need to expose additional summary data |
+
+### Work Items
+
+1. **Date grouping:** Group `projects` by `updatedAt` into "Today", "Yesterday", "Last Week", "Older" sections using `Section` headers in the sidebar `List`.
+
+2. **Metadata badges (new components):**
+   - `ConfidencePill`: Capsule colored by confidence tier (red/amber/green), showing percentage
+   - `StatusBadge`: Checkmark for reconciled, warning for needs review
+   - Requires `TranscriptionProjectSummary` to expose reconciliation status
+
+3. **Pulse animation:** When `viewModel.pipeline.isRunning`, apply `PhaseAnimator` or repeating animation to the "waveform" icon in the Transcribe sidebar row.
+
+**Status:** COMPLETE (March 16, 2026) — Full sidebar rewrite with date-grouped projects (Today/Yesterday/Last 7 Days/Older), StatusBadge (Reconciled/Needs Review/Draft), ConfidencePill (color-coded capsule), pulse animation via phaseAnimator, all themed with ConsensusTheme. Added `hasConsensus` and `hasMultiplePasses` to TranscriptionProjectSummary.
+
+---
+
+## Phase 3: Quality Dashboard Overhaul (Medium-High Complexity)
+
+**Goal:** Circular progress gauges and disagreement heatmap.
+
+### Files to Modify
+
+| File | What changes |
+|---|---|
+| `Views/QualityView.swift` | Replace metric cards with gauges, add heatmap |
+
+### New Components
+
+1. **`Views/Components/CircularProgressGauge.swift`**
+   - Custom drawing via `Circle().trim(from:to:)` with three-tier coloring
+   - Red (0-60%), Amber (60-80%), Green (80-100%)
+   - Replaces the top three metric cards (Word Confidence, Segment Confidence, Diarization Quality)
+
+2. **`Views/Components/DisagreementHeatmapView.swift`**
+   - Horizontal bar representing full audio duration
+   - Color-coded segments at disagreement timestamps
+   - Uses `Canvas` for drawing
+   - Data source: `PassComparisonSummary.disagreements` (already exists with `start`/`end`/`kind`)
+   - Goes at top of comparison section
+
+### Additional Work
+- Replace all `GroupBox` with `ConsensusCard`
+- Apply SF Mono to all percentage and numeric values
+- Keep remaining six metric cards as themed numeric displays
+
+**Status:** COMPLETE (March 16, 2026) — Created CircularProgressGauge (three-tier arc gauge with SF Mono value labels) and DisagreementHeatmapView (GeometryReader-based proportional timeline with color-coded segments and legend). Rewrote QualityView.swift: replaced all GroupBox with .consensusCard(), replaced top metric cards with CircularProgressGauge row, added DisagreementHeatmapView to comparison section, themed all fonts/colors/spacing with ConsensusTheme. Build verified.
+
+---
+
+## Phase 4: Reconciliation Workspace Redesign (High Complexity — Largest Phase)
+
+**Goal:** Unified diff view, keyboard-first navigation, floating audio controller.
+
+### Files to Modify
+
+| File | What changes |
+|---|---|
+| `Views/ReconciliationView.swift` | Near-complete rewrite of layout and interaction |
+| `ViewModels/TranscriptionViewModel.swift` | Keyboard shortcut handlers |
+| `Services/AudioContextPlayer.swift` | Floating controller support |
+
+### Work Items
+
+1. **Unified scroll + diff view:**
+   - `aligned` rows: single dimmed text block spanning full width
+   - Rows with differences: word-level inline diff (red/green highlighting)
+   - Eliminates three-column table header
+   - Becomes a single scrolling document with inline diff annotations
+   - The `ReconciliationDiffHighlighter` and `HighlightedTranscriptText` components already exist — reuse and adapt
+
+2. **Keyboard-first navigation (via `.onKeyPress`, macOS 14+):**
+   - `[1]` = Use Left (reference pass)
+   - `[2]` = Use Middle (candidate pass)
+   - `[Enter]` = Confirm block
+   - `[Up/Down]` = Navigate between disagreement rows
+   - `[Space]` = Play context audio
+   - Show shortcuts as subtle tooltips when a block is focused
+
+3. **Floating audio controller:**
+   - `safeAreaInset(edge: .bottom)` overlay
+   - Play/pause, current position, scrubber
+   - "Play Context" button (auto-rewind 5 seconds — logic already exists in viewModel)
+   - Remains visible during scroll
+
+### Risk
+- The `ComparisonBlockRow` is 230+ lines and needs a near-complete rewrite
+- Consider keeping old view as `ReconciliationView_Legacy.swift` during development for A/B testing
+- The `ReconciliationDraft` and `ReconciliationRow` models do NOT need to change
+
+**Status:** COMPLETE (March 16, 2026) — Complete rewrite of ReconciliationView from 4-column table to unified single-column diff stream. Aligned blocks now render as compact dimmed cards (speaker + text). Disagreement blocks expand with side-by-side source panels, inline diff highlighting, and an editable consensus editor. Created FloatingAudioController component (safeAreaInset bottom bar) with play/stop, timestamp display, and keyboard shortcut hints. Added full keyboard navigation: [1] Use A, [2] Use B, [Space] play/stop context, [Up/Down] navigate rows, [Return] jump to next unresolved disagreement. All colors/fonts/spacing use ConsensusTheme tokens. Updated ReconciliationSourceChoice display names from "Left"/"Middle" to "Reference"/"Candidate". Added solid diff tint colors to ConsensusTheme. Build verified.
+
+---
+
+## Phase 5: Export Suite Enhancement (Medium Complexity)
+
+**Goal:** Live PDF preview, document inspector sidebar.
+
+### Files to Modify
+
+| File | What changes |
+|---|---|
+| `Views/ExportView.swift` | Add preview pane and inspector sidebar |
+| `Services/ExportService.swift` | Expose `buildLegalPDF` for preview (already returns Data) |
+| `Models/TranscriptionProject.swift` | Add `caseNumber`, `matterName`, `attorneyName` to `ProjectExportPreferences` |
+| `ViewModels/TranscriptionViewModel.swift` | Wire new metadata fields into export preferences |
+
+### Work Items
+
+1. **Live PDF preview:**
+   - When Legal PDF is selected, show `PDFView` (from PDFKit) in a split pane on the right
+   - Generate PDF using existing `buildLegalPDF`, display the result
+   - Debounce regeneration (500ms after last field edit) to avoid lag
+   - Run `buildLegalPDF` on background actor for long transcripts
+
+2. **Document Inspector sidebar:**
+   - Fields: Case Number, Matter Name, Attorney Name
+   - Stored in `ProjectExportPreferences` (Codable — new fields must be `String?` with nil defaults for migration safety)
+   - Passed through to `LegalPDFOptions` for header inclusion
+
+3. **Apply theme:** Replace `GroupBox`, card styling, SF Mono for format metadata.
+
+**Status:** COMPLETE (March 16, 2026) — Themed ExportView with ConsensusTheme: format cards use accent/border tokens, GroupBox replaced with .consensusCard(), export button uses ConsensusPrimaryButtonStyle. Added live PDF preview using PDFKit: when Legal PDF is selected, an HSplitView shows a PDFView on the right with the generated PDF. Preview regenerates on option changes with 500ms debounce for header text edits. PDF generation runs on Task.detached to avoid blocking the main thread. Document inspector fields (case number, etc.) deferred to a future session as they require model migration.
+
+---
+
+## Phase 6: Polish Pass (Low-Medium Complexity)
+
+**Goal:** Apply design system to all remaining views not touched in earlier phases.
+
+### Files to Modify
+
+| File | What changes |
+|---|---|
+| `Views/TranscriptionSetupView.swift` | Theme cards, fonts, drop zone styling |
+| `Views/TranscriptView.swift` | Theme speaker panel, SF Mono timestamps |
+| `Views/AudioDropZone.swift` | Themed colors for drop zone border and background |
+| `Views/HelpCenterView.swift` | Replace `.regularMaterial` with theme materials |
+| `Views/WelcomeTourView.swift` | Theme step cards, update styling |
+| `Views/SettingsView.swift` | Dark mode form styling, add color scheme toggle |
+
+**Status:** COMPLETE (March 16, 2026) — Applied ConsensusTheme to all remaining views. TranscriptionSetupView: replaced GroupBox with .consensusCard(), themed model picker and speaker steppers with mono fonts. AudioDropZone: replaced raw .blue/.secondary with accent/textMuted/accentMuted tokens, themed loaded-file card with surfacePrimary background. TranscriptView: themed header with mono timestamps, speaker panel with surfacePrimary background, SpeakerRenameCard uses surfaceSecondary + border. HelpCenterView: replaced .regularMaterial with .ultraThinMaterial via .consensusCard(), replaced raw .blue/.orange/.green/.indigo tints with theme colors, updated reconciliation help text to match new "Use A"/"Use B" keyboard shortcuts. WelcomeTourView: replaced raw .blue/.green/.orange/.purple tints with theme colors (accent, confidenceGreen, confidenceAmber, diffSpeakerSolid), replaced .regularMaterial with .ultraThinMaterial + border, themed all text with ConsensusTheme.Colors, added background color. SettingsView: updated About section with "Consensus" app name. Build verified.
+
+---
+
+## Complete File Manifest
+
+### New Files (7)
+```
+Theme/ConsensusTheme.swift
+Theme/ConsensusCardStyle.swift
+Theme/ConsensusButtonStyles.swift
+Views/Components/CircularProgressGauge.swift
+Views/Components/DisagreementHeatmapView.swift
+Views/Components/ConfidencePill.swift
+Views/Components/FloatingAudioController.swift
+```
+
+### Modified Files (22)
+```
+TranscriboApp.swift
+Package.swift
+Models/AppSettings.swift
+Models/TranscriptionProject.swift
+ViewModels/TranscriptionViewModel.swift
+Views/ContentView.swift
+Views/TranscriptionSetupView.swift
+Views/TranscriptView.swift
+Views/QualityView.swift
+Views/ReconciliationView.swift
+Views/ExportView.swift
+Views/SettingsView.swift
+Views/HelpCenterView.swift
+Views/WelcomeTourView.swift
+Views/AudioDropZone.swift
+Views/Components/SegmentRow.swift
+Views/Components/SpeakerBadge.swift
+Services/DemoProjectFactory.swift
+Services/ProjectStore.swift
+Services/ExportService.swift
+Services/AudioContextPlayer.swift
+CLAUDE.md
+```
+
+---
+
+## Estimated Timeline
+
+| Phase | Sessions | Dependencies |
+|-------|----------|-------------|
+| Phase 0: Rename | 1 | None |
+| Phase 1: Design System | 1-2 | Phase 0 |
+| Phase 2: Sidebar | 1 | Phase 1 |
+| Phase 3: Quality Dashboard | 1-2 | Phase 1 |
+| Phase 4: Reconciliation | 2-3 | Phase 1 |
+| Phase 5: Export | 1-2 | Phase 1 |
+| Phase 6: Polish | 1 | Phase 1 |
+| **Total** | **8-12** | |
+
+Phase 0 must be first (rename affects every file, creates merge conflicts if deferred). Phase 1 next (every visual change depends on it). Phases 2-5 can be done in any order after Phase 1, but Sidebar (2) is recommended next since it's the always-visible navigation surface. Phase 6 last as cleanup.
+
+---
+
+## Design Reference
+
+### Color Palette
+- Background: Deep Slate (#0F1419)
+- Surface Primary: #1A1F26
+- Surface Secondary: #232A33
+- Accent: Indigo (#6366F1)
+- Accent Subtle: Indigo at 15% opacity
+- Text Primary: White at 90%
+- Text Secondary: White at 60%
+- Text Tertiary: White at 35%
+- Border: White at 8%
+- Confidence Green: #34D399
+- Confidence Amber: #FBBF24
+- Confidence Red: #F87171
+
+### Typography
+- Body: SF Pro (system)
+- Monospace: SF Mono (timestamps, percentages, metadata)
+- Headings: SF Pro Semibold/Bold
+
+### Visual Language
+- Glassmorphism: `.ultraThinMaterial` + 1px border + rounded corners
+- No heavy shadows (1px borders instead)
+- Cards replace all GroupBoxes
+- Indigo accent for primary actions and AI-generated highlights
+- Dark mode enforced at WindowGroup level

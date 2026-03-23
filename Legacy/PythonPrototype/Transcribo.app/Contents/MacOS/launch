@@ -1,0 +1,16 @@
+#!/bin/bash
+# Transcribo launcher
+DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$DIR"
+
+# Activate venv and launch
+source .venv/bin/activate
+export HF_TOKEN=$(python3 -c "from config import get_hf_token; print(get_hf_token())" 2>/dev/null)
+python app.py &
+
+# Wait a moment for the server to start, then open browser
+sleep 3
+open "http://127.0.0.1:7860"
+
+# Keep the app "running" while the server is up
+wait
