@@ -116,6 +116,21 @@ final class ProjectLibrary {
         try FileManager.default.removeItem(at: paths.root)
     }
 
+    // MARK: - Passes
+
+    func savePass(_ pass: TranscriptPass, for projectID: UUID) throws {
+        let paths = ProjectPaths(projectID: projectID, within: root)
+        try FileManager.default.createDirectory(at: paths.passesDirectory, withIntermediateDirectories: true)
+        try Self.write(pass, to: paths.pass(pass.kind))
+    }
+
+    func loadPass(_ kind: PassKind, for projectID: UUID) throws -> TranscriptPass? {
+        let paths = ProjectPaths(projectID: projectID, within: root)
+        let url = paths.pass(kind)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try Self.read(at: url)
+    }
+
     // MARK: - Summary
 
     func loadSummary(_ projectID: UUID) throws -> SummaryDocument {

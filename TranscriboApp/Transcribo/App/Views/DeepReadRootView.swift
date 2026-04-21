@@ -47,10 +47,7 @@ struct DeepReadRootView: View {
                 )
 
             case .reviewing:
-                PlaceholderStageView(
-                    stage: "Interactive review",
-                    plan: "Phase 1d — transcript + inline uncertainties + verbatim/clean toggle."
-                )
+                DeepReadReviewView(viewModel: viewModel)
 
             case .exporting:
                 PlaceholderStageView(

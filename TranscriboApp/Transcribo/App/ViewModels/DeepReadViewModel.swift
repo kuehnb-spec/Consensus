@@ -30,6 +30,10 @@ final class DeepReadViewModel {
     /// The project currently being worked on. `nil` when `stage == .idle`.
     private(set) var project: ProjectDocument?
 
+    /// In-memory cache of the currently-shown pass. The review view reads
+    /// from here rather than re-hitting disk. Cleared on `close()`.
+    private(set) var activePassContent: TranscriptPass?
+
     /// User-facing error, consumed by the parent view's alert modifier.
     var errorMessage: String?
     var showError: Bool = false
@@ -135,22 +139,69 @@ final class DeepReadViewModel {
     }
 
     /// Called from the setup card when the user presses Transcribe.
-    /// Phase 1a: stub — just advances to a placeholder transcribing state.
-    /// Phase 1b will invoke `TranscriptionService`, `DiarizationService`,
-    /// and (for Deep) the second engine + `LLMReconcileService`.
+    /// Phase 1b: runs the standard (single-engine) pipeline end-to-end —
+    /// Parakeet + SpeakerKit + merge — persists the result, and transitions
+    /// directly to `.reviewing`. Phase 1c will branch on `.deep` speed to
+    /// add Engine B + `LLMReconcileService` + the speaker-naming stage.
     func startTranscription() async {
-        guard project != nil else { return }
+        guard let current = project else { return }
         stage = .transcribing(progress: .zero)
 
-        // TODO (Phase 1b): wire up:
-        //  - TranscriptionService (Engine A: Parakeet) with streaming progress
-        //  - SpeakerKitDiarizationService (run in parallel with Engine A)
-        //  - Engine B (WhisperKit) when mode/speed warrants the Deep tier
-        //  - LLMReconcileService for the Deep reconciliation pass
-        //  - TranscriptCleanupService for verbatim/clean dual output
-        //  - Persist each pass to `<project>/passes/<kind>.json`
-        //  - Detect "Hi, this is X" intros and match voice library → speaker
-        //    naming suggestions for the next stage.
+        let runStart = Date()
+        let runner = StandardPassRunner()
+
+        do {
+            let pass = try await runner.run(
+                audioURL: current.audio.originalURL,
+                options: .init(
+                    variant: .parakeetV3,
+                    language: "en",
+                    requestedSpeakerCount: nil,
+                    audioDurationSeconds: current.audio.durationSeconds
+                ),
+                progress: { [weak self] update in
+                    Task { @MainActor [weak self] in
+                        self?.stage = .transcribing(progress: .init(
+                            fraction: update.fraction,
+                            label: update.label,
+                            elapsedSeconds: Date().timeIntervalSince(runStart)
+                        ))
+                    }
+                }
+            )
+
+            try library.savePass(pass, for: current.id)
+
+            var updated = current
+            let roster = StandardPassRunner.speakerRoster(for: pass.segments)
+            updated.speakers = Self.mergeSpeakers(existing: current.speakers, detected: roster)
+            updated.activePass = pass.kind
+            project = try library.save(updated)
+            activePassContent = pass
+
+            stage = .reviewing
+        } catch {
+            report(error)
+            stage = .setup
+        }
+    }
+
+    /// Merge a freshly-detected speaker roster with the project's existing
+    /// one. Preserves user-confirmed names and voice library matches that
+    /// were set before re-running transcription; new speakers get default
+    /// labels.
+    private static func mergeSpeakers(
+        existing: [Speaker],
+        detected: [Speaker]
+    ) -> [Speaker] {
+        let existingByID = Dictionary(uniqueKeysWithValues: existing.map { ($0.id, $0) })
+        return detected.map { freshSpeaker in
+            if var prior = existingByID[freshSpeaker.id] {
+                prior.paletteIndex = freshSpeaker.paletteIndex
+                return prior
+            }
+            return freshSpeaker
+        }
     }
 
     /// Called from `SpeakerNamingView` when the user confirms speaker names.
@@ -190,6 +241,7 @@ final class DeepReadViewModel {
     /// The project stays on disk; reopen via the Project Library window.
     func close() {
         project = nil
+        activePassContent = nil
         stage = .idle
     }
 
