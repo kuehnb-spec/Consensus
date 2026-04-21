@@ -8,7 +8,12 @@ struct ContentView: View {
         @Bindable var vm = viewModel
 
         Group {
-            if settings.isSimpleMode {
+            if settings.useRewrittenUI {
+                // Phase 0+ rewrite surface. Toggled from Settings → Advanced
+                // while the rewrite is in progress; the legacy UI below
+                // remains the default until a phase is user-verified.
+                RewrittenSurface()
+            } else if settings.isSimpleMode {
                 simpleContent
             } else {
                 advancedContent

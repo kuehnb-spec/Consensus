@@ -175,6 +175,10 @@ enum PassKind: String, Codable, CaseIterable, Hashable, Sendable {
 // MARK: - Settings
 
 struct ProjectSettings: Codable, Hashable, Sendable {
+    /// Pipeline depth / speed tier. Deep Read exposes `.standard` (labelled
+    /// "Quick") and `.deep`; Studio exposes all four.
+    var speed: SpeedTier
+
     /// Domain hint fed to the LLM reconciliation prompt. `general` is the
     /// neutral default; `.custom` carries a free-text override.
     var domainHint: DomainHint
@@ -191,15 +195,69 @@ struct ProjectSettings: Codable, Hashable, Sendable {
     var transcriptStyle: TranscriptStyle
 
     init(
+        speed: SpeedTier = .deep,
         domainHint: DomainHint = .general,
         includeSummary: Bool = false,
         includeTodos: Bool = false,
         transcriptStyle: TranscriptStyle = .clean
     ) {
+        self.speed = speed
         self.domainHint = domainHint
         self.includeSummary = includeSummary
         self.includeTodos = includeTodos
         self.transcriptStyle = transcriptStyle
+    }
+}
+
+/// Pipeline tier. The four tiers trade processing time against accuracy.
+/// See the rewrite plan's "Tier" table and the April 21 benchmark memos.
+enum SpeedTier: String, Codable, CaseIterable, Hashable, Sendable, Identifiable {
+    /// Single engine (Engine A). Seconds of processing. ~15% cpWER on the
+    /// April 21 benchmark. Labelled "Quick" inside Deep Read.
+    case standard
+
+    /// Two engines + local LLM reconciliation. ~3 min per 10 min audio.
+    /// ~11% cpWER. The production default and Deep Read's "Deep" option.
+    case deep
+
+    /// Deep + known-names + domain hint + forced alignment. ~3.5 min per
+    /// 10 min audio. ~7–8% projected cpWER. Studio-only.
+    case verified
+
+    /// Verified + human review on LLM-flagged uncertain regions. Variable
+    /// time. Studio-only; approaches ground-truth quality.
+    case perfect
+
+    var id: String { rawValue }
+
+    /// Label in the Deep Read setup card (two choices only).
+    var deepReadLabel: String {
+        switch self {
+        case .standard:  return "Quick"
+        case .deep:      return "Deep"
+        case .verified:  return "Verified"
+        case .perfect:   return "Perfect"
+        }
+    }
+
+    /// Fuller label in the Studio tier picker.
+    var studioLabel: String {
+        switch self {
+        case .standard:  return "Standard (1 engine)"
+        case .deep:      return "Deep (2 engines + LLM)"
+        case .verified:  return "Verified (+ names, domain, FA)"
+        case .perfect:   return "Perfect (+ human review)"
+        }
+    }
+
+    /// One-line pitch shown next to the tier label.
+    var tagline: String {
+        switch self {
+        case .standard: return "Fastest. Single-engine output."
+        case .deep:     return "Recommended. LLM reconciliation for best accuracy."
+        case .verified: return "Studio-tier. Adds known-names, domain hint, forced alignment."
+        case .perfect:  return "Studio-tier. Verified plus targeted human review."
+        }
     }
 }
 

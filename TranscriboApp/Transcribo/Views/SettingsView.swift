@@ -87,6 +87,19 @@ struct SettingsView: View {
                 }
             }
 
+            Section("UI rewrite (developer preview)") {
+                Toggle(isOn: $settings.useRewrittenUI) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Use rewritten UI")
+                            .font(.body)
+                        Text("Flip to the new three-mode surface (Quick Take / Deep Read / Studio). Work in progress — Phase 1a ships the drop screen, setup card, and stubbed later stages. Flip back to this side at any time; pipeline code is the same underneath.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
             Section("About") {
                 LabeledContent("App", value: "Consensus")
                 LabeledContent("Version", value: "1.0.0")

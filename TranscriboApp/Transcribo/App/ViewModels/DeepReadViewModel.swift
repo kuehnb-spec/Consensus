@@ -1,0 +1,276 @@
+import Foundation
+import Observation
+import AVFoundation
+
+/// Orchestrates the Deep Read flow — and, via the `mode` property, the
+/// trimmed Quick Take and expanded Studio surfaces too. There is one shared
+/// nine-stage pipeline: each stage either runs automatically or surfaces an
+/// interactive screen, depending on the active `ModeState`.
+///
+/// Phase 1a: the idle → importing → setup transition is wired end-to-end.
+/// Later stages are present as cases on `Stage` so views can route against
+/// them, but their work is stubbed — TODO markers point at the services
+/// that will drive each step in Phase 1b (transcription), Phase 1c (speaker
+/// naming + LLM reconciliation), and Phase 1d (interactive review + export).
+@Observable
+@MainActor
+final class DeepReadViewModel {
+
+    // MARK: - State
+
+    /// Which of the three UI surfaces is active. Kept on the VM (rather than
+    /// injected from each view) so mid-flow mode switches work — a user can
+    /// enter via Quick Take, promote to Deep Read when they realise they
+    /// want to control the review, or drop into Studio for fine-tuning.
+    var mode: ModeState = .default
+
+    /// Current stage of the flow. Views observe this and route accordingly.
+    private(set) var stage: Stage = .idle
+
+    /// The project currently being worked on. `nil` when `stage == .idle`.
+    private(set) var project: ProjectDocument?
+
+    /// User-facing error, consumed by the parent view's alert modifier.
+    var errorMessage: String?
+    var showError: Bool = false
+
+    /// Drives the `.fileImporter` on the root view.
+    var showFilePicker: Bool = false
+
+    // MARK: - Dependencies
+
+    let library: ProjectLibrary
+    let voiceStore: VoiceLibraryStore
+
+    init(library: ProjectLibrary, voiceStore: VoiceLibraryStore) {
+        self.library = library
+        self.voiceStore = voiceStore
+    }
+
+    // MARK: - Stage definition
+
+    /// The nine flow stages described in the rewrite plan, collapsed to the
+    /// eight the UI needs to route against. The `import` stage is folded
+    /// into `.importingAudio`.
+    enum Stage: Equatable {
+        /// No project open — the drop card is visible.
+        case idle
+
+        /// Validating and copying the user's audio into the project directory.
+        case importingAudio(url: URL)
+
+        /// Project created, audio settled, setup card is showing.
+        /// User picks Speed (Quick / Deep) and Include (Summary, To-dos).
+        case setup
+
+        /// Engine A transcribing. Later, Engine B runs in parallel for Deep
+        /// tier. Progress is tracked via `StageProgress`.
+        case transcribing(progress: StageProgress)
+
+        /// User confirms auto-detected speaker names. The suggestions list
+        /// is pre-filled from the "Hi, this is X" scan and voice library.
+        case namingSpeakers(suggestions: [SpeakerSuggestion])
+
+        /// LLM reconciliation running — either the single-shot pass or the
+        /// question-loop second pass. Progress reflects streaming tokens.
+        case reconciling(progress: StageProgress)
+
+        /// Main transcript view with inline uncertainty popovers and the
+        /// verbatim/clean toggle. The reviewing state stays active until
+        /// the user exports.
+        case reviewing
+
+        /// Export sheet open on top of the reviewing state.
+        case exporting
+    }
+
+    struct StageProgress: Equatable {
+        /// Value in `[0, 1]`. Progress bars bind to this.
+        var fraction: Double
+        /// Short user-facing label, e.g. "Transcribing… 04:12 of 08:00".
+        var label: String
+        /// Seconds since the stage started. Used for ETA interpolation.
+        var elapsedSeconds: TimeInterval
+
+        static let zero = StageProgress(fraction: 0, label: "", elapsedSeconds: 0)
+    }
+
+    struct SpeakerSuggestion: Identifiable, Equatable {
+        let id: String            // SPEAKER_N from the diarizer
+        var suggestedName: String // autofilled from intro scan or voice library
+        var voiceLibraryMatchID: UUID?
+        var sampleClipURL: URL?
+        var confidence: Double    // 0...1
+    }
+
+    // MARK: - Flow
+
+    /// Kick off the import from a dropped audio URL. Validates the file,
+    /// copies or links it into the project directory, persists a fresh
+    /// `ProjectDocument`, and advances the stage to `.setup`.
+    func beginImport(from url: URL) async {
+        stage = .importingAudio(url: url)
+
+        do {
+            let info = try await probeAudio(at: url)
+            let audio = AudioAsset(
+                originalURL: url,
+                localFilename: nil,
+                durationSeconds: info.duration,
+                recordingStartTime: info.creationDate.map { $0.addingTimeInterval(-info.duration) },
+                contentHash: nil
+            )
+            let title = url.deletingPathExtension().lastPathComponent
+            let document = ProjectDocument(
+                title: title,
+                audio: audio,
+                mode: mode
+            )
+            let created = try library.create(document)
+            self.project = created
+            self.stage = .setup
+        } catch {
+            report(error)
+        }
+    }
+
+    /// Called from the setup card when the user presses Transcribe.
+    /// Phase 1a: stub — just advances to a placeholder transcribing state.
+    /// Phase 1b will invoke `TranscriptionService`, `DiarizationService`,
+    /// and (for Deep) the second engine + `LLMReconcileService`.
+    func startTranscription() async {
+        guard project != nil else { return }
+        stage = .transcribing(progress: .zero)
+
+        // TODO (Phase 1b): wire up:
+        //  - TranscriptionService (Engine A: Parakeet) with streaming progress
+        //  - SpeakerKitDiarizationService (run in parallel with Engine A)
+        //  - Engine B (WhisperKit) when mode/speed warrants the Deep tier
+        //  - LLMReconcileService for the Deep reconciliation pass
+        //  - TranscriptCleanupService for verbatim/clean dual output
+        //  - Persist each pass to `<project>/passes/<kind>.json`
+        //  - Detect "Hi, this is X" intros and match voice library → speaker
+        //    naming suggestions for the next stage.
+    }
+
+    /// Called from `SpeakerNamingView` when the user confirms speaker names.
+    /// Advances to `.reconciling` for the LLM second-pass refinement.
+    func confirmSpeakers(_ mappings: [SpeakerSuggestion]) async {
+        guard project != nil else { return }
+        stage = .reconciling(progress: .zero)
+
+        // TODO (Phase 1c): run LLMReconcileService with the confirmed names
+        // and the domain hint, persist the deep pass, compute uncertainty
+        // items, transition to `.reviewing`.
+    }
+
+    /// Called from the interactive review view as the user resolves A/B
+    /// uncertainty items. The final pass runs once everything is resolved
+    /// (or skipped).
+    func resolveUncertainties() async {
+        stage = .reviewing
+
+        // TODO (Phase 1d): final LLM pass with user-resolved answers;
+        // update the deep pass on disk; refresh the visible transcript.
+    }
+
+    /// Open the export sheet. Final state of the flow; user returns to
+    /// `.reviewing` on dismiss.
+    func openExport() {
+        guard case .reviewing = stage else { return }
+        stage = .exporting
+    }
+
+    func dismissExport() {
+        guard case .exporting = stage else { return }
+        stage = .reviewing
+    }
+
+    /// Return to the idle state, releasing the current project from memory.
+    /// The project stays on disk; reopen via the Project Library window.
+    func close() {
+        project = nil
+        stage = .idle
+    }
+
+    // MARK: - Settings mutators
+
+    /// Mutators for the setup card's Speed / Include choices. They write
+    /// back to `project.settings` and persist so the selections survive a
+    /// close-and-reopen.
+    func setSpeed(_ tier: SpeedTier) {
+        update { $0.settings.speed = tier }
+    }
+
+    func setIncludeSummary(_ on: Bool) {
+        update { $0.settings.includeSummary = on }
+    }
+
+    func setIncludeTodos(_ on: Bool) {
+        update { $0.settings.includeTodos = on }
+    }
+
+    func setTranscriptStyle(_ style: TranscriptStyle) {
+        update { $0.settings.transcriptStyle = style }
+    }
+
+    func setDomainHint(_ hint: DomainHint) {
+        update { $0.settings.domainHint = hint }
+    }
+
+    private func update(_ mutate: (inout ProjectDocument) -> Void) {
+        guard var current = project else { return }
+        mutate(&current)
+        do {
+            project = try library.save(current)
+        } catch {
+            report(error)
+        }
+    }
+
+    // MARK: - Error handling
+
+    private func report(_ error: Error) {
+        errorMessage = error.localizedDescription
+        showError = true
+        // Don't leave the flow stuck in a transitional stage — fall back to
+        // whatever state makes most sense given the error.
+        switch stage {
+        case .importingAudio:
+            stage = .idle
+        case .transcribing, .reconciling:
+            stage = .reviewing
+        default:
+            break
+        }
+    }
+
+    // MARK: - Audio probe
+
+    /// Asset-probes the dropped file for duration + creation metadata.
+    /// The `creationDate` in AV container metadata represents when the file
+    /// was finalised (i.e., end of recording) — the caller subtracts
+    /// `durationSeconds` to derive the actual recording start time.
+    private func probeAudio(at url: URL) async throws -> AudioProbe {
+        let asset = AVURLAsset(url: url)
+        let duration = try await asset.load(.duration)
+        let metadata = try await asset.load(.commonMetadata)
+        let creationItem = AVMetadataItem.metadataItems(
+            from: metadata,
+            withKey: AVMetadataKey.commonKeyCreationDate,
+            keySpace: .common
+        ).first
+        let creationDate = try await creationItem?.load(.dateValue)
+        return AudioProbe(
+            duration: CMTimeGetSeconds(duration),
+            creationDate: creationDate
+                ?? (try? FileManager.default.attributesOfItem(atPath: url.path)[.creationDate] as? Date)
+                ?? nil
+        )
+    }
+
+    private struct AudioProbe {
+        let duration: TimeInterval
+        let creationDate: Date?
+    }
+}
