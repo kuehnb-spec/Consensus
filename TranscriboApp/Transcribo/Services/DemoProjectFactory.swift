@@ -45,6 +45,7 @@ enum DemoProjectFactory {
             language: "en",
             minSpeakers: 2,
             maxSpeakers: 2,
+            sourcePassID: standardPass.id,
             warnings: [],
             result: comparisonResult,
             qualitySummary: QualityAnalysisService.analyze(result: comparisonResult)

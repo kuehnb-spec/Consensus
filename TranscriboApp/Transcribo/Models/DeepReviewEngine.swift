@@ -35,7 +35,7 @@ enum DeepReviewEngineChoice: String, CaseIterable, Codable, Identifiable, Sendab
 
     var id: String { rawValue }
 
-    static let defaultChoice: DeepReviewEngineChoice = .parakeetV3
+    static let defaultChoice: DeepReviewEngineChoice = .whisper
 
     var displayName: String {
         switch self {

@@ -47,8 +47,6 @@ enum ReconciliationService {
     ) -> [ReconciliationRow] {
         let refText = canonicalText(group.referenceSegments)
         let candText = canonicalText(group.candidateSegments)
-        let refSpeaker = ReconciliationSegmentSummary.primarySpeakerID(group.referenceSegments)
-        let candSpeaker = ReconciliationSegmentSummary.primarySpeakerID(group.candidateSegments)
 
         // If one side is empty, just make one row for the whole group
         guard !group.referenceSegments.isEmpty, !group.candidateSegments.isEmpty else {
@@ -68,7 +66,17 @@ enum ReconciliationService {
 
         // Estimate time per character for proportional timing
         let totalRefChars = max(1, refText.count)
-        let groupDuration = group.end - group.start
+        let totalCandChars = max(1, candText.count)
+        let referenceRanges = estimatedSentenceRanges(
+            sentences: refSentences,
+            segments: group.referenceSegments,
+            totalChars: totalRefChars
+        )
+        let candidateRanges = estimatedSentenceRanges(
+            sentences: candSentences,
+            segments: group.candidateSegments,
+            totalChars: totalCandChars
+        )
 
         // Process matched pairs
         for (refIdx, candIdx) in matches {
@@ -79,12 +87,26 @@ enum ReconciliationService {
             let candSent = candSentences[candIdx]
             let normalizedRef = deepNormalize(refSent)
             let normalizedCand = deepNormalize(candSent)
+            let refRange = referenceRanges[refIdx]
+            let candRange = candidateRanges[candIdx]
+            let rowReferenceSegments = sentenceSourceSegments(
+                group.referenceSegments,
+                start: refRange.start,
+                end: refRange.end
+            )
+            let rowCandidateSegments = sentenceSourceSegments(
+                group.candidateSegments,
+                start: candRange.start,
+                end: candRange.end
+            )
+            let rowReferenceSpeaker = ReconciliationSegmentSummary.primarySpeakerID(rowReferenceSegments)
+            let rowCandidateSpeaker = ReconciliationSegmentSummary.primarySpeakerID(rowCandidateSegments)
 
             // Estimate timing for this sentence
-            let sentStart = group.start + groupDuration * estimatePosition(sentenceIndex: refIdx, sentences: refSentences, totalChars: totalRefChars)
-            let sentEnd = sentStart + groupDuration * estimateLength(sentence: refSent, totalChars: totalRefChars)
+            let sentStart = min(refRange.start, candRange.start)
+            let sentEnd = max(refRange.end, candRange.end)
 
-            let speakerMatches = refSpeaker == candSpeaker
+            let speakerMatches = rowReferenceSpeaker == rowCandidateSpeaker
             let differenceKind: ReconciliationDifferenceKind
 
             if normalizedRef == normalizedCand {
@@ -95,9 +117,9 @@ enum ReconciliationService {
                 differenceKind = speakerMatches ? .text : .textAndSpeaker
             }
 
-            let preferredSource: ReconciliationSourceChoice = score(group.candidateSegments) > score(group.referenceSegments) ? .candidate : .reference
+            let preferredSource: ReconciliationSourceChoice = score(rowCandidateSegments) > score(rowReferenceSegments) ? .candidate : .reference
             let draftText = preferredSource == .candidate ? candSent : refSent
-            let resolvedSpeaker = preferredSource == .candidate ? candSpeaker : refSpeaker
+            let resolvedSpeaker = preferredSource == .candidate ? rowCandidateSpeaker : rowReferenceSpeaker
 
             // Check for existing consensus
             let consensusMatch = consensusSegments.first { seg in
@@ -127,8 +149,8 @@ enum ReconciliationService {
             rows.append(ReconciliationRow(
                 start: sentStart,
                 end: sentEnd,
-                referenceSegments: group.referenceSegments,
-                candidateSegments: group.candidateSegments,
+                referenceSegments: rowReferenceSegments,
+                candidateSegments: rowCandidateSegments,
                 differenceKind: differenceKind,
                 selectedSource: finalSource,
                 draftText: finalDraftText,
@@ -144,18 +166,23 @@ enum ReconciliationService {
             let refSent = refSentences[refIdx]
             if deepNormalize(refSent).isEmpty { continue }
 
-            let sentStart = group.start + groupDuration * estimatePosition(sentenceIndex: refIdx, sentences: refSentences, totalChars: totalRefChars)
-            let sentEnd = sentStart + groupDuration * estimateLength(sentence: refSent, totalChars: totalRefChars)
+            let refRange = referenceRanges[refIdx]
+            let rowReferenceSegments = sentenceSourceSegments(
+                group.referenceSegments,
+                start: refRange.start,
+                end: refRange.end
+            )
+            let rowReferenceSpeaker = ReconciliationSegmentSummary.primarySpeakerID(rowReferenceSegments)
 
             rows.append(ReconciliationRow(
-                start: sentStart,
-                end: sentEnd,
-                referenceSegments: group.referenceSegments,
+                start: refRange.start,
+                end: refRange.end,
+                referenceSegments: rowReferenceSegments,
                 candidateSegments: [],
                 differenceKind: .missing,
                 selectedSource: .reference,
                 draftText: refSent,
-                resolvedSpeakerID: refSpeaker,
+                resolvedSpeakerID: rowReferenceSpeaker,
                 needsReview: true,
                 referenceSentence: refSent,
                 candidateSentence: ""
@@ -163,23 +190,27 @@ enum ReconciliationService {
         }
 
         // Handle unmatched candidate sentences (missing from reference)
-        let totalCandChars = max(1, candText.count)
         for candIdx in candSentences.indices where !candUsed.contains(candIdx) {
             let candSent = candSentences[candIdx]
             if deepNormalize(candSent).isEmpty { continue }
 
-            let sentStart = group.start + groupDuration * estimatePosition(sentenceIndex: candIdx, sentences: candSentences, totalChars: totalCandChars)
-            let sentEnd = sentStart + groupDuration * estimateLength(sentence: candSent, totalChars: totalCandChars)
+            let candRange = candidateRanges[candIdx]
+            let rowCandidateSegments = sentenceSourceSegments(
+                group.candidateSegments,
+                start: candRange.start,
+                end: candRange.end
+            )
+            let rowCandidateSpeaker = ReconciliationSegmentSummary.primarySpeakerID(rowCandidateSegments)
 
             rows.append(ReconciliationRow(
-                start: sentStart,
-                end: sentEnd,
+                start: candRange.start,
+                end: candRange.end,
                 referenceSegments: [],
-                candidateSegments: group.candidateSegments,
+                candidateSegments: rowCandidateSegments,
                 differenceKind: .missing,
                 selectedSource: .candidate,
                 draftText: candSent,
-                resolvedSpeakerID: candSpeaker,
+                resolvedSpeakerID: rowCandidateSpeaker,
                 needsReview: true,
                 referenceSentence: "",
                 candidateSentence: candSent
@@ -411,6 +442,60 @@ enum ReconciliationService {
 
     private static func estimateLength(sentence: String, totalChars: Int) -> Double {
         return Double(sentence.count) / Double(max(1, totalChars))
+    }
+
+    private static func estimatedSentenceRanges(
+        sentences: [String],
+        segments: [TranscriptionSegment],
+        totalChars: Int
+    ) -> [(start: TimeInterval, end: TimeInterval)] {
+        guard !sentences.isEmpty else { return [] }
+
+        let segmentStart = segments.map(\.start).min() ?? 0
+        let segmentEnd = segments.map(\.end).max() ?? segmentStart
+        let duration = max(0, segmentEnd - segmentStart)
+
+        return sentences.enumerated().map { index, sentence in
+            let start = segmentStart + duration * estimatePosition(
+                sentenceIndex: index,
+                sentences: sentences,
+                totalChars: totalChars
+            )
+            let end = start + duration * estimateLength(sentence: sentence, totalChars: totalChars)
+            return (start: start, end: max(start, end))
+        }
+    }
+
+    private static func sentenceSourceSegments(
+        _ segments: [TranscriptionSegment],
+        start: TimeInterval,
+        end: TimeInterval
+    ) -> [TranscriptionSegment] {
+        let overlapping = segments.filter { segment in
+            max(segment.start, start) < min(segment.end, end)
+        }
+
+        if !overlapping.isEmpty {
+            return overlapping
+        }
+
+        guard let nearest = segments.min(by: {
+            segmentDistance($0, to: start, end: end) < segmentDistance($1, to: start, end: end)
+        }) else {
+            return []
+        }
+
+        return [nearest]
+    }
+
+    private static func segmentDistance(
+        _ segment: TranscriptionSegment,
+        to start: TimeInterval,
+        end: TimeInterval
+    ) -> TimeInterval {
+        let targetMidpoint = (start + end) / 2
+        let segmentMidpoint = (segment.start + segment.end) / 2
+        return abs(segmentMidpoint - targetMidpoint)
     }
 
     // MARK: - Existing Helpers (unchanged)

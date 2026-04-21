@@ -5,6 +5,7 @@ import WhisperKit
 actor TranscriptionService {
     private var whisperKit: WhisperKit?
     private var currentModel: String?
+    private let modelDownloader = WhisperModelDownloadService()
 
     /// Load a WhisperKit model, downloading if needed.
     func loadModel(
@@ -15,13 +16,10 @@ actor TranscriptionService {
             return // Already loaded
         }
 
-        // Step 1: Download model files with progress reporting
-        let modelFolder = try await WhisperKit.download(
+        // Step 1: Download model + tokenizer assets with a longer-timeout downloader.
+        let modelFolder = try await modelDownloader.ensureWhisperAssets(
             variant: variant,
-            progressCallback: { progress in
-                let fraction = progress.fractionCompleted
-                progressCallback(fraction)
-            }
+            progressCallback: progressCallback
         )
 
         // Step 2: Initialize WhisperKit with the local model folder

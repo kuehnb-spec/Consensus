@@ -154,6 +154,14 @@ struct PolishView: View {
 
     // MARK: - Result Panel
 
+    /// True when the current task produced cleanup output we can write back
+    /// to the transcript (cleanup or cleanup+summarize, not pure summarize).
+    private var canApplyToTranscript: Bool {
+        viewModel.cleanupResult != nil &&
+        viewModel.cleanupTask != .summarize &&
+        viewModel.hasResult
+    }
+
     private var resultPanel: some View {
         VStack(spacing: 0) {
             HStack {
@@ -164,6 +172,17 @@ struct PolishView: View {
                 Spacer()
 
                 if viewModel.cleanupResult != nil {
+                    if canApplyToTranscript {
+                        Button {
+                            viewModel.applyPolishResult()
+                        } label: {
+                            Label("Apply to Transcript", systemImage: "square.and.arrow.down.on.square")
+                                .font(.caption)
+                        }
+                        .buttonStyle(ConsensusPrimaryButtonStyle())
+                        .help("Write the cleaned transcript back to the active pass. Speakers and timings are preserved.")
+                    }
+
                     Button {
                         if let text = viewModel.cleanupResult {
                             NSPasteboard.general.clearContents()

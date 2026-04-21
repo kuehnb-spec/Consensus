@@ -5,8 +5,6 @@ struct ExportView: View {
     @Environment(TranscriptionViewModel.self) private var viewModel
     @State private var previewPDFData: Data?
     @State private var previewDebounceTask: Task<Void, Never>?
-    @State private var polishBeforeExport: Bool = false
-    @State private var showPolishPreview: Bool = false
 
     var body: some View {
         @Bindable var vm = viewModel
@@ -32,10 +30,6 @@ struct ExportView: View {
                         }
                     }
                     .padding(.top, ConsensusTheme.Spacing.lg)
-
-                    // Polish pre-export option
-                    polishPreExportSection
-                        .padding(.horizontal)
 
                     // Format grid
                     LazyVGrid(columns: [
@@ -78,11 +72,7 @@ struct ExportView: View {
             .frame(minWidth: 420)
 
             // Right: Live PDF preview (when Legal PDF is selected)
-            // Or: Polish change preview (when polish is enabled and preview is showing)
-            if showPolishPreview && viewModel.cleanupResult != nil {
-                polishPreviewPanel
-                    .frame(minWidth: 350, idealWidth: 450)
-            } else if viewModel.selectedFormats.contains(.legalPDF) {
+            if viewModel.selectedFormats.contains(.legalPDF) {
                 legalPDFPreview
                     .frame(minWidth: 350, idealWidth: 450)
             }
@@ -102,6 +92,15 @@ struct ExportView: View {
         .onChange(of: viewModel.legalPDFHeader) { _, _ in
             viewModel.persistProjectDraft()
             regeneratePreviewDebounced()
+        }
+        .onChange(of: viewModel.includeCoverPage) { _, _ in
+            regeneratePreviewIfNeeded()
+        }
+        .onChange(of: viewModel.coverPageIncludeSummary) { _, _ in
+            regeneratePreviewIfNeeded()
+        }
+        .onChange(of: viewModel.coverPageIncludeActionItems) { _, _ in
+            regeneratePreviewIfNeeded()
         }
         .onAppear {
             regeneratePreviewIfNeeded()
@@ -168,6 +167,66 @@ struct ExportView: View {
             }
         }
         .consensusCard(label: "Legal Options", icon: "doc.text.magnifyingglass")
+
+        // Quality tier badge
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
+            Toggle("Include quality tier badge", isOn: $vm.includeQualityTierBadge)
+                .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                .help("Adds \"Standard Transcript\" or \"Verified Transcript\" to the export header")
+
+            HStack(spacing: ConsensusTheme.Spacing.sm) {
+                Text("Current tier:")
+                    .font(ConsensusTheme.Fonts.caption)
+                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                Text(viewModel.qualityTier)
+                    .font(.caption.bold())
+                    .foregroundStyle(viewModel.hasConsensusPass ? ConsensusTheme.Colors.confidenceGreen : ConsensusTheme.Colors.textSecondary)
+            }
+        }
+        .consensusCard(label: "Quality", icon: "seal")
+
+        // Cover page
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
+            Toggle("Include cover page", isOn: $vm.includeCoverPage)
+                .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                .help("Prepend a cover page with recording metadata, summary, and action items")
+
+            if vm.includeCoverPage {
+                VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
+                    Toggle("Include summary", isOn: $vm.coverPageIncludeSummary)
+                        .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                        .font(.subheadline)
+
+                    Toggle("Include action items", isOn: $vm.coverPageIncludeActionItems)
+                        .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                        .font(.subheadline)
+
+                    if viewModel.summaryResult == nil && viewModel.currentProject?.detailedSummary == nil {
+                        HStack(spacing: ConsensusTheme.Spacing.xs) {
+                            Image(systemName: "info.circle")
+                                .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
+                            Text("No summary generated yet. Use the Summary Pane to generate one first.")
+                                .font(.caption)
+                                .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
+                        }
+                    }
+                }
+                .padding(.leading, ConsensusTheme.Spacing.lg)
+            }
+        }
+        .consensusCard(label: "Cover Page", icon: "doc.richtext")
+
+        // Confidence highlighting
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
+            Toggle("Highlight low-confidence words", isOn: $vm.highlightLowConfidence)
+                .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                .help("Mark words the engine was unsure about with [brackets] in text exports")
+
+            Text("Words below 50% confidence will be wrapped in [brackets] so the reader knows to verify them against the audio.")
+                .font(.caption2)
+                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+        }
+        .consensusCard(label: "Confidence", icon: "waveform.badge.exclamationmark")
     }
 
     // MARK: - Export Actions
@@ -240,152 +299,6 @@ struct ExportView: View {
         .background(ConsensusTheme.Colors.surfacePrimary)
     }
 
-    // MARK: - Polish Pre-Export
-
-    private var polishPreExportSection: some View {
-        @Bindable var vm = viewModel
-
-        return VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
-            Toggle(isOn: $polishBeforeExport) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Polish Before Exporting")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-                    Text("Use AI to fix transcription errors, normalize formatting, and clean up filler words before export")
-                        .font(ConsensusTheme.Fonts.caption)
-                        .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                }
-            }
-            .toggleStyle(.switch)
-            .tint(ConsensusTheme.Colors.accent)
-
-            if polishBeforeExport {
-                VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
-                    // Model picker (compact)
-                    HStack {
-                        Text("Model:")
-                            .font(.subheadline)
-                            .foregroundStyle(ConsensusTheme.Colors.textSecondary)
-                        Spacer()
-                        Picker("", selection: $vm.selectedCleanupModel) {
-                            ForEach(CleanupModel.available()) { model in
-                                Text(model.displayName).tag(model)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .frame(width: 200)
-                    }
-
-                    if viewModel.isCleanupRunning {
-                        HStack(spacing: ConsensusTheme.Spacing.sm) {
-                            ProgressView()
-                                .controlSize(.small)
-                            Text(viewModel.cleanupProgress)
-                                .font(ConsensusTheme.Fonts.caption)
-                                .foregroundStyle(ConsensusTheme.Colors.textSecondary)
-                        }
-                    } else {
-                        HStack(spacing: ConsensusTheme.Spacing.md) {
-                            Button {
-                                viewModel.cleanupTask = .cleanup
-                                Task { await viewModel.runCleanup() }
-                            } label: {
-                                Label("Run Polish", systemImage: "wand.and.stars")
-                            }
-                            .buttonStyle(ConsensusSecondaryButtonStyle())
-                            .disabled(!viewModel.hasResult)
-
-                            if viewModel.cleanupResult != nil {
-                                Button {
-                                    showPolishPreview.toggle()
-                                } label: {
-                                    Label(
-                                        showPolishPreview ? "Show PDF Preview" : "Show Polish Result",
-                                        systemImage: showPolishPreview ? "doc.richtext" : "eye"
-                                    )
-                                }
-                                .buttonStyle(ConsensusGhostButtonStyle())
-                            }
-                        }
-                    }
-
-                    if let error = viewModel.cleanupError {
-                        HStack(spacing: ConsensusTheme.Spacing.xs) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(ConsensusTheme.Colors.danger)
-                            Text(error)
-                                .font(ConsensusTheme.Fonts.caption)
-                                .foregroundStyle(ConsensusTheme.Colors.danger)
-                        }
-                    }
-
-                    if viewModel.cleanupResult != nil {
-                        HStack(spacing: ConsensusTheme.Spacing.xs) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(ConsensusTheme.Colors.success)
-                            Text("Polish complete. The polished version will be used for export.")
-                                .font(ConsensusTheme.Fonts.caption)
-                                .foregroundStyle(ConsensusTheme.Colors.confidenceGreen)
-                        }
-                    }
-                }
-                .padding(.leading, ConsensusTheme.Spacing.md)
-            }
-        }
-        .consensusCard(label: "Pre-Export Polish", icon: "wand.and.stars")
-    }
-
-    // MARK: - Polish Preview Panel
-
-    private var polishPreviewPanel: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Label("Polished Transcript", systemImage: "wand.and.stars")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
-
-                Spacer()
-
-                Button {
-                    if let text = viewModel.cleanupResult {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(text, forType: .string)
-                    }
-                } label: {
-                    Label("Copy", systemImage: "doc.on.doc")
-                        .font(.caption)
-                }
-                .buttonStyle(ConsensusGhostButtonStyle())
-
-                Button {
-                    showPolishPreview = false
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.caption)
-                        .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, ConsensusTheme.Spacing.lg)
-            .padding(.vertical, ConsensusTheme.Spacing.sm)
-            .background(ConsensusTheme.Colors.surfacePrimary)
-
-            Divider()
-                .overlay(ConsensusTheme.Colors.border)
-
-            if let result = viewModel.cleanupResult {
-                ScrollView {
-                    Text(result)
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-                        .textSelection(.enabled)
-                        .padding(ConsensusTheme.Spacing.lg)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-        }
-        .background(ConsensusTheme.Colors.surfacePrimary)
-    }
 
     // MARK: - Preview Generation
 
@@ -408,12 +321,7 @@ struct ExportView: View {
 
     private func regeneratePreview() {
         guard let result = viewModel.result else { return }
-        let options = LegalPDFOptions(
-            showElapsedTime: viewModel.showElapsedTime,
-            showClockTime: viewModel.showClockTime,
-            recordingStartTime: viewModel.recordingStartTime,
-            headerText: viewModel.legalPDFHeader
-        )
+        let options = viewModel.buildLegalPDFOptions()
         Task.detached {
             let data = try? ExportService.buildLegalPDF(
                 result: result,
@@ -425,6 +333,50 @@ struct ExportView: View {
             }
         }
     }
+}
+
+// MARK: - Summary Parser
+
+private struct ParsedSummary {
+    let summary: String?
+    let actionItems: String?
+}
+
+/// Split a combined LLM summary into the key-points section and action-items section.
+private func parseSummaryForCoverPage(_ text: String?) -> ParsedSummary {
+    guard let text, !text.isEmpty else {
+        return ParsedSummary(summary: nil, actionItems: nil)
+    }
+
+    // The LLM typically produces sections like "ACTION ITEMS & DELIVERABLES" and "KEY POINTS"
+    let lines = text.components(separatedBy: "\n")
+    var actionLines: [String] = []
+    var summaryLines: [String] = []
+    var currentSection: String = "summary"
+
+    for line in lines {
+        let upper = line.uppercased().trimmingCharacters(in: .whitespaces)
+        if upper.contains("ACTION ITEM") || upper.contains("DELIVERABLE") || upper.contains("TO-DO") || upper.contains("TODO") {
+            currentSection = "actions"
+            continue
+        } else if upper.contains("KEY POINT") || upper.contains("SUMMARY") {
+            currentSection = "summary"
+            continue
+        }
+
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { continue }
+
+        switch currentSection {
+        case "actions": actionLines.append(trimmed)
+        default: summaryLines.append(trimmed)
+        }
+    }
+
+    return ParsedSummary(
+        summary: summaryLines.isEmpty ? text : summaryLines.joined(separator: "\n"),
+        actionItems: actionLines.isEmpty ? nil : actionLines.joined(separator: "\n")
+    )
 }
 
 // MARK: - PDF Preview (NSViewRepresentable)

@@ -1,0 +1,32 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="124" y1="86" x2="902" y2="936" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1B2740"/>
+      <stop offset="0.5" stop-color="#0B1120"/>
+      <stop offset="1" stop-color="#03060D"/>
+    </linearGradient>
+    <linearGradient id="monogram" x1="302" y1="250" x2="746" y2="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#CBD5E1"/>
+      <stop offset="0.5" stop-color="#818CF8"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <filter id="shadow" x="206" y="176" width="612" height="672" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#02040A" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <rect x="64" y="64" width="896" height="896" rx="228" fill="url(#bg)"/>
+  <rect x="64.5" y="64.5" width="895" height="895" rx="227.5" stroke="white" stroke-opacity="0.12"/>
+
+  <g filter="url(#shadow)">
+    <path d="M726 324C672 270 602 242 516 242C346 242 232 362 232 512C232 662 346 782 516 782C602 782 672 754 726 700"
+      stroke="url(#monogram)" stroke-width="92" stroke-linecap="round"/>
+    <rect x="560" y="356" width="172" height="42" rx="21" fill="#F8FAFC" fill-opacity="0.95"/>
+    <rect x="520" y="492" width="212" height="42" rx="21" fill="#F8FAFC" fill-opacity="0.95"/>
+    <rect x="560" y="628" width="172" height="42" rx="21" fill="#F8FAFC" fill-opacity="0.95"/>
+
+    <circle cx="406" cy="388" r="18" fill="#22D3EE"/>
+    <circle cx="406" cy="520" r="18" fill="#6366F1"/>
+    <circle cx="406" cy="652" r="18" fill="#A5B4FC"/>
+  </g>
+</svg>

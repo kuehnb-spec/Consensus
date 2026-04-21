@@ -29,6 +29,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 struct ConsensusApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var viewModel = TranscriptionViewModel()
+    @StateObject private var settings = AppSettings()
+
+    init() {
+        // Register the bundled OFL typefaces (Inter, Source Serif 4,
+        // JetBrains Mono) before any view can resolve a `Font.custom`.
+        // Safe for non-GUI launch modes (smoke harnesses) — does no drawing.
+        FontRegistration.registerBundledFonts()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -36,8 +44,9 @@ struct ConsensusApp: App {
                 if case .none = SmokeRunner.launchMode {
                 ContentView()
                     .environment(viewModel)
+                    .environmentObject(settings)
                     .frame(minWidth: 900, minHeight: 600)
-                    .preferredColorScheme(.dark)
+                    .preferredColorScheme(settings.isSimpleMode ? .light : .dark)
                     .tint(ConsensusTheme.Colors.accent)
                 } else {
                     EmptyView()
@@ -94,6 +103,7 @@ struct ConsensusApp: App {
                 if case .none = SmokeRunner.launchMode {
                     SettingsView()
                         .environment(viewModel)
+                        .environmentObject(settings)
                 } else {
                     EmptyView()
                 }

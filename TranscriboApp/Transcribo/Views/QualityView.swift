@@ -174,124 +174,26 @@ struct QualityView: View {
         @Bindable var vm = viewModel
 
         return VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
-            Text("Run an alternate pass to compare against your current transcript. Enable Deep Transcription for a second-engine comparison, Deep Diarization for multi-pass speaker identification, or both.")
+            Text("Deep Review verifies your transcript in four guided steps: second-engine transcription, multi-pass speaker detection, speaker confirmation, and final review with optional AI polish.")
                 .font(ConsensusTheme.Fonts.caption)
                 .foregroundStyle(ConsensusTheme.Colors.textSecondary)
 
-            // Deep Transcription toggle + settings
-            VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
-                Toggle(isOn: $vm.deepReviewTranscription) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Deep Transcription")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-                        Text("Re-transcribe with a different engine for text comparison")
-                            .font(ConsensusTheme.Fonts.caption)
-                            .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                    }
-                }
-                .toggleStyle(.switch)
-                .tint(ConsensusTheme.Colors.accent)
-
-                if viewModel.deepReviewTranscription {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Comparison Engine")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-                            Text(viewModel.deepReviewEngine.detailText)
-                                .font(ConsensusTheme.Fonts.mono(.caption2))
-                                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                        }
-
-                        Spacer()
-
-                        Picker("", selection: $vm.deepReviewEngine) {
-                            ForEach(DeepReviewEngineChoice.allCases) { engine in
-                                Text(engine.displayName).tag(engine)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .frame(width: 220)
-                    }
-                    .padding(.leading, ConsensusTheme.Spacing.lg)
-
-                    if viewModel.deepReviewEngine.usesWhisperModelSelection {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Comparison Model")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-                                Text(viewModel.deepReviewModel.description)
-                                    .font(ConsensusTheme.Fonts.mono(.caption2))
-                                    .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                            }
-
-                            Spacer()
-
-                            Picker("", selection: $vm.deepReviewModel) {
-                                ForEach(WhisperModel.allCases) { model in
-                                    Text(model.displayName).tag(model)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .frame(width: 180)
-                        }
-                        .padding(.leading, ConsensusTheme.Spacing.lg)
-                    }
-                }
+            VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
+                Label("Step 1: Re-transcribe with a second engine and merge results", systemImage: "doc.on.doc")
+                Label("Step 2: Multi-pass diarization with AI speaker resolution", systemImage: "person.2.wave.2")
+                Label("Step 3: Confirm speaker names", systemImage: "person.badge.check")
+                Label("Step 4: Review final transcript and export", systemImage: "checkmark.seal")
             }
-
-            Divider()
-                .overlay(ConsensusTheme.Colors.border)
-
-            // Deep Diarization toggle + description
-            VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
-                Toggle(isOn: $vm.deepReviewDiarization) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Deep Diarization")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-                        Text("Run multiple speaker-detection passes with varied sensitivity, then use AI to resolve disagreements")
-                            .font(ConsensusTheme.Fonts.caption)
-                            .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                    }
-                }
-                .toggleStyle(.switch)
-                .tint(ConsensusTheme.Colors.accent)
-
-                if viewModel.deepReviewDiarization {
-                    VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
-                        Label("3 diarization passes with different clustering thresholds", systemImage: "person.2.wave.2")
-                        Label("AI-assisted speaker resolution for disagreements", systemImage: "brain")
-                        Label("Uses \(viewModel.selectedCleanupModel.displayName) for context analysis", systemImage: "cpu")
-                    }
-                    .font(ConsensusTheme.Fonts.caption)
-                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
-                    .padding(.leading, ConsensusTheme.Spacing.lg)
-                }
-            }
+            .font(ConsensusTheme.Fonts.caption)
+            .foregroundStyle(ConsensusTheme.Colors.textSecondary)
 
             Button {
-                Task {
-                    await viewModel.startDeepReview()
-                }
+                viewModel.currentPhase = .deepTranscription
             } label: {
-                let label: String = {
-                    if viewModel.deepReviewTranscription && viewModel.deepReviewDiarization {
-                        return "Run Deep Transcription & Diarization"
-                    } else if viewModel.deepReviewTranscription {
-                        return "Run Deep Transcription"
-                    } else if viewModel.deepReviewDiarization {
-                        return "Run Deep Diarization"
-                    } else {
-                        return "Run Deep Review"
-                    }
-                }()
-                Label(label, systemImage: "sparkles.rectangle.stack")
+                Label("Start Deep Review", systemImage: "sparkles.rectangle.stack")
             }
             .buttonStyle(ConsensusPrimaryButtonStyle())
-            .disabled(!viewModel.canRunDeepReview || viewModel.pipeline.isRunning || (!viewModel.deepReviewTranscription && !viewModel.deepReviewDiarization))
+            .disabled(!viewModel.canRunDeepReview || viewModel.pipeline.isRunning)
         }
         .consensusCard(label: "Deep Review", icon: "sparkles.rectangle.stack")
     }

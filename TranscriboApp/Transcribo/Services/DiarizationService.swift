@@ -5,7 +5,6 @@ import Foundation
 enum DiarizationEngine: String, CaseIterable, Identifiable, Codable, Sendable {
     case speakerKit = "SpeakerKit"
     case fluidAudio = "FluidAudio"
-
     var id: String { rawValue }
 
     var displayName: String {
@@ -68,8 +67,45 @@ struct MultiDiarizationResult: Sendable {
 actor DiarizationService {
     private let speakerKitService = SpeakerKitDiarizationService()
     private var fluidDiarizer: OfflineDiarizerManager?
+    private let speakerKitDeepReviewPasses: [(presetName: String, threshold: Float?)] = [
+        ("Primary", nil),
+        ("Aggressive", 0.45),
+        ("Conservative", 0.70)
+    ]
 
     // MARK: - Single-Engine Diarization
+
+    /// Run focused diarization on a specific time range to verify a speaker boundary.
+    /// Returns true if the diarization model detects a different speaker at `candidateTime`
+    /// compared to the surrounding audio.
+    func verifyBoundary(
+        audioURL: URL,
+        candidateTime: TimeInterval,
+        contextWindow: TimeInterval = 30,
+        numberOfSpeakers: Int? = nil
+    ) async throws -> Bool {
+        let clipStart = max(0, candidateTime - contextWindow)
+        let clipEnd = candidateTime + contextWindow
+
+        let segments = try await speakerKitService.diarizeFocused(
+            audioURL: audioURL,
+            clipStart: clipStart,
+            clipEnd: clipEnd,
+            numberOfSpeakers: numberOfSpeakers
+        )
+
+        // Check if there's a speaker change within 1 second of the candidate time
+        let cleaned = SegmentMerger.postProcessDiarization(segments)
+        for i in 1..<cleaned.count {
+            let boundaryTime = cleaned[i].start
+            if abs(boundaryTime - candidateTime) < 1.0 &&
+               cleaned[i].speakerID != cleaned[i - 1].speakerID {
+                return true  // Acoustic evidence confirms a speaker change
+            }
+        }
+
+        return false  // No speaker change detected near the candidate time
+    }
 
     /// Run primary diarization using the specified engine.
     func diarize(
@@ -99,9 +135,10 @@ actor DiarizationService {
     /// Returns individual pass results plus a majority-vote resolved consensus.
     ///
     /// Strategy:
-    /// 1. SpeakerKit (primary, best accuracy) — one pass
-    /// 2. FluidAudio with multiple thresholds — provides independent comparison
-    /// 3. Majority-vote resolution across all passes
+    /// 1. SpeakerKit default pass (primary reference)
+    /// 2. Alternate SpeakerKit thresholds to surface missed boundaries
+    /// 3. FluidAudio comparison passes for cross-engine disagreement detection
+    /// 4. Majority-vote resolution across all aligned passes
     func diarizeDeep(
         audioURL: URL,
         minSpeakers: Int?,
@@ -110,19 +147,37 @@ actor DiarizationService {
     ) async throws -> MultiDiarizationResult {
         var passes: [DiarizationPassResult] = []
 
-        // Pass 1: SpeakerKit (primary, pyannote v4)
-        progressCallback?("Running SpeakerKit diarization (pyannote v4)...")
-        let speakerKitSegments = try await speakerKitService.diarize(
-            audioURL: audioURL,
-            numberOfSpeakers: exactSpeakerCount(min: minSpeakers, max: maxSpeakers)
-        )
-        passes.append(DiarizationPassResult(
-            presetName: "Primary",
-            engineName: "SpeakerKit",
-            segments: speakerKitSegments
-        ))
+        // SpeakerKit passes: default + alternate thresholds
+        for pass in speakerKitDeepReviewPasses {
+            let statusLabel: String
+            if let threshold = pass.threshold {
+                statusLabel = "Running SpeakerKit diarization (\(pass.presetName.lowercased()), threshold \(String(format: "%.2f", threshold)))..."
+            } else {
+                statusLabel = "Running SpeakerKit diarization (default pyannote v4)..."
+            }
 
-        // Pass 2: FluidAudio balanced threshold
+            progressCallback?(statusLabel)
+
+            do {
+                let speakerKitSegments = try await speakerKitService.diarize(
+                    audioURL: audioURL,
+                    numberOfSpeakers: exactSpeakerCount(min: minSpeakers, max: maxSpeakers),
+                    clusterDistanceThreshold: pass.threshold
+                )
+                passes.append(DiarizationPassResult(
+                    presetName: pass.presetName,
+                    engineName: "SpeakerKit",
+                    segments: speakerKitSegments
+                ))
+            } catch {
+                if pass.threshold == nil {
+                    throw error
+                }
+                progressCallback?("SpeakerKit \(pass.presetName.lowercased()) pass failed, continuing...")
+            }
+        }
+
+        // FluidAudio passes provide a second clustering family for comparison.
         progressCallback?("Running FluidAudio diarization (balanced)...")
         do {
             let balancedSegments = try await fluidAudioDiarize(
@@ -163,11 +218,12 @@ actor DiarizationService {
         }
 
         // Majority-vote resolution
-        progressCallback?("Resolving speaker assignments across \(passes.count) passes...")
-        let (resolved, disagreementCount) = majorityVoteResolve(passes: passes)
+        let alignedPasses = alignPassesToReference(passes)
+        progressCallback?("Resolving speaker assignments across \(alignedPasses.count) aligned passes...")
+        let (resolved, disagreementCount) = majorityVoteResolve(passes: alignedPasses)
 
         return MultiDiarizationResult(
-            passes: passes,
+            passes: alignedPasses,
             resolved: resolved,
             disagreementCount: disagreementCount
         )
@@ -205,10 +261,11 @@ actor DiarizationService {
             ))
         }
 
-        let (resolved, disagreementCount) = majorityVoteResolve(passes: passes)
+        let alignedPasses = alignPassesToReference(passes)
+        let (resolved, disagreementCount) = majorityVoteResolve(passes: alignedPasses)
 
         return MultiDiarizationResult(
-            passes: passes,
+            passes: alignedPasses,
             resolved: resolved,
             disagreementCount: disagreementCount
         )
@@ -245,10 +302,165 @@ actor DiarizationService {
         }
     }
 
+    private func alignPassesToReference(
+        _ passes: [DiarizationPassResult]
+    ) -> [DiarizationPassResult] {
+        guard let referencePass = passes.first else { return [] }
+
+        var alignedPasses: [DiarizationPassResult] = [referencePass]
+        var reservedSpeakerIDs = Set(orderedSpeakerIDs(in: referencePass.segments))
+        var nextSpeakerIndex = nextCanonicalSpeakerIndex(from: reservedSpeakerIDs)
+
+        for pass in passes.dropFirst() {
+            let mapping = speakerAlignment(
+                referenceSegments: referencePass.segments,
+                candidateSegments: pass.segments,
+                reservedSpeakerIDs: &reservedSpeakerIDs,
+                nextSpeakerIndex: &nextSpeakerIndex
+            )
+
+            let alignedSegments = pass.segments.map { segment in
+                DiarizationSegment(
+                    speakerID: mapping[segment.speakerID] ?? segment.speakerID,
+                    start: segment.start,
+                    end: segment.end,
+                    qualityScore: segment.qualityScore
+                )
+            }
+
+            alignedPasses.append(DiarizationPassResult(
+                presetName: pass.presetName,
+                engineName: pass.engineName,
+                segments: alignedSegments
+            ))
+        }
+
+        return alignedPasses
+    }
+
+    private func speakerAlignment(
+        referenceSegments: [DiarizationSegment],
+        candidateSegments: [DiarizationSegment],
+        reservedSpeakerIDs: inout Set<String>,
+        nextSpeakerIndex: inout Int
+    ) -> [String: String] {
+        let referenceSpeakers = orderedSpeakerIDs(in: referenceSegments)
+        let candidateSpeakers = orderedSpeakerIDs(in: candidateSegments)
+        var overlapScores: [(candidate: String, reference: String, overlap: TimeInterval)] = []
+
+        for candidateSpeaker in candidateSpeakers {
+            let candidateSpeakerSegments = candidateSegments.filter { $0.speakerID == candidateSpeaker }
+
+            for referenceSpeaker in referenceSpeakers {
+                let referenceSpeakerSegments = referenceSegments.filter { $0.speakerID == referenceSpeaker }
+                let overlap = totalOverlap(
+                    lhs: candidateSpeakerSegments,
+                    rhs: referenceSpeakerSegments
+                )
+
+                if overlap > 0 {
+                    overlapScores.append((
+                        candidate: candidateSpeaker,
+                        reference: referenceSpeaker,
+                        overlap: overlap
+                    ))
+                }
+            }
+        }
+
+        overlapScores.sort { lhs, rhs in
+            if lhs.overlap != rhs.overlap {
+                return lhs.overlap > rhs.overlap
+            }
+
+            if lhs.reference != rhs.reference {
+                return lhs.reference < rhs.reference
+            }
+
+            return lhs.candidate < rhs.candidate
+        }
+
+        var mapping: [String: String] = [:]
+        var usedCandidates = Set<String>()
+        var usedReferences = Set<String>()
+
+        for score in overlapScores {
+            guard !usedCandidates.contains(score.candidate),
+                  !usedReferences.contains(score.reference) else {
+                continue
+            }
+
+            mapping[score.candidate] = score.reference
+            usedCandidates.insert(score.candidate)
+            usedReferences.insert(score.reference)
+            reservedSpeakerIDs.insert(score.reference)
+        }
+
+        for candidateSpeaker in candidateSpeakers where mapping[candidateSpeaker] == nil {
+            let canonicalSpeakerID = nextCanonicalSpeakerID(
+                reservedSpeakerIDs: &reservedSpeakerIDs,
+                nextSpeakerIndex: &nextSpeakerIndex
+            )
+            mapping[candidateSpeaker] = canonicalSpeakerID
+        }
+
+        return mapping
+    }
+
+    private func totalOverlap(
+        lhs: [DiarizationSegment],
+        rhs: [DiarizationSegment]
+    ) -> TimeInterval {
+        lhs.reduce(into: TimeInterval.zero) { total, lhsSegment in
+            total += rhs.reduce(into: TimeInterval.zero) { partial, rhsSegment in
+                partial += max(
+                    0,
+                    min(lhsSegment.end, rhsSegment.end) - max(lhsSegment.start, rhsSegment.start)
+                )
+            }
+        }
+    }
+
+    private func orderedSpeakerIDs(in segments: [DiarizationSegment]) -> [String] {
+        var orderedSpeakerIDs: [String] = []
+        var seenSpeakerIDs = Set<String>()
+
+        for segment in segments where seenSpeakerIDs.insert(segment.speakerID).inserted {
+            orderedSpeakerIDs.append(segment.speakerID)
+        }
+
+        return orderedSpeakerIDs
+    }
+
+    private func nextCanonicalSpeakerIndex(from speakerIDs: Set<String>) -> Int {
+        var nextIndex = 0
+
+        while speakerIDs.contains("SPEAKER_\(nextIndex)") {
+            nextIndex += 1
+        }
+
+        return nextIndex
+    }
+
+    private func nextCanonicalSpeakerID(
+        reservedSpeakerIDs: inout Set<String>,
+        nextSpeakerIndex: inout Int
+    ) -> String {
+        while reservedSpeakerIDs.contains("SPEAKER_\(nextSpeakerIndex)") {
+            nextSpeakerIndex += 1
+        }
+
+        let speakerID = "SPEAKER_\(nextSpeakerIndex)"
+        reservedSpeakerIDs.insert(speakerID)
+        nextSpeakerIndex += 1
+        return speakerID
+    }
+
     // MARK: - Resolution
 
     /// Majority-vote resolution across multiple diarization passes.
     /// Uses the first pass (typically SpeakerKit) as the reference timeline.
+    /// Passes are expected to be aligned into a shared speaker-ID space first.
     private func majorityVoteResolve(
         passes: [DiarizationPassResult]
     ) -> (resolved: [DiarizationSegment], disagreementCount: Int) {
@@ -314,7 +526,11 @@ actor DiarizationService {
 
     /// If min == max, use that exact count for engines that accept a single speaker count.
     private func exactSpeakerCount(min: Int?, max: Int?) -> Int? {
-        guard let min, let max, min == max, min > 0 else { return nil }
-        return min
+        // If min equals max, use exact count (strongest constraint)
+        if let min, let max, min == max, min > 0 { return min }
+        // If the range is very narrow (e.g., 2-3), use the minimum as a hint
+        // SpeakerKit generally performs better with an exact count than with auto-detection
+        if let min, let max, max - min <= 1, min > 0 { return min }
+        return nil
     }
 }

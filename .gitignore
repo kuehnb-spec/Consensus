@@ -17,3 +17,12 @@ DerivedData/
 # Swift Package Manager
 .build/
 .swiftpm/
+
+# Benchmark fixtures — real phone-call audio, rasterized transcripts, and
+# hand-corrected ground-truth files. Local-only; never committed because
+# they contain real names and other PII from actual calls.
+TestAudio/
+
+# Python bytecode
+__pycache__/
+*.pyc

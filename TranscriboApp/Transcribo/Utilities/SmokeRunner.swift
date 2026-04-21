@@ -16,6 +16,8 @@ enum SmokeRunner {
         let minSpeakers: Int?
         let maxSpeakers: Int?
         let outputDirectoryURL: URL?
+        let diarizationEngine: DiarizationEngine
+        let refineSpeakers: Bool
     }
 
     static let launchMode: LaunchMode = parse(arguments: ProcessInfo.processInfo.arguments)
@@ -47,6 +49,7 @@ enum SmokeRunner {
             let exportURL = workspaceURL.appendingPathComponent("Exports", isDirectory: true)
             let projectStore = ProjectStore(baseDirectoryURL: appSupportURL)
             let pipeline = TranscriptionPipeline()
+            pipeline.diarizationEngine = configuration.diarizationEngine
 
             try FileManager.default.createDirectory(at: exportURL, withIntermediateDirectories: true)
 
@@ -127,8 +130,117 @@ enum SmokeRunner {
             project.appendPass(pass)
             try await projectStore.saveProject(project)
 
+            // Optional: Refine speakers using multi-pass + LLM boundary confirmation
+            var finalResult = result
+            if configuration.refineSpeakers {
+                printLine("")
+                printLine("=== Speaker Refinement ===")
+                printLine("Running multi-pass diarization...")
+
+                let diarizationService = DiarizationService()
+                let multiResult = try await diarizationService.diarizeDeep(
+                    audioURL: configuration.audioURL,
+                    minSpeakers: configuration.minSpeakers,
+                    maxSpeakers: configuration.maxSpeakers,
+                    progressCallback: { status in
+                        printLine("  \(status)")
+                    }
+                )
+
+                printLine("Completed \(multiResult.passes.count) diarization passes")
+
+                // Collect baseline boundaries
+                let baselineSegments = SegmentMerger.postProcessDiarization(multiResult.passes[0].segments)
+                let baselineBoundaries = Set(
+                    (1..<baselineSegments.count).compactMap { i -> TimeInterval? in
+                        baselineSegments[i].speakerID != baselineSegments[i - 1].speakerID ? baselineSegments[i].start : nil
+                    }
+                )
+
+                // Collect ALL boundaries from all passes
+                var allBoundaryVotes: [TimeInterval: Int] = [:]
+                for pass in multiResult.passes {
+                    let cleaned = SegmentMerger.postProcessDiarization(pass.segments)
+                    for i in 1..<cleaned.count where cleaned[i].speakerID != cleaned[i - 1].speakerID {
+                        let rounded = (cleaned[i].start * 2).rounded() / 2
+                        allBoundaryVotes[rounded, default: 0] += 1
+                    }
+                }
+
+                // Find candidates not in baseline
+                let candidates = allBoundaryVotes.keys.sorted().compactMap { time -> TranscriptCleanupService.CandidateBoundary? in
+                    let nearBaseline = baselineBoundaries.contains { abs($0 - time) < 2.0 }
+                    if nearBaseline { return nil }
+                    let votes = allBoundaryVotes[time] ?? 0
+                    guard votes >= 1 else { return nil }
+
+                    let beforeSpeaker = baselineSegments.last(where: { $0.start <= time })?.speakerID ?? "UNKNOWN"
+                    let afterSpeaker = baselineSegments.first(where: { $0.end > time })?.speakerID ?? "UNKNOWN"
+
+                    return TranscriptCleanupService.CandidateBoundary(
+                        time: time, beforeSpeaker: beforeSpeaker, afterSpeaker: afterSpeaker,
+                        detectedByCount: votes, totalPasses: multiResult.passes.count
+                    )
+                }
+
+                printLine("Found \(candidates.count) candidate boundaries not in baseline")
+
+                if !candidates.isEmpty {
+                    printLine("Loading LLM for boundary confirmation...")
+                    let cleanupService = TranscriptCleanupService()
+                    let cleanupModel = CleanupModel.recommended()
+                    try await cleanupService.loadModel(cleanupModel) { progress in
+                        if progress < 1.0 {
+                            printLine("  Downloading model... \(Int(progress * 100))%")
+                        }
+                    }
+
+                    printLine("AI analyzing \(candidates.count) candidates...")
+                    let confirmations = try await cleanupService.confirmSpeakerBoundaries(
+                        candidates: candidates,
+                        transcriptionSegments: result.segments,
+                        speakerMapping: SpeakerMapping()
+                    )
+
+                    let confirmed = confirmations.filter(\.isConfirmed)
+                    printLine("AI confirmed \(confirmed.count) new speaker boundaries")
+
+                    // Apply confirmed boundaries
+                    var finalDiarization = baselineSegments
+                    let allSpeakers = Set(baselineSegments.map(\.speakerID)).filter { $0 != "UNKNOWN" }
+
+                    for boundary in confirmed {
+                        if let splitIndex = finalDiarization.firstIndex(where: { $0.start <= boundary.time && $0.end > boundary.time }) {
+                            let original = finalDiarization[splitIndex]
+                            let otherSpeaker = allSpeakers.first(where: { $0 != original.speakerID }) ?? original.speakerID
+
+                            let before = DiarizationSegment(speakerID: original.speakerID, start: original.start, end: boundary.time, qualityScore: original.qualityScore)
+                            let after = DiarizationSegment(speakerID: otherSpeaker, start: boundary.time, end: original.end, qualityScore: original.qualityScore * 0.9)
+                            finalDiarization.replaceSubrange(splitIndex...splitIndex, with: [before, after])
+                        }
+                    }
+
+                    let refinedSegments = SegmentMerger.merge(
+                        transcriptionSegments: result.segments,
+                        diarizationSegments: finalDiarization
+                    )
+
+                    finalResult = TranscriptionResult(
+                        audioPath: result.audioPath,
+                        duration: result.duration,
+                        segments: refinedSegments
+                    )
+
+                    // Count speaker transitions in refined result
+                    let transitions = (1..<refinedSegments.count).filter { refinedSegments[$0].speakerID != refinedSegments[$0 - 1].speakerID }.count
+                    let speakerCount = Set(refinedSegments.map(\.speakerID)).count
+                    printLine("Refined: \(speakerCount) speakers, \(transitions) transitions (was \(Set(result.segments.map(\.speakerID)).count) speakers)")
+                }
+            }
+
+            // Re-export with refined result
             let exportedFiles = try ExportService.exportAll(
-                result: result,
+                result: finalResult,
                 speakerMapping: project.speakerMapping,
                 formats: [.txt, .json],
                 to: exportURL
@@ -144,7 +256,7 @@ enum SmokeRunner {
             let reloadedProject = try await projectStore.loadProject(id: project.id)
 
             printSummary(
-                result: result,
+                result: finalResult,
                 qualitySummary: qualitySummary,
                 warnings: pipeline.lastWarnings,
                 workspaceURL: workspaceURL,
@@ -171,6 +283,8 @@ enum SmokeRunner {
         var minSpeakers: Int?
         var maxSpeakers: Int?
         var outputDirectoryURL: URL?
+        var diarizationEngine: DiarizationEngine = .speakerKit
+        var refineSpeakers = false
         var didRequestSmoke = false
 
         while index < arguments.count {
@@ -232,6 +346,21 @@ enum SmokeRunner {
                     return .error(usageText("Missing directory path after --output-dir."))
                 }
                 outputDirectoryURL = URL(fileURLWithPath: arguments[index], isDirectory: true)
+            case "--diarization":
+                index += 1
+                guard index < arguments.count else {
+                    return .error(usageText("Missing engine name after --diarization."))
+                }
+                switch arguments[index] {
+                case "speakerkit":
+                    diarizationEngine = .speakerKit
+                case "fluidaudio":
+                    diarizationEngine = .fluidAudio
+                default:
+                    return .error(usageText("Unsupported diarization engine '\(arguments[index])'. Use 'speakerkit' or 'fluidaudio'."))
+                }
+            case "--refine":
+                refineSpeakers = true
             default:
                 break
             }
@@ -271,7 +400,9 @@ enum SmokeRunner {
                 language: language,
                 minSpeakers: minSpeakers,
                 maxSpeakers: maxSpeakers,
-                outputDirectoryURL: outputDirectoryURL
+                outputDirectoryURL: outputDirectoryURL,
+                diarizationEngine: diarizationEngine,
+                refineSpeakers: refineSpeakers
             )
         )
     }

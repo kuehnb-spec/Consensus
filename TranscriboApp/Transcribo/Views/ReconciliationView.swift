@@ -5,230 +5,160 @@ struct ReconciliationView: View {
 
     var body: some View {
         Group {
-            if let draft = viewModel.reconciliationDraft {
-                content(draft: draft)
+            if let merged = viewModel.mergedTranscript {
+                mergedContent(merged: merged)
             } else {
                 ContentUnavailableView(
-                    "No Reconciliation Draft",
-                    systemImage: "rectangle.split.3x1",
-                    description: Text("Run a Deep Review pass, then open reconciliation to compare the transcripts in context.")
+                    "No Verification Data",
+                    systemImage: "sparkle.magnifyingglass",
+                    description: Text("Start Deep Review from the workflow to run a second engine and merge the results.")
                 )
             }
         }
     }
 
-    private func content(draft: ReconciliationDraft) -> some View {
-        ScrollViewReader { proxy in
-            VStack(spacing: 0) {
-                reconciliationHeader(draft: draft, proxy: proxy)
+    // MARK: - Main Content
 
-                // Column headers (sticky)
-                columnHeaders(draft: draft)
+    private func mergedContent(merged: MergedTranscript) -> some View {
+        let speakers = allSpeakers(in: merged)
+        let speakerGroups = buildSpeakerGroups(from: merged)
 
-                // Single scrollable area with 3-column rows
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(viewModel.reconciliationRows) { row in
-                            ReconciliationRowView(
-                                row: row,
-                                isSelected: row.id == viewModel.reconciliationSelectedRowID,
-                                isPlaying: row.id == viewModel.reconciliationPlayingRowID,
-                                referenceLabel: draft.referenceLabel,
-                                candidateLabel: draft.candidateLabel,
-                                canPlayContext: viewModel.canPlayCurrentAudio,
-                                onSelect: {
-                                    withAnimation(.snappy(duration: 0.25)) {
-                                        viewModel.selectReconciliationRow(id: row.id)
-                                    }
-                                },
-                                onUseReference: {
-                                    viewModel.chooseReferenceForReconciliationRow(row.id)
-                                },
-                                onUseCandidate: {
-                                    viewModel.chooseCandidateForReconciliationRow(row.id)
-                                },
-                                onPlayContext: {
-                                    if viewModel.reconciliationPlayingRowID == row.id {
-                                        viewModel.stopReconciliationPlayback()
-                                    } else {
-                                        viewModel.playReconciliationContext(for: row.id)
-                                    }
-                                },
-                                finalText: Binding(
-                                    get: {
-                                        viewModel.reconciliationRows.first(where: { $0.id == row.id })?.draftText ?? row.draftText
+        return ScrollViewReader { proxy in
+            ZStack(alignment: .top) {
+                VStack(spacing: 0) {
+                    // Header bar
+                    header(merged: merged)
+
+                    // Transcript body — formatted like a final document
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(speakerGroups) { group in
+                                SpeakerGroupView(
+                                    group: group,
+                                    speakers: speakers,
+                                    speakerMapping: viewModel.speakerMapping,
+                                    selectedFlagID: viewModel.selectedMergeFlagID,
+                                    playingFlagID: viewModel.playingMergeFlagID,
+                                    canPlayAudio: viewModel.canPlayCurrentAudio,
+                                    onSelectFlag: { flagID in
+                                        withAnimation(.snappy(duration: 0.2)) {
+                                            viewModel.selectMergeFlag(id: flagID)
+                                            proxy.scrollTo(flagID, anchor: .center)
+                                        }
                                     },
-                                    set: { newValue in
-                                        viewModel.updateReconciliationText(newValue, for: row.id)
+                                    onPreviewResolution: { flagID, resolution in
+                                        withAnimation(.snappy(duration: 0.2)) {
+                                            viewModel.previewFlagResolution(id: flagID, resolution: resolution)
+                                        }
+                                    },
+                                    onConfirmFlag: { flagID in
+                                        withAnimation(.snappy(duration: 0.2)) {
+                                            viewModel.confirmMergeFlag(id: flagID)
+                                        }
+                                    },
+                                    onPlayFlag: { flagID in
+                                        if viewModel.playingMergeFlagID == flagID {
+                                            viewModel.stopReconciliationPlayback()
+                                        } else {
+                                            viewModel.playMergeFlagContext(for: flagID)
+                                        }
                                     }
                                 )
-                            )
-                            .id(row.id)
+                            }
                         }
+                        .padding(.horizontal, ConsensusTheme.Spacing.xxl)
+                        .padding(.vertical, ConsensusTheme.Spacing.xl)
                     }
+                }
+
+                // Floating "All Resolved" badge — centered in window
+                if merged.totalFlagCount > 0, merged.unresolvedFlagCount == 0 {
+                    completionBadge
+                        .allowsHitTesting(false)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                FloatingAudioController(
-                    isPlaying: viewModel.reconciliationPlayingRowID != nil,
-                    canPlay: viewModel.canPlayCurrentAudio && viewModel.reconciliationSelectedRowID != nil,
-                    currentTimestamp: playingTimestamp,
-                    onPlayStop: {
-                        togglePlaybackForSelectedRow()
-                    }
-                )
+                bottomBar(merged: merged)
             }
             .onKeyPress(.space) {
-                togglePlaybackForSelectedRow()
+                togglePlayback()
                 return .handled
             }
             .onKeyPress("1") {
-                if let rowID = viewModel.reconciliationSelectedRowID {
-                    viewModel.chooseReferenceForReconciliationRow(rowID)
+                if let flagID = viewModel.selectedMergeFlagID {
+                    viewModel.previewFlagResolution(id: flagID, resolution: .useReference)
                 }
                 return .handled
             }
             .onKeyPress("2") {
-                if let rowID = viewModel.reconciliationSelectedRowID {
-                    viewModel.chooseCandidateForReconciliationRow(rowID)
+                if let flagID = viewModel.selectedMergeFlagID {
+                    viewModel.previewFlagResolution(id: flagID, resolution: .useCandidate)
                 }
                 return .handled
             }
-            .onKeyPress(.downArrow) {
-                navigateRow(direction: .forward, proxy: proxy)
-                return .handled
-            }
-            .onKeyPress(.upArrow) {
-                navigateRow(direction: .backward, proxy: proxy)
-                return .handled
-            }
             .onKeyPress(.return) {
-                navigateToNextDisagreement(proxy: proxy)
+                if let flagID = viewModel.selectedMergeFlagID {
+                    // Confirm current selection, then advance
+                    viewModel.confirmMergeFlag(id: flagID)
+                } else {
+                    navigateToNextUnresolvedFlag(proxy: proxy, merged: merged)
+                }
                 return .handled
-            }
-        }
-    }
-
-    // MARK: - Column Headers
-
-    private func columnHeaders(draft: ReconciliationDraft) -> some View {
-        HStack(spacing: 0) {
-            Text("A: \(draft.referenceLabel)")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(ConsensusTheme.Colors.textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, ConsensusTheme.Spacing.sm)
-                .background(ConsensusTheme.Colors.surfacePrimary.opacity(0.8))
-
-            Divider().overlay(ConsensusTheme.Colors.border).frame(height: 28)
-
-            Text("Consensus")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(ConsensusTheme.Colors.accent)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, ConsensusTheme.Spacing.sm)
-                .background(ConsensusTheme.Colors.surfacePrimary.opacity(0.8))
-
-            Divider().overlay(ConsensusTheme.Colors.border).frame(height: 28)
-
-            Text("B: \(draft.candidateLabel)")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(ConsensusTheme.Colors.textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, ConsensusTheme.Spacing.sm)
-                .background(ConsensusTheme.Colors.surfacePrimary.opacity(0.8))
-        }
-        .overlay(alignment: .bottom) {
-            Divider().overlay(ConsensusTheme.Colors.border)
-        }
-    }
-
-    // MARK: - Playback Helpers
-
-    private var playingTimestamp: String? {
-        guard let playingID = viewModel.reconciliationPlayingRowID,
-              let row = viewModel.reconciliationRows.first(where: { $0.id == playingID }) else {
-            return nil
-        }
-        return "\(TimeFormatting.timestamp(row.start)) \u{2013} \(TimeFormatting.timestamp(row.end))"
-    }
-
-    private func togglePlaybackForSelectedRow() {
-        if viewModel.reconciliationPlayingRowID != nil {
-            viewModel.stopReconciliationPlayback()
-        } else if let rowID = viewModel.reconciliationSelectedRowID {
-            viewModel.playReconciliationContext(for: rowID)
-        }
-    }
-
-    // MARK: - Keyboard Navigation
-
-    private enum NavigationDirection { case forward, backward }
-
-    private func navigateRow(direction: NavigationDirection, proxy: ScrollViewProxy) {
-        let rows = viewModel.reconciliationRows
-        guard !rows.isEmpty else { return }
-
-        let currentIndex = rows.firstIndex(where: { $0.id == viewModel.reconciliationSelectedRowID })
-
-        let nextIndex: Int
-        switch direction {
-        case .forward:
-            nextIndex = (currentIndex.map { $0 + 1 } ?? 0)
-        case .backward:
-            nextIndex = (currentIndex.map { $0 - 1 } ?? rows.count - 1)
-        }
-
-        guard rows.indices.contains(nextIndex) else { return }
-        let nextRow = rows[nextIndex]
-
-        withAnimation(.snappy(duration: 0.25)) {
-            viewModel.selectReconciliationRow(id: nextRow.id)
-            proxy.scrollTo(nextRow.id, anchor: .center)
-        }
-    }
-
-    private func navigateToNextDisagreement(proxy: ScrollViewProxy) {
-        let rows = viewModel.reconciliationRows
-        let currentIndex = rows.firstIndex(where: { $0.id == viewModel.reconciliationSelectedRowID }) ?? -1
-
-        if let nextDisagreement = rows.dropFirst(currentIndex + 1).first(where: { $0.differenceKind.hasDifference && $0.needsReview }) {
-            withAnimation(.snappy(duration: 0.25)) {
-                viewModel.selectReconciliationRow(id: nextDisagreement.id)
-                proxy.scrollTo(nextDisagreement.id, anchor: .center)
-            }
-        } else if let firstDisagreement = rows.first(where: { $0.differenceKind.hasDifference && $0.needsReview }) {
-            withAnimation(.snappy(duration: 0.25)) {
-                viewModel.selectReconciliationRow(id: firstDisagreement.id)
-                proxy.scrollTo(firstDisagreement.id, anchor: .center)
             }
         }
     }
 
     // MARK: - Header
 
-    private func reconciliationHeader(draft: ReconciliationDraft, proxy: ScrollViewProxy) -> some View {
-        let disagreementRows = draft.rows.filter { $0.differenceKind.hasDifference }
-        let unresolvedRows = draft.rows.filter(\.needsReview)
+    private func header(merged: MergedTranscript) -> some View {
+        HStack(spacing: ConsensusTheme.Spacing.lg) {
+            Text("Verified Transcript")
+                .font(.title2.bold())
+                .foregroundStyle(ConsensusTheme.Colors.textPrimary)
 
-        return HStack(spacing: ConsensusTheme.Spacing.lg) {
-            // Title
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Reconciliation")
-                    .font(ConsensusTheme.Fonts.title)
-                    .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+            if merged.totalFlagCount > 0 {
+                HStack(spacing: ConsensusTheme.Spacing.sm) {
+                    SummaryChip(
+                        label: "Flags",
+                        value: "\(merged.totalFlagCount)",
+                        tint: ConsensusTheme.Colors.confidenceAmber
+                    )
+                    SummaryChip(
+                        label: "Unresolved",
+                        value: "\(merged.unresolvedFlagCount)",
+                        tint: merged.unresolvedFlagCount == 0
+                            ? ConsensusTheme.Colors.confidenceGreen
+                            : ConsensusTheme.Colors.confidenceRed
+                    )
+                }
             }
 
-            // Summary counts
-            HStack(spacing: ConsensusTheme.Spacing.sm) {
-                SummaryChip(label: "Blocks", value: "\(draft.rows.count)", tint: ConsensusTheme.Colors.textSecondary)
-                SummaryChip(label: "Differences", value: "\(disagreementRows.count)", tint: ConsensusTheme.Colors.confidenceAmber)
-                SummaryChip(label: "Unresolved", value: "\(unresolvedRows.count)", tint: unresolvedRows.isEmpty ? ConsensusTheme.Colors.confidenceGreen : ConsensusTheme.Colors.confidenceRed)
+            // Forced-alignment status: while aligning, show a spinner; after
+            // a successful pass, show a green "Timings refined" chip.
+            if viewModel.isAligningWordTimings {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(viewModel.wordAlignmentProgress.isEmpty
+                         ? "Aligning word timings…"
+                         : viewModel.wordAlignmentProgress)
+                        .font(.caption)
+                        .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                        .lineLimit(1)
+                }
+            } else if merged.wordTimingsRefined {
+                let delta = viewModel.lastWordAlignmentDelta
+                let meanMs = delta.map { Int(($0.meanStartDelta * 1000).rounded()) }
+                SummaryChip(
+                    label: "Timings",
+                    value: meanMs.map { "refined · Δ\($0)ms" } ?? "refined",
+                    tint: ConsensusTheme.Colors.confidenceGreen
+                )
             }
 
             Spacer()
 
-            // Status message
             if let message = viewModel.reconciliationStatusMessage {
                 Text(message)
                     .font(.caption)
@@ -236,31 +166,21 @@ struct ReconciliationView: View {
                     .lineLimit(1)
             }
 
-            // Actions
             HStack(spacing: ConsensusTheme.Spacing.sm) {
                 Button {
-                    viewModel.currentPhase = .quality
+                    viewModel.currentPhase = .review
                 } label: {
-                    Label("Back", systemImage: "chevron.left")
+                    Label("Back to Review", systemImage: "chevron.left")
                 }
                 .buttonStyle(ConsensusSecondaryButtonStyle())
 
                 Button {
                     Task {
-                        await viewModel.runLLMPreResolution()
+                        await viewModel.saveMergedConsensus()
+                        viewModel.currentPhase = .review
                     }
                 } label: {
-                    Label("AI Resolve", systemImage: "wand.and.stars")
-                }
-                .buttonStyle(ConsensusSecondaryButtonStyle())
-                .disabled(viewModel.isCleanupRunning)
-
-                Button {
-                    Task {
-                        await viewModel.saveReconciliationConsensus()
-                    }
-                } label: {
-                    Label("Save Consensus", systemImage: "square.and.arrow.down")
+                    Label("Save & Continue", systemImage: "checkmark.circle")
                 }
                 .buttonStyle(ConsensusPrimaryButtonStyle())
             }
@@ -272,418 +192,506 @@ struct ReconciliationView: View {
             Divider().overlay(ConsensusTheme.Colors.border)
         }
     }
-}
 
-// MARK: - Single Row (3 Columns Side by Side)
+    // MARK: - Bottom Bar
 
-/// A single reconciliation row rendered as 3 aligned columns.
-/// Aligned (identical) rows are collapsed to save space. Discrepancy rows are expanded
-/// with highlighted differences and source arrows.
-private struct ReconciliationRowView: View {
-    let row: ReconciliationRow
-    let isSelected: Bool
-    let isPlaying: Bool
-    let referenceLabel: String
-    let candidateLabel: String
-    let canPlayContext: Bool
-    let onSelect: () -> Void
-    let onUseReference: () -> Void
-    let onUseCandidate: () -> Void
-    let onPlayContext: () -> Void
-    @Binding var finalText: String
-
-    private let hasDifference: Bool
-    @State private var isExpanded: Bool = false
-
-    init(
-        row: ReconciliationRow,
-        isSelected: Bool,
-        isPlaying: Bool,
-        referenceLabel: String,
-        candidateLabel: String,
-        canPlayContext: Bool,
-        onSelect: @escaping () -> Void,
-        onUseReference: @escaping () -> Void,
-        onUseCandidate: @escaping () -> Void,
-        onPlayContext: @escaping () -> Void,
-        finalText: Binding<String>
-    ) {
-        self.row = row
-        self.isSelected = isSelected
-        self.isPlaying = isPlaying
-        self.referenceLabel = referenceLabel
-        self.candidateLabel = candidateLabel
-        self.canPlayContext = canPlayContext
-        self.onSelect = onSelect
-        self.onUseReference = onUseReference
-        self.onUseCandidate = onUseCandidate
-        self.onPlayContext = onPlayContext
-        self._finalText = finalText
-        self.hasDifference = row.differenceKind.hasDifference
-    }
-
-    var body: some View {
-        if hasDifference {
-            discrepancyRow
-        } else {
-            collapsedAlignedRow
-        }
-    }
-
-    // MARK: - Collapsed Aligned Row (identical text — show minimal)
-
-    private var collapsedAlignedRow: some View {
-        VStack(spacing: 0) {
-            Button {
-                withAnimation(.snappy(duration: 0.2)) {
-                    isExpanded.toggle()
-                }
-            } label: {
-                HStack(spacing: ConsensusTheme.Spacing.sm) {
-                    Image(systemName: "checkmark")
-                        .font(.caption2)
-                        .foregroundStyle(ConsensusTheme.Colors.confidenceGreen.opacity(0.5))
-                        .frame(width: 14)
-
-                    Text(TimeFormatting.timestamp(row.start))
-                        .font(ConsensusTheme.Fonts.mono(.caption2))
-                        .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-
-                    SpeakerBadge(
-                        name: row.resolvedSpeakerID,
-                        color: SpeakerBadge.color(for: row.resolvedSpeakerID, in: allSpeakers)
-                    )
-
-                    Text(previewText)
-                        .font(.subheadline)
-                        .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                        .lineLimit(isExpanded ? nil : 1)
-
-                    Spacer()
-
-                    if !isExpanded {
-                        let wordCount = row.referenceText.split(whereSeparator: \.isWhitespace).count
-                        if wordCount > 15 {
-                            Text("\(wordCount) words")
-                                .font(ConsensusTheme.Fonts.mono(.caption2))
-                                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                        }
-
-                        Image(systemName: "chevron.right")
-                            .font(.caption2)
-                            .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                    }
-                }
-                .padding(.horizontal, ConsensusTheme.Spacing.md)
-                .padding(.vertical, ConsensusTheme.Spacing.sm)
-            }
-            .buttonStyle(.plain)
-
-            Divider().overlay(ConsensusTheme.Colors.borderSubtle.opacity(0.3))
-        }
-    }
-
-    private var previewText: String {
-        let text = row.referenceText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.count <= 80 { return text }
-        return String(text.prefix(80)) + "..."
-    }
-
-    // MARK: - Discrepancy Row (expanded with 3 columns)
-
-    @ViewBuilder
-    private var discrepancyRow: some View {
-        VStack(spacing: 0) {
-            // Discrepancy header bar
-            discrepancyHeader
-
-            // 3-column content with source arrow
-            HStack(alignment: .top, spacing: 0) {
-                // Left: Reference (A)
-                sideColumn(
-                    text: row.referenceText,
-                    speakerID: row.referenceSpeakerID ?? row.resolvedSpeakerID,
-                    isSource: row.selectedSource == .reference,
-                    sourceLabel: "A"
-                )
-                .onTapGesture { onUseReference() }
-
-                // Arrow from consensus to source A (if chosen)
-                sourceArrow(isActive: row.selectedSource == .reference, pointsLeft: true)
-
-                // Center: Consensus
-                consensusColumn
-
-                // Arrow from consensus to source B (if chosen)
-                sourceArrow(isActive: row.selectedSource == .candidate, pointsLeft: false)
-
-                // Right: Candidate (B)
-                sideColumn(
-                    text: row.candidateText,
-                    speakerID: row.candidateSpeakerID ?? row.resolvedSpeakerID,
-                    isSource: row.selectedSource == .candidate,
-                    sourceLabel: "B"
-                )
-                .onTapGesture { onUseCandidate() }
-            }
-        }
-        .background {
-            if isSelected {
-                ConsensusTheme.Colors.accentMuted.opacity(0.3)
-            } else {
-                row.differenceKind.themedBackground.opacity(0.04)
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onSelect)
-
-        Divider()
-            .overlay(row.differenceKind.themedTint.opacity(0.3))
-    }
-
-    // MARK: - Discrepancy Header
-
-    private var discrepancyHeader: some View {
-        HStack(spacing: ConsensusTheme.Spacing.sm) {
-            // Colored indicator bar on the left edge
-            RoundedRectangle(cornerRadius: 2)
-                .fill(row.differenceKind.themedTint)
-                .frame(width: 4, height: 18)
-
-            Text(TimeFormatting.timestamp(row.start))
-                .font(ConsensusTheme.Fonts.mono(.caption2))
-                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-
-            HStack(spacing: 3) {
-                Image(systemName: row.differenceKind.themedSystemImage)
-                Text(row.differenceKind.displayName)
-            }
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(row.differenceKind.themedTint)
-
-            if row.needsReview {
-                Text("NEEDS REVIEW")
-                    .font(ConsensusTheme.Fonts.mono(.caption2))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(ConsensusTheme.Colors.confidenceAmber.opacity(0.15), in: Capsule())
-                    .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
-            } else {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(ConsensusTheme.Colors.confidenceGreen)
-            }
-
-            Spacer()
-
-            if canPlayContext {
+    private func bottomBar(merged: MergedTranscript) -> some View {
+        HStack(spacing: ConsensusTheme.Spacing.lg) {
+            if viewModel.canPlayCurrentAudio, viewModel.selectedMergeFlagID != nil {
                 Button {
-                    onPlayContext()
+                    togglePlayback()
                 } label: {
-                    Image(systemName: isPlaying ? "stop.circle.fill" : "play.circle")
-                        .font(.caption)
-                        .foregroundStyle(isPlaying ? ConsensusTheme.Colors.confidenceAmber : ConsensusTheme.Colors.textTertiary)
+                    HStack(spacing: ConsensusTheme.Spacing.sm) {
+                        Image(systemName: viewModel.playingMergeFlagID != nil ? "stop.fill" : "play.fill")
+                            .font(.body.weight(.semibold))
+                        Text(viewModel.playingMergeFlagID != nil ? "Stop" : "Play Context")
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .foregroundStyle(viewModel.playingMergeFlagID != nil
+                        ? ConsensusTheme.Colors.confidenceAmber
+                        : ConsensusTheme.Colors.accent)
                 }
                 .buttonStyle(.plain)
             }
-        }
-        .padding(.horizontal, ConsensusTheme.Spacing.md)
-        .padding(.vertical, ConsensusTheme.Spacing.xs + 2)
-        .background(row.differenceKind.themedBackground.opacity(0.12))
-    }
 
-    // MARK: - Source Arrow
-
-    private func sourceArrow(isActive: Bool, pointsLeft: Bool) -> some View {
-        VStack {
             Spacer()
-            if isActive {
-                Image(systemName: pointsLeft ? "arrowtriangle.left.fill" : "arrowtriangle.right.fill")
-                    .font(.caption)
-                    .foregroundStyle(ConsensusTheme.Colors.confidenceGreen)
-            }
-            Spacer()
-        }
-        .frame(width: 16)
-    }
 
-    // MARK: - Side Column
-
-    private func sideColumn(
-        text: String,
-        speakerID: String,
-        isSource: Bool,
-        sourceLabel: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
-            // Speaker + source indicator
-            HStack(spacing: ConsensusTheme.Spacing.xs) {
-                SpeakerBadge(
-                    name: speakerID,
-                    color: SpeakerBadge.color(for: speakerID, in: allSpeakers)
-                )
-                Spacer()
-                // "Use A" / "Use B" label
-                Text("Use \(sourceLabel)")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(isSource ? ConsensusTheme.Colors.confidenceGreen : ConsensusTheme.Colors.textTertiary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule().fill(
-                            isSource
-                                ? ConsensusTheme.Colors.confidenceGreen.opacity(0.15)
-                                : ConsensusTheme.Colors.surfacePrimary.opacity(0.5)
-                        )
-                    )
-            }
-
-            // Text with readable line breaks
-            if text.isEmpty {
-                Text("(no text)")
-                    .font(.subheadline)
-                    .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                    .italic()
-            } else {
-                Text(readableText(text))
-                    .font(.subheadline)
-                    .foregroundStyle(
-                        isSource
-                            ? ConsensusTheme.Colors.textPrimary
-                            : ConsensusTheme.Colors.textSecondary.opacity(0.7)
-                    )
-                    .textSelection(.enabled)
-                    .lineSpacing(4)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(ConsensusTheme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            if isSource {
-                ConsensusTheme.Colors.confidenceGreen.opacity(0.04)
-            }
-        }
-        .overlay(alignment: .leading) {
-            if isSource {
-                Rectangle()
-                    .fill(ConsensusTheme.Colors.confidenceGreen)
-                    .frame(width: 3)
-            }
-        }
-    }
-
-    // MARK: - Consensus Column
-
-    private var consensusColumn: some View {
-        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
-            // Header
-            HStack(spacing: ConsensusTheme.Spacing.xs) {
-                Text("CONSENSUS")
-                    .font(ConsensusTheme.Fonts.mono(.caption2))
-                    .foregroundStyle(ConsensusTheme.Colors.accent)
-
-                Spacer()
-
-                HStack(spacing: 4) {
-                    Button("A") { onUseReference() }
-                        .font(ConsensusTheme.Fonts.mono(.caption2))
-                        .buttonStyle(ConsensusPillButtonStyle())
-                        .disabled(row.referenceText.isEmpty)
-
-                    Button("B") { onUseCandidate() }
-                        .font(ConsensusTheme.Fonts.mono(.caption2))
-                        .buttonStyle(ConsensusPillButtonStyle())
-                        .disabled(row.candidateText.isEmpty)
+            // Keyboard hints
+            if viewModel.selectedMergeFlagID != nil {
+                HStack(spacing: ConsensusTheme.Spacing.md) {
+                    KeyHint(key: "1", label: "Select A")
+                    KeyHint(key: "2", label: "Select B")
+                    KeyHint(key: "Return", label: "Accept")
+                    KeyHint(key: "Space", label: "Play")
                 }
             }
+        }
+        .padding(.horizontal, ConsensusTheme.Spacing.xl)
+        .padding(.vertical, ConsensusTheme.Spacing.md)
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(alignment: .top) {
+                    Rectangle().fill(ConsensusTheme.Colors.border).frame(height: 1)
+                }
+        }
+    }
 
-            // Editable text when selected, static otherwise
-            if isSelected {
-                TextEditor(text: $finalText)
-                    .font(.subheadline)
-                    .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-                    .frame(minHeight: editorHeight)
-                    .padding(ConsensusTheme.Spacing.xs)
-                    .background(
-                        ConsensusTheme.Colors.surfacePrimary,
-                        in: RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm)
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm)
-                            .stroke(ConsensusTheme.Colors.borderAccent, lineWidth: 1)
-                    }
-                    .scrollContentBackground(.hidden)
-                    .lineSpacing(4)
-            } else {
-                Text(readableText(row.draftText))
-                    .font(.subheadline)
-                    .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-                    .textSelection(.enabled)
-                    .lineSpacing(4)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+    // MARK: - Completion Badge
+
+    private var completionBadge: some View {
+        HStack(spacing: ConsensusTheme.Spacing.sm) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.title3)
+                .foregroundStyle(ConsensusTheme.Colors.confidenceGreen)
+            Text("Verification Complete")
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(ConsensusTheme.Colors.confidenceGreen)
         }
-        .padding(ConsensusTheme.Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(ConsensusTheme.Colors.accent.opacity(0.03))
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(ConsensusTheme.Colors.accent.opacity(0.3))
-                .frame(width: 2)
-        }
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(ConsensusTheme.Colors.accent.opacity(0.3))
-                .frame(width: 2)
+        .padding(.horizontal, ConsensusTheme.Spacing.xl)
+        .padding(.vertical, ConsensusTheme.Spacing.md)
+        .background {
+            Capsule()
+                .fill(ConsensusTheme.Colors.surfacePrimary)
+                .overlay {
+                    Capsule().stroke(ConsensusTheme.Colors.confidenceGreen.opacity(0.3), lineWidth: 1)
+                }
+                .shadow(color: ConsensusTheme.Colors.confidenceGreen.opacity(0.2), radius: 12, y: 4)
         }
     }
 
     // MARK: - Helpers
 
-    private var allSpeakers: [String] {
-        let ref = row.referenceSegments.map(\.speakerID)
-        let cand = row.candidateSegments.map(\.speakerID)
-        return Array(Set(ref + cand)).sorted()
+    private func allSpeakers(in merged: MergedTranscript) -> [String] {
+        Array(Set(merged.segments.map(\.speakerID))).sorted()
     }
 
-    private var editorHeight: CGFloat {
-        let characters = max(row.referenceText.count, row.candidateText.count, finalText.count)
-        let estimatedLines = max(3, min(8, Int(ceil(Double(characters) / 40.0))))
-        return CGFloat(estimatedLines * 22)
+    private func togglePlayback() {
+        if viewModel.playingMergeFlagID != nil {
+            viewModel.stopReconciliationPlayback()
+        } else if let flagID = viewModel.selectedMergeFlagID {
+            viewModel.playMergeFlagContext(for: flagID)
+        }
     }
 
-    /// Add line breaks to long text for readability.
-    /// Inserts a newline roughly every 2 sentences or ~120 characters.
-    private func readableText(_ text: String) -> String {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count > 120 else { return trimmed }
+    private func navigateToNextUnresolvedFlag(proxy: ScrollViewProxy, merged: MergedTranscript) {
+        let flags = merged.flags
+        let currentIndex = flags.firstIndex(where: { $0.id == viewModel.selectedMergeFlagID }) ?? -1
 
-        var result = ""
-        var charsSinceBreak = 0
-        var sentencesSinceBreak = 0
+        if let next = flags.dropFirst(currentIndex + 1).first(where: { !$0.isResolved }) {
+            withAnimation(.snappy(duration: 0.25)) {
+                viewModel.selectMergeFlag(id: next.id)
+                proxy.scrollTo(next.id, anchor: .center)
+            }
+        } else if let first = flags.first(where: { !$0.isResolved }) {
+            withAnimation(.snappy(duration: 0.25)) {
+                viewModel.selectMergeFlag(id: first.id)
+                proxy.scrollTo(first.id, anchor: .center)
+            }
+        }
+    }
 
-        for char in trimmed {
-            result.append(char)
-            charsSinceBreak += 1
+    // MARK: - Speaker Grouping
 
-            if char == "." || char == "?" || char == "!" {
-                sentencesSinceBreak += 1
-                if sentencesSinceBreak >= 2 && charsSinceBreak > 80 {
-                    result.append("\n\n")
-                    charsSinceBreak = 0
-                    sentencesSinceBreak = 0
+    /// Groups consecutive same-speaker segments into paragraph blocks.
+    /// This produces the "formatted transcript" layout: speaker header, then
+    /// continuous flowing text, only breaking for speaker changes.
+    private func buildSpeakerGroups(from merged: MergedTranscript) -> [SpeakerGroup] {
+        var groups: [SpeakerGroup] = []
+
+        for segment in merged.segments {
+            let flags = segment.flagIndices.compactMap { idx in
+                idx < merged.flags.count ? merged.flags[idx] : nil
+            }
+
+            if let last = groups.last, last.speakerID == segment.speakerID {
+                // Same speaker — append to current group
+                groups[groups.count - 1].segments.append(segment)
+                groups[groups.count - 1].flags.append(contentsOf: flags)
+                groups[groups.count - 1].end = segment.end
+            } else {
+                // New speaker — start a new group
+                groups.append(SpeakerGroup(
+                    speakerID: segment.speakerID,
+                    start: segment.start,
+                    end: segment.end,
+                    segments: [segment],
+                    flags: flags
+                ))
+            }
+        }
+
+        return groups
+    }
+}
+
+// MARK: - Speaker Group Model
+
+private struct SpeakerGroup: Identifiable {
+    let id = UUID()
+    let speakerID: String
+    let start: TimeInterval
+    var end: TimeInterval
+    var segments: [MergedSegment]
+    var flags: [MergeFlag]
+
+    var text: String {
+        segments.map(\.text).joined(separator: " ")
+    }
+
+    var allWords: [MergedWord] {
+        segments.flatMap(\.words)
+    }
+}
+
+// MARK: - Speaker Group View
+
+/// Renders a speaker's turn as a formatted paragraph: speaker name header,
+/// timestamp, then continuous flowing text with inline flag highlights.
+private struct SpeakerGroupView: View {
+    let group: SpeakerGroup
+    let speakers: [String]
+    let speakerMapping: SpeakerMapping
+    let selectedFlagID: UUID?
+    let playingFlagID: UUID?
+    let canPlayAudio: Bool
+    let onSelectFlag: (UUID) -> Void
+    let onPreviewResolution: (UUID, MergeFlagResolution) -> Void
+    let onConfirmFlag: (UUID) -> Void
+    let onPlayFlag: (UUID) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
+            // Speaker header — only shown once per speaker turn
+            HStack(alignment: .firstTextBaseline, spacing: ConsensusTheme.Spacing.sm) {
+                Text(speakerMapping.displayName(for: group.speakerID).uppercased())
+                    .font(.caption.weight(.bold).leading(.tight))
+                    .foregroundStyle(SpeakerBadge.color(for: group.speakerID, in: speakers))
+                    .tracking(0.5)
+
+                Text(TimeFormatting.timestamp(group.start))
+                    .font(ConsensusTheme.Fonts.mono(.caption2))
+                    .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+            }
+            .padding(.top, ConsensusTheme.Spacing.lg)
+
+            // Flowing paragraph text with inline flag highlights
+            TranscriptParagraph(
+                words: group.allWords,
+                flags: group.flags,
+                selectedFlagID: selectedFlagID,
+                onTapFlag: onSelectFlag
+            )
+
+            // Inline flag resolution popover — appears below the paragraph when a flag is selected
+            ForEach(group.flags) { flag in
+                if flag.id == selectedFlagID {
+                    FlagPopover(
+                        flag: flag,
+                        isPlaying: flag.id == playingFlagID,
+                        canPlayAudio: canPlayAudio,
+                        onPreview: { resolution in
+                            onPreviewResolution(flag.id, resolution)
+                        },
+                        onConfirm: {
+                            onConfirmFlag(flag.id)
+                        },
+                        onPlay: {
+                            onPlayFlag(flag.id)
+                        }
+                    )
+                    .id(flag.id)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Transcript Paragraph
+
+/// Renders a continuous paragraph of text with flagged regions highlighted inline.
+private struct TranscriptParagraph: View {
+    let words: [MergedWord]
+    let flags: [MergeFlag]
+    let selectedFlagID: UUID?
+    let onTapFlag: (UUID) -> Void
+
+    var body: some View {
+        buildText()
+            .font(.body)
+            .foregroundColor(ConsensusTheme.Colors.textPrimary)
+            .lineSpacing(6)
+            .textSelection(.enabled)
+    }
+
+    private func buildText() -> Text {
+        // Map word indices to their flags
+        var wordToFlag: [Int: MergeFlag] = [:]
+        for flag in flags {
+            for idx in flag.wordRange where idx < words.count {
+                wordToFlag[idx] = flag
+            }
+        }
+
+        var result = Text("")
+        var i = 0
+
+        while i < words.count {
+            if let flag = wordToFlag[i] {
+                // Flagged region — use the resolved text if the flag has been resolved,
+                // otherwise show the auto-merged text from the original words
+                let flagEnd = min(flag.wordRange.upperBound, words.count)
+                let displayText: String
+                if flag.isResolved {
+                    // Show the resolution choice (Engine A text, Engine B text, or manual edit)
+                    displayText = flag.mergedText
+                } else {
+                    displayText = words[i..<flagEnd].map(\.word).joined(separator: " ")
+                }
+
+                let isSelected = flag.id == selectedFlagID
+                let tint = flagTint(for: flag)
+
+                if displayText.isEmpty {
+                    // Resolved to empty (e.g., Engine A heard nothing) — skip this region
+                    i = flagEnd
+                    if i < words.count { result = result + Text(" ") }
+                    continue
+                }
+
+                if isSelected {
+                    result = result + Text(displayText)
+                        .foregroundColor(tint)
+                        .bold()
+                        .underline(true, color: tint)
+                } else if flag.isResolved {
+                    result = result + Text(displayText)
+                        .foregroundColor(ConsensusTheme.Colors.textPrimary)
+                } else {
+                    result = result + Text(displayText)
+                        .foregroundColor(ConsensusTheme.Colors.textPrimary)
+                        .underline(true, color: tint.opacity(0.5))
+                }
+
+                i = flagEnd
+            } else {
+                result = result + Text(words[i].word)
+                i += 1
+            }
+
+            if i < words.count {
+                result = result + Text(" ")
             }
         }
 
         return result
     }
+
+    private func flagTint(for flag: MergeFlag) -> Color {
+        if flag.isResolved { return ConsensusTheme.Colors.confidenceGreen }
+        switch flag.kind {
+        case .lowConfidence: return ConsensusTheme.Colors.confidenceAmber
+        case .ambiguousText: return ConsensusTheme.Colors.diffTextSolid
+        case .speakerDispute: return ConsensusTheme.Colors.diffSpeakerSolid
+        case .missingPhrase: return ConsensusTheme.Colors.confidenceRed
+        case .namedEntityDispute: return ConsensusTheme.Colors.accent
+        }
+    }
 }
 
-// (HighlightedTranscriptText removed — word-level LCS diff was causing UI freezes)
+// MARK: - Flag Popover
 
-// MARK: - Summary Chip
+/// A compact resolution dialog that appears inline when a flagged region is clicked.
+private struct FlagPopover: View {
+    let flag: MergeFlag
+    let isPlaying: Bool
+    let canPlayAudio: Bool
+    let onPreview: (MergeFlagResolution) -> Void
+    let onConfirm: () -> Void
+    let onPlay: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
+            // Top bar: flag kind + timestamp + play button
+            HStack(spacing: ConsensusTheme.Spacing.sm) {
+                Image(systemName: flag.kind.systemImage)
+                    .font(.caption)
+                    .foregroundStyle(tint)
+
+                Text(flag.kind.displayName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(tint)
+
+                Text("at \(TimeFormatting.timestamp(flag.start))")
+                    .font(ConsensusTheme.Fonts.mono(.caption2))
+                    .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+
+                Spacer()
+
+                if flag.isResolved {
+                    Label("Resolved", systemImage: "checkmark.circle.fill")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(ConsensusTheme.Colors.confidenceGreen)
+                }
+
+                if canPlayAudio {
+                    Button(action: onPlay) {
+                        HStack(spacing: ConsensusTheme.Spacing.xs) {
+                            Image(systemName: isPlaying ? "stop.fill" : "play.fill")
+                            Text(isPlaying ? "Stop" : "Listen to Context")
+                        }
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(isPlaying ? ConsensusTheme.Colors.confidenceAmber : ConsensusTheme.Colors.accent)
+                    }
+                    .buttonStyle(ConsensusSecondaryButtonStyle())
+                }
+            }
+
+            // Options: A / B (preview selection) + Accept (confirm)
+            HStack(alignment: .top, spacing: ConsensusTheme.Spacing.md) {
+                // Engine A — click to preview this choice
+                optionCard(
+                    label: "Engine A",
+                    text: flag.referenceText,
+                    confidence: flag.referenceConfidence,
+                    isActive: isChoice(.useReference),
+                    action: { onPreview(.useReference) }
+                )
+
+                // Engine B — click to preview this choice
+                optionCard(
+                    label: "Engine B",
+                    text: flag.candidateText,
+                    confidence: flag.candidateConfidence,
+                    isActive: isChoice(.useCandidate),
+                    action: { onPreview(.useCandidate) }
+                )
+
+                // Accept — confirms the current selection and moves on
+                VStack(spacing: ConsensusTheme.Spacing.xs) {
+                    Button(action: onConfirm) {
+                        VStack(spacing: ConsensusTheme.Spacing.xs) {
+                            Image(systemName: "checkmark")
+                                .font(.body.weight(.semibold))
+                            Text("Accept")
+                                .font(.caption.weight(.medium))
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                    }
+                    .buttonStyle(ConsensusPrimaryButtonStyle())
+                }
+                .frame(width: 80)
+            }
+        }
+        .padding(ConsensusTheme.Spacing.md)
+        .background {
+            RoundedRectangle(cornerRadius: ConsensusTheme.Radius.lg)
+                .fill(ConsensusTheme.Colors.surfacePrimary)
+                .overlay {
+                    RoundedRectangle(cornerRadius: ConsensusTheme.Radius.lg)
+                        .stroke(tint.opacity(0.25), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
+        }
+    }
+
+    private func optionCard(
+        label: String,
+        text: String,
+        confidence: Float,
+        isActive: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
+                HStack {
+                    Text(label)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(isActive ? ConsensusTheme.Colors.confidenceGreen : ConsensusTheme.Colors.textTertiary)
+                    Spacer()
+                    Text("\(Int(confidence * 100))%")
+                        .font(ConsensusTheme.Fonts.mono(.caption2))
+                        .foregroundStyle(ConsensusTheme.Colors.confidenceTier(confidence))
+                }
+
+                if text.isEmpty {
+                    Text("(not heard)")
+                        .font(.subheadline)
+                        .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                        .italic()
+                } else {
+                    Text(text)
+                        .font(.subheadline)
+                        .foregroundStyle(isActive ? ConsensusTheme.Colors.textPrimary : ConsensusTheme.Colors.textSecondary)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(ConsensusTheme.Spacing.sm)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm)
+                    .fill(isActive ? ConsensusTheme.Colors.confidenceGreen.opacity(0.08) : ConsensusTheme.Colors.surfaceSecondary.opacity(0.5))
+                    .overlay {
+                        if isActive {
+                            RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm)
+                                .stroke(ConsensusTheme.Colors.confidenceGreen.opacity(0.3), lineWidth: 1)
+                        }
+                    }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var tint: Color {
+        if flag.isResolved { return ConsensusTheme.Colors.confidenceGreen }
+        switch flag.kind {
+        case .lowConfidence: return ConsensusTheme.Colors.confidenceAmber
+        case .ambiguousText: return ConsensusTheme.Colors.diffTextSolid
+        case .speakerDispute: return ConsensusTheme.Colors.diffSpeakerSolid
+        case .missingPhrase: return ConsensusTheme.Colors.confidenceRed
+        case .namedEntityDispute: return ConsensusTheme.Colors.accent
+        }
+    }
+
+    private func isChoice(_ check: MergeFlagResolution) -> Bool {
+        switch (flag.resolution, check) {
+        case (.merged, .merged): return true
+        case (.useReference, .useReference): return true
+        case (.useCandidate, .useCandidate): return true
+        default: return false
+        }
+    }
+}
+
+// MARK: - Small Components
+
+private struct KeyHint: View {
+    let key: String
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Text(key)
+                .font(ConsensusTheme.Fonts.mono(size: 9, weight: .medium))
+                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(ConsensusTheme.Colors.surfaceSecondary)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 3)
+                                .stroke(ConsensusTheme.Colors.border, lineWidth: 0.5)
+                        }
+                }
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+        }
+    }
+}
 
 private struct SummaryChip: View {
     let label: String
@@ -705,155 +713,6 @@ private struct SummaryChip: View {
             Capsule()
                 .fill(tint.opacity(0.08))
                 .overlay { Capsule().stroke(tint.opacity(0.12), lineWidth: 1) }
-        }
-    }
-}
-
-// MARK: - Diff Highlighter
-
-private enum ReconciliationDiffHighlighter {
-    struct Token {
-        let raw: String
-        let normalized: String
-    }
-
-    /// Maximum word count for LCS diff highlighting.
-    /// Beyond this, we skip word-level diff to avoid freezing the UI.
-    private static let maxDiffTokens = 150
-
-    static func highlighted(
-        text: String,
-        comparedTo other: String,
-        kind: ReconciliationDifferenceKind
-    ) -> AttributedString {
-        guard kind.hasDifference, !other.isEmpty else {
-            return AttributedString(text)
-        }
-
-        let tokens = tokenize(text)
-        let otherTokens = tokenize(other)
-
-        guard !tokens.isEmpty else {
-            return AttributedString(text)
-        }
-
-        // Skip expensive LCS for long texts — just show with a subtle tint
-        guard tokens.count <= maxDiffTokens, otherTokens.count <= maxDiffTokens else {
-            var attributed = AttributedString(text)
-            attributed.backgroundColor = ConsensusTheme.Colors.diffText.opacity(0.15)
-            return attributed
-        }
-
-        let matches = Dictionary(uniqueKeysWithValues: lcsMatches(lhs: tokens, rhs: otherTokens).map { ($0.0, $0.1) })
-        var attributed = AttributedString()
-
-        for index in tokens.indices {
-            var segment = AttributedString(tokens[index].raw + (index == tokens.count - 1 ? "" : " "))
-
-            if let otherIndex = matches[index] {
-                if tokens[index].raw != otherTokens[otherIndex].raw {
-                    segment.backgroundColor = ConsensusTheme.Colors.diffPunctuation
-                }
-            } else {
-                segment.backgroundColor = ConsensusTheme.Colors.diffText
-            }
-
-            attributed.append(segment)
-        }
-
-        return attributed
-    }
-
-    private static func tokenize(_ text: String) -> [Token] {
-        text
-            .split(whereSeparator: \.isWhitespace)
-            .map { raw in
-                let rawText = String(raw)
-                return Token(
-                    raw: rawText,
-                    normalized: rawText
-                        .lowercased()
-                        .replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression)
-                )
-            }
-    }
-
-    private static func lcsMatches(lhs: [Token], rhs: [Token]) -> [(Int, Int)] {
-        guard !lhs.isEmpty, !rhs.isEmpty else { return [] }
-
-        let lhsCount = lhs.count
-        let rhsCount = rhs.count
-        var table = Array(
-            repeating: Array(repeating: 0, count: rhsCount + 1),
-            count: lhsCount + 1
-        )
-
-        for lhsIndex in 0..<lhsCount {
-            for rhsIndex in 0..<rhsCount {
-                if lhs[lhsIndex].normalized == rhs[rhsIndex].normalized {
-                    table[lhsIndex + 1][rhsIndex + 1] = table[lhsIndex][rhsIndex] + 1
-                } else {
-                    table[lhsIndex + 1][rhsIndex + 1] = max(
-                        table[lhsIndex][rhsIndex + 1],
-                        table[lhsIndex + 1][rhsIndex]
-                    )
-                }
-            }
-        }
-
-        var matches: [(Int, Int)] = []
-        var lhsIndex = lhsCount
-        var rhsIndex = rhsCount
-
-        while lhsIndex > 0, rhsIndex > 0 {
-            if lhs[lhsIndex - 1].normalized == rhs[rhsIndex - 1].normalized {
-                matches.append((lhsIndex - 1, rhsIndex - 1))
-                lhsIndex -= 1
-                rhsIndex -= 1
-            } else if table[lhsIndex - 1][rhsIndex] >= table[lhsIndex][rhsIndex - 1] {
-                lhsIndex -= 1
-            } else {
-                rhsIndex -= 1
-            }
-        }
-
-        return matches.reversed()
-    }
-}
-
-// MARK: - Themed Difference Kind Properties
-
-private extension ReconciliationDifferenceKind {
-    var themedTint: Color {
-        switch self {
-        case .aligned:        return ConsensusTheme.Colors.diffAlignedSolid
-        case .punctuation:    return ConsensusTheme.Colors.diffPunctuationSolid
-        case .speaker:        return ConsensusTheme.Colors.diffSpeakerSolid
-        case .text:           return ConsensusTheme.Colors.diffTextSolid
-        case .textAndSpeaker: return ConsensusTheme.Colors.diffTextSpeakerSolid
-        case .missing:        return ConsensusTheme.Colors.diffMissingSolid
-        }
-    }
-
-    var themedBackground: Color {
-        switch self {
-        case .aligned:        return ConsensusTheme.Colors.diffAligned
-        case .punctuation:    return ConsensusTheme.Colors.diffPunctuation
-        case .speaker:        return ConsensusTheme.Colors.diffSpeaker
-        case .text:           return ConsensusTheme.Colors.diffText
-        case .textAndSpeaker: return ConsensusTheme.Colors.diffTextSpeaker
-        case .missing:        return ConsensusTheme.Colors.diffMissing
-        }
-    }
-
-    var themedSystemImage: String {
-        switch self {
-        case .aligned:        return "checkmark.circle.fill"
-        case .punctuation:    return "text.quote"
-        case .speaker:        return "person.2.wave.2"
-        case .text:           return "text.insert"
-        case .textAndSpeaker: return "exclamationmark.bubble.fill"
-        case .missing:        return "minus.circle.fill"
         }
     }
 }

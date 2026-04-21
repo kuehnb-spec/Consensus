@@ -2,49 +2,18 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(TranscriptionViewModel.self) private var viewModel
+    @EnvironmentObject private var settings: AppSettings
 
     var body: some View {
         @Bindable var vm = viewModel
 
-        ZStack(alignment: .bottomTrailing) {
-            VStack(spacing: 0) {
-                // Global floating status bar — always visible during processing
-                if viewModel.isAnyProcessRunning {
-                    GlobalStatusBar()
-                }
-
-                NavigationSplitView {
-                    SidebarView()
-                } detail: {
-                    Group {
-                        switch viewModel.currentPhase {
-                        case .setup:
-                            TranscriptionSetupView()
-                        case .help:
-                            HelpCenterView()
-                        case .review:
-                            TranscriptView()
-                        case .quality:
-                            QualityView()
-                        case .reconcile:
-                            ReconciliationView()
-                        case .export:
-                            ExportView()
-                        case .summary:
-                            SummaryView()
-                        }
-                    }
-                }
-            }
-
-            // Floating process log
-            if viewModel.processLog.isVisible {
-                ProcessLogView(processLog: viewModel.processLog)
-                    .padding(ConsensusTheme.Spacing.lg)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+        Group {
+            if settings.isSimpleMode {
+                simpleContent
+            } else {
+                advancedContent
             }
         }
-        .navigationTitle(viewModel.currentProject?.name ?? "Consensus")
         .fileImporter(
             isPresented: $vm.showFilePicker,
             allowedContentTypes: [.audio, .mpeg4Audio, .mp3, .wav, .aiff],
@@ -73,6 +42,76 @@ struct ContentView: View {
             WelcomeTourView()
                 .environment(viewModel)
         }
+        .sheet(isPresented: $vm.showManualEditor) {
+            TranscriptManualEditorView()
+                .environment(viewModel)
+        }
+    }
+
+    // MARK: - Simple Mode
+
+    private var simpleContent: some View {
+        SimpleView()
+            .navigationTitle(viewModel.currentProject?.name ?? "Consensus")
+    }
+
+    // MARK: - Advanced Mode
+
+    private var advancedContent: some View {
+        Group {
+            if viewModel.currentProject == nil && !viewModel.hasEnteredWorkflow {
+                // No project, user hasn't started anything — show landing page
+                ProjectDashboardView()
+                    .navigationTitle("Consensus")
+            } else {
+                // Project open — show workspace with sidebar + status pane
+                HStack(spacing: 0) {
+                    VStack(spacing: 0) {
+                        if viewModel.isAnyProcessRunning {
+                            GlobalStatusBar()
+                        }
+
+                        NavigationSplitView {
+                            SidebarView()
+                        } detail: {
+                            Group {
+                                switch viewModel.currentPhase {
+                                case .setup:
+                                    TranscriptionSetupView()
+                                case .help:
+                                    HelpCenterView()
+                                case .review:
+                                    TranscriptView()
+                                case .deepTranscription:
+                                    DeepTranscriptionView()
+                                case .deepDiarization:
+                                    DeepDiarizationView()
+                                case .deepSpeakerConfirm:
+                                    SpeakerConfirmView()
+                                case .deepReviewCompare:
+                                    DeepReviewCompareView()
+                                case .export:
+                                    ExportView()
+                                case .summary:
+                                    SummaryView()
+                                case .polish:
+                                    PolishView()
+                                case .comparePasses:
+                                    ParallelTranscriptView()
+                                }
+                            }
+                        }
+                    }
+
+                    if viewModel.showSummarySidepane {
+                        SummarySidepaneView()
+                    }
+
+                    StatusPaneView()
+                }
+                .navigationTitle(viewModel.currentProject?.name ?? "Consensus")
+            }
+        }
     }
 }
 
@@ -80,6 +119,11 @@ struct ContentView: View {
 
 struct SidebarView: View {
     @Environment(TranscriptionViewModel.self) private var viewModel
+    @EnvironmentObject private var settings: AppSettings
+    @State private var projectToDelete: TranscriptionProjectSummary?
+    @State private var showDeleteConfirmation = false
+    @State private var projectToRestart: TranscriptionProjectSummary?
+    @State private var showRestartConfirmation = false
 
     var body: some View {
         List {
@@ -94,6 +138,58 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .navigationSplitViewColumnWidth(min: 220, ideal: 270, max: 340)
+        .alert("Delete Project?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                projectToDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                if let project = projectToDelete {
+                    Task {
+                        await viewModel.deleteProject(id: project.id)
+                    }
+                    projectToDelete = nil
+                }
+            }
+        } message: {
+            if let project = projectToDelete {
+                Text("Are you sure you want to delete \"\(project.name)\"? This cannot be undone.")
+            }
+        }
+        .alert("Re-run From Scratch?", isPresented: $showRestartConfirmation) {
+            Button("Cancel", role: .cancel) {
+                projectToRestart = nil
+            }
+            Button("Discard & Re-run", role: .destructive) {
+                if let project = projectToRestart {
+                    Task {
+                        if viewModel.currentProject?.id != project.id {
+                            await viewModel.openProject(id: project.id)
+                        }
+                        await viewModel.restartCurrentProjectFromScratch()
+                    }
+                    projectToRestart = nil
+                }
+            }
+        } message: {
+            if let project = projectToRestart {
+                Text("Discard all transcription passes on \"\(project.name)\" and return to the Transcribe step? The audio file and project settings are kept, but every pass (Standard, Deep Review, Consensus) will be removed. This cannot be undone.")
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func projectFileURL(for id: UUID) -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let newPath = base.appendingPathComponent("Consensus/Projects/\(id.uuidString)/project.json")
+        if FileManager.default.fileExists(atPath: newPath.path) { return newPath }
+        let legacyPath = base.appendingPathComponent("BDK Transcribo/Projects/\(id.uuidString)/project.json")
+        return FileManager.default.fileExists(atPath: legacyPath.path) ? legacyPath : newPath
+    }
+
+    private func revealInFinder(projectID: UUID) {
+        let url = projectFileURL(for: projectID).deletingLastPathComponent()
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
     }
 
     // MARK: Current Project
@@ -125,35 +221,10 @@ struct SidebarView: View {
 
     // MARK: Workflow
 
+    @ViewBuilder
     private var workspaceSection: some View {
         Section {
-            // Quick Transcribe — one-click fast mode
-            Button {
-                Task {
-                    await viewModel.quickTranscribe()
-                }
-            } label: {
-                HStack(spacing: ConsensusTheme.Spacing.sm) {
-                    Image(systemName: "bolt.fill")
-                        .font(.body)
-                        .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
-                        .frame(width: 20)
-                    Text("Quick Transcribe")
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
-                    Spacer()
-                }
-                .padding(.vertical, ConsensusTheme.Spacing.xs)
-                .padding(.horizontal, ConsensusTheme.Spacing.sm)
-                .background(
-                    RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md)
-                        .fill(ConsensusTheme.Colors.confidenceAmber.opacity(0.08))
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(!viewModel.hasAudio || viewModel.pipeline.isRunning)
-            .opacity(!viewModel.hasAudio ? 0.35 : 1)
-            .help("Fast transcription with a small model, auto-exports to legal PDF")
+            // --- STANDARD TRANSCRIPTION ---
 
             WorkflowStepRow(
                 step: 1,
@@ -168,8 +239,8 @@ struct SidebarView: View {
 
             WorkflowStepRow(
                 step: 2,
-                title: "Review & Rename Speakers",
-                systemImage: "doc.text.magnifyingglass",
+                title: "Review & Label Speakers",
+                systemImage: "person.text.rectangle",
                 isSelected: viewModel.currentPhase == .review,
                 isComplete: viewModel.hasSpeakerRenames,
                 isDisabled: !viewModel.hasResult
@@ -179,39 +250,92 @@ struct SidebarView: View {
 
             WorkflowStepRow(
                 step: 3,
-                title: "Deep Review",
-                systemImage: "sparkles.rectangle.stack",
-                isSelected: viewModel.currentPhase == .quality,
-                isComplete: viewModel.hasMultiplePasses,
-                isDisabled: !viewModel.hasResult,
-                badge: "optional"
-            ) {
-                viewModel.currentPhase = .quality
-            }
-
-            WorkflowStepRow(
-                step: 4,
-                title: "Reconcile",
-                systemImage: "rectangle.split.3x1",
-                isSelected: viewModel.currentPhase == .reconcile,
-                isComplete: viewModel.hasConsensusPass,
-                isDisabled: !viewModel.canOpenReconciliation,
-                badge: viewModel.canOpenReconciliation ? "recommended" : nil
-            ) {
-                viewModel.openReconciliation()
-            }
-
-            WorkflowStepRow(
-                step: 5,
                 title: "Export",
                 systemImage: "square.and.arrow.up",
-                isSelected: viewModel.currentPhase == .export,
-                isDisabled: !viewModel.hasResult
+                isSelected: viewModel.currentPhase == .export && !viewModel.currentPhase.isDeepReview,
+                isDisabled: !viewModel.hasResult,
+                badge: viewModel.hasResult && !viewModel.hasConsensusPass ? "standard" : nil
             ) {
                 viewModel.currentPhase = .export
             }
         } header: {
-            Text("Workflow")
+            Text("Standard Transcription")
+        }
+
+        // --- DEEP REVIEW (only visible after first pass is complete) ---
+        if viewModel.hasResult {
+            Section {
+                // Entry point / Step 1: Deep Transcription
+                DeepReviewStepRow(
+                    step: 1,
+                    title: "Deep Transcription",
+                    subtitle: "Run second engine + merge",
+                    systemImage: "doc.on.doc",
+                    isSelected: viewModel.currentPhase == .deepTranscription,
+                    isComplete: viewModel.deepReviewCompletedSteps.contains("transcription"),
+                    isActive: viewModel.currentPhase == .deepTranscription,
+                    isDisabled: viewModel.pipeline.isRunning || viewModel.isCleanupRunning
+                ) {
+                    viewModel.currentPhase = .deepTranscription
+                }
+
+                // Step 2: Deep Diarization
+                DeepReviewStepRow(
+                    step: 2,
+                    title: "Deep Diarization",
+                    subtitle: "Multi-pass speaker refinement",
+                    systemImage: "person.2.wave.2",
+                    isSelected: viewModel.currentPhase == .deepDiarization,
+                    isComplete: viewModel.deepReviewCompletedSteps.contains("diarization"),
+                    isActive: viewModel.currentPhase == .deepDiarization,
+                    isDisabled: !viewModel.deepReviewCompletedSteps.contains("transcription")
+                ) {
+                    viewModel.currentPhase = .deepDiarization
+                }
+
+                // Step 3: Confirm Speakers
+                DeepReviewStepRow(
+                    step: 3,
+                    title: "Confirm Speakers",
+                    subtitle: "Verify speaker names",
+                    systemImage: "person.badge.check",
+                    isSelected: viewModel.currentPhase == .deepSpeakerConfirm,
+                    isComplete: viewModel.deepReviewCompletedSteps.contains("speakerConfirm"),
+                    isActive: viewModel.currentPhase == .deepSpeakerConfirm,
+                    isDisabled: !viewModel.deepReviewCompletedSteps.contains("diarization")
+                ) {
+                    viewModel.currentPhase = .deepSpeakerConfirm
+                }
+
+                // Step 4: Review & Compare
+                DeepReviewStepRow(
+                    step: 4,
+                    title: "Review & Export",
+                    subtitle: "Before/after comparison",
+                    systemImage: "checkmark.seal",
+                    isSelected: viewModel.currentPhase == .deepReviewCompare,
+                    isComplete: viewModel.hasConsensusPass,
+                    isActive: viewModel.currentPhase == .deepReviewCompare,
+                    isDisabled: !viewModel.deepReviewCompletedSteps.contains("speakerConfirm")
+                ) {
+                    viewModel.currentPhase = .deepReviewCompare
+                }
+            } header: {
+                HStack {
+                    Text("Deep Review")
+                    Spacer()
+                    if viewModel.hasConsensusPass {
+                        Text("verified")
+                            .font(ConsensusTheme.Fonts.mono(size: 9, weight: .bold))
+                            .foregroundStyle(ConsensusTheme.Colors.confidenceGreen)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule().fill(ConsensusTheme.Colors.confidenceGreen.opacity(0.12))
+                            )
+                    }
+                }
+            }
         }
     }
 
@@ -228,28 +352,55 @@ struct SidebarView: View {
                 viewModel.currentPhase = .summary
             }
 
+            SidebarNavigationRow(
+                title: "Polish (AI Cleanup)",
+                systemImage: "wand.and.stars",
+                isSelected: viewModel.currentPhase == .polish,
+                isDisabled: !viewModel.hasResult
+            ) {
+                viewModel.currentPhase = .polish
+            }
+
+            SidebarNavigationRow(
+                title: "Compare Passes",
+                systemImage: "rectangle.split.2x1",
+                isSelected: viewModel.currentPhase == .comparePasses,
+                isDisabled: (viewModel.currentProject?.passes.count ?? 0) < 2
+            ) {
+                viewModel.currentPhase = .comparePasses
+            }
+
+            SidebarNavigationRow(
+                title: "Summary Pane",
+                systemImage: viewModel.showSummarySidepane ? "sidebar.right" : "sidebar.right",
+                isSelected: viewModel.showSummarySidepane,
+                isDisabled: !viewModel.hasResult
+            ) {
+                withAnimation(.snappy(duration: 0.2)) {
+                    viewModel.showSummarySidepane.toggle()
+                }
+            }
+
             Button {
-                viewModel.toggleProcessLog()
+                withAnimation(.snappy(duration: 0.3)) {
+                    settings.isSimpleMode = true
+                }
             } label: {
                 HStack(spacing: ConsensusTheme.Spacing.sm) {
-                    Image(systemName: "terminal")
+                    Image(systemName: "rectangle.on.rectangle.slash")
                         .font(.body)
-                        .foregroundStyle(viewModel.processLog.isVisible ? ConsensusTheme.Colors.accent : ConsensusTheme.Colors.textSecondary)
+                        .foregroundStyle(ConsensusTheme.Colors.textSecondary)
                         .frame(width: 20)
-                    Text("Process Log")
+                    Text("Simple Mode")
                         .font(.body)
-                        .foregroundStyle(viewModel.processLog.isVisible ? ConsensusTheme.Colors.textPrimary : ConsensusTheme.Colors.textSecondary)
+                        .foregroundStyle(ConsensusTheme.Colors.textSecondary)
                     Spacer()
-                    if !viewModel.processLog.entries.isEmpty {
-                        Text("\(viewModel.processLog.entries.count)")
-                            .font(ConsensusTheme.Fonts.mono(.caption2))
-                            .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-                    }
                 }
                 .padding(.vertical, ConsensusTheme.Spacing.xs)
                 .padding(.horizontal, ConsensusTheme.Spacing.sm)
             }
             .buttonStyle(.plain)
+            .help("Switch to Simple Mode for a streamlined, light-themed interface")
         }
     }
 
@@ -316,6 +467,45 @@ struct SidebarView: View {
                                 )
                             }
                             .buttonStyle(.plain)
+                            .contextMenu {
+                                Button {
+                                    Task {
+                                        await viewModel.openProject(id: project.id)
+                                    }
+                                } label: {
+                                    Label("Open", systemImage: "doc")
+                                }
+
+                                ShareLink(
+                                    item: projectFileURL(for: project.id),
+                                    subject: Text(project.name),
+                                    message: Text("Consensus project: \(project.name)")
+                                ) {
+                                    Label("Share", systemImage: "square.and.arrow.up")
+                                }
+
+                                Button {
+                                    revealInFinder(projectID: project.id)
+                                } label: {
+                                    Label("Show in Finder", systemImage: "folder")
+                                }
+
+                                Divider()
+
+                                Button {
+                                    projectToRestart = project
+                                    showRestartConfirmation = true
+                                } label: {
+                                    Label("Re-run From Scratch…", systemImage: "arrow.counterclockwise.circle")
+                                }
+
+                                Button(role: .destructive) {
+                                    projectToDelete = project
+                                    showDeleteConfirmation = true
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                 }
@@ -620,9 +810,9 @@ private struct StatusBadge: View {
 
     private var config: (icon: String, label: String, color: Color) {
         if project.hasConsensus {
-            return ("checkmark.seal.fill", "Reconciled", ConsensusTheme.Colors.confidenceGreen)
+            return ("checkmark.seal.fill", "Verified", ConsensusTheme.Colors.confidenceGreen)
         } else if project.hasMultiplePasses {
-            return ("exclamationmark.triangle.fill", "Needs Review", ConsensusTheme.Colors.confidenceAmber)
+            return ("exclamationmark.triangle.fill", "Deep Review Available", ConsensusTheme.Colors.confidenceAmber)
         } else if project.hasTranscript {
             return ("checkmark.circle", "\(project.passCount) pass\(project.passCount == 1 ? "" : "es")", ConsensusTheme.Colors.textSecondary)
         } else {
@@ -661,5 +851,76 @@ private struct ConfidencePill: View {
                             .stroke(tierColor.opacity(0.30), lineWidth: 1)
                     }
             }
+    }
+}
+
+// MARK: - Deep Review Step Row
+
+private struct DeepReviewStepRow: View {
+    let step: Int
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let isSelected: Bool
+    var isComplete: Bool = false
+    var isActive: Bool = false
+    var isDisabled: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: ConsensusTheme.Spacing.sm) {
+                // Step indicator
+                ZStack {
+                    if isComplete {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(ConsensusTheme.Colors.confidenceGreen)
+                    } else if isActive {
+                        ProgressView()
+                            .controlSize(.mini)
+                    } else {
+                        Text("\(step)")
+                            .font(ConsensusTheme.Fonts.mono(size: 10, weight: .bold))
+                            .foregroundStyle(isSelected ? ConsensusTheme.Colors.accent : ConsensusTheme.Colors.textTertiary)
+                            .frame(width: 18, height: 18)
+                            .background(
+                                Circle()
+                                    .fill(isSelected ? ConsensusTheme.Colors.accentSubtle : ConsensusTheme.Colors.surfacePrimary)
+                                    .overlay(
+                                        Circle().stroke(
+                                            isSelected ? ConsensusTheme.Colors.accent.opacity(0.5) : ConsensusTheme.Colors.border,
+                                            lineWidth: 1
+                                        )
+                                    )
+                            )
+                    }
+                }
+                .frame(width: 18)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.subheadline)
+                        .foregroundStyle(isSelected ? ConsensusTheme.Colors.textPrimary : ConsensusTheme.Colors.textSecondary)
+                        .lineLimit(1)
+
+                    Text(subtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(.vertical, ConsensusTheme.Spacing.xs)
+            .padding(.horizontal, ConsensusTheme.Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm)
+                    .fill(isSelected ? ConsensusTheme.Colors.accentSubtle : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.35 : 1)
     }
 }

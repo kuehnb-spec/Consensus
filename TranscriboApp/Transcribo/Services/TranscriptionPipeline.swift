@@ -59,6 +59,10 @@ final class TranscriptionPipeline {
         )
     }
 
+    /// When true, the pipeline skips diarization and returns segments with "UNKNOWN" speaker IDs.
+    /// Used for Deep Review's Engine B pass where we only need the text + word timings.
+    var skipDiarization: Bool = false
+
     func run(
         audioURL: URL,
         engine: TranscriptionEngineDescriptor,
@@ -208,41 +212,47 @@ final class TranscriptionPipeline {
 
         try Task.checkCancellation()
 
-        // Step 4: Speaker diarization
-        state = .diarizing
-        log("Starting speaker diarization (\(diarizationEngine.displayName))...", level: .progress)
+        // Step 4: Speaker diarization (skipped for text-only comparison passes)
         let finalSegments: [TranscriptionSegment]
 
-        do {
-            let diarizationSegments = try await diarizationService.diarize(
-                audioURL: audioURL,
-                engine: diarizationEngine,
-                minSpeakers: minSpeakers,
-                maxSpeakers: maxSpeakers
-            )
-
-            let speakerCount = Set(diarizationSegments.map(\.speakerID)).count
-            log("Diarization complete: \(speakerCount) speakers identified, \(diarizationSegments.count) segments", level: .success)
-
-            try Task.checkCancellation()
-
-            // Step 4b: Merge transcription segments with diarization speaker labels
-            state = .mergingResults
-            log("Merging transcription with speaker labels...", level: .progress)
-            finalSegments = SegmentMerger.merge(
-                transcriptionSegments: segments,
-                diarizationSegments: diarizationSegments
-            )
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            // If diarization fails, continue with unspeakered segments
-            let warning = "Diarization failed. The transcript is still available, but speaker labels may be incomplete. \(error.localizedDescription)"
-            print(warning)
-            lastWarnings.append(warning)
-            log("Diarization failed: \(error.localizedDescription)", level: .warning)
-            log("Continuing without speaker labels", level: .info)
+        if skipDiarization {
+            log("Skipping diarization (text-only comparison pass)", level: .info)
             finalSegments = segments
+        } else {
+            state = .diarizing
+            log("Starting speaker diarization (\(diarizationEngine.displayName))...", level: .progress)
+
+            do {
+                let diarizationSegments = try await diarizationService.diarize(
+                    audioURL: audioURL,
+                    engine: diarizationEngine,
+                    minSpeakers: minSpeakers,
+                    maxSpeakers: maxSpeakers
+                )
+
+                let speakerCount = Set(diarizationSegments.map(\.speakerID)).count
+                log("Diarization complete: \(speakerCount) speakers identified, \(diarizationSegments.count) segments", level: .success)
+
+                try Task.checkCancellation()
+
+                // Step 4b: Merge transcription segments with diarization speaker labels
+                state = .mergingResults
+                log("Merging transcription with speaker labels...", level: .progress)
+                finalSegments = SegmentMerger.merge(
+                    transcriptionSegments: segments,
+                    diarizationSegments: diarizationSegments
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // If diarization fails, continue with unspeakered segments
+                let warning = "Diarization failed. The transcript is still available, but speaker labels may be incomplete. \(error.localizedDescription)"
+                print(warning)
+                lastWarnings.append(warning)
+                log("Diarization failed: \(error.localizedDescription)", level: .warning)
+                log("Continuing without speaker labels", level: .info)
+                finalSegments = segments
+            }
         }
 
         try Task.checkCancellation()
