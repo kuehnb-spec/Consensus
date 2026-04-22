@@ -35,8 +35,12 @@ struct DeepReadReviewView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: ConsensusTheme.Spacing.lg) {
                     if let pass = viewModel.activePassContent {
-                        ForEach(Array(pass.segments.enumerated()), id: \.offset) { _, segment in
-                            turnRow(segment: segment)
+                        if pass.segments.isEmpty {
+                            emptyPassMessage
+                        } else {
+                            ForEach(Array(pass.segments.enumerated()), id: \.offset) { _, segment in
+                                turnRow(segment: segment)
+                            }
                         }
                     } else {
                         ProgressView("Loading transcript…")
@@ -112,6 +116,26 @@ struct DeepReadReviewView: View {
                 .fill(ConsensusTheme.Colors.surfaceSecondary)
                 .overlay(Capsule(style: .continuous).stroke(ConsensusTheme.Colors.borderSubtle, lineWidth: 1))
         )
+    }
+
+    // MARK: - Empty state
+
+    private var emptyPassMessage: some View {
+        VStack(spacing: ConsensusTheme.Spacing.md) {
+            Image(systemName: "waveform.slash")
+                .font(.system(size: 28, weight: .light))
+                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+            Text("No speech detected")
+                .font(ConsensusType.displaySubheading)
+                .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+            Text("The pipeline ran, but the audio didn't produce any transcribable segments. Check the source recording and try again.")
+                .font(ConsensusType.displayCaption)
+                .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(ConsensusTheme.Spacing.xxl)
     }
 
     // MARK: - Turn row
