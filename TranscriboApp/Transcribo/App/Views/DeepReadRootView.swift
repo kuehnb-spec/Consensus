@@ -9,6 +9,7 @@ struct DeepReadRootView: View {
 
     @State private var showingExportSheet: Bool = false
     @State private var showingInspector: Bool = false
+    @State private var showingLibrary: Bool = false
 
     var body: some View {
         ZStack {
@@ -87,11 +88,23 @@ struct DeepReadRootView: View {
         .sheet(isPresented: $showingInspector) {
             PipelineInspectorView(viewModel: viewModel)
         }
+        .sheet(isPresented: $showingLibrary) {
+            ProjectLibraryView(viewModel: viewModel)
+        }
+        .background(libraryShortcutHost)
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Text("Consensus")
                     .font(ConsensusType.displayHeading)
                     .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+            }
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    showingLibrary = true
+                } label: {
+                    Label("Project Library", systemImage: "square.stack")
+                }
+                .help("Browse saved projects (⌘L)")
             }
             if viewModel.project != nil {
                 // Export + Copy + Summary-pane toggle only make sense once
@@ -137,6 +150,25 @@ struct DeepReadRootView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Hidden keyboard-shortcut host
+
+    /// Zero-sized button group that registers window-level keyboard
+    /// shortcuts for the root view. Mirrors the pattern in
+    /// `DeepReadReviewView.keyboardShortcutHost`.
+    @ViewBuilder
+    private var libraryShortcutHost: some View {
+        Group {
+            Button("Toggle Project Library") {
+                showingLibrary.toggle()
+            }
+            .keyboardShortcut("l", modifiers: [.command])
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     // MARK: - Export / copy menus

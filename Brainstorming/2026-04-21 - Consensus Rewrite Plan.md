@@ -304,9 +304,14 @@ The typeface change alone will make the app feel 2x more considered. Everything 
 - Match-on-transcription.
 - Voice Library manager view (Studio only).
 
-**Phase 5 — Project Library window** (1 session)
-- Rip out the current sidebar list. Replace with an openable window.
-- Filters, sort, project cards.
+**Phase 5 — Project Library window** (1 session) — **DONE as sheet, April 21 evening**
+- [x] `ProjectLibraryView` — 680×560 sheet presentation: header with project count + sort picker (Most recent / Name / Duration) + search field, LazyVStack of project rows (title, duration, relative timestamp, up to 4 speaker names), per-row actions (Show in Finder, Delete with confirmation, Open), right-click context menu with same actions, empty state.
+- [x] Accessible from toolbar `square.stack` icon (on all stages) and ⌘L keyboard shortcut (via a zero-sized `libraryShortcutHost` on the root view).
+- [x] "Open" loads the project via `DeepReadViewModel.openProject(_:)` (already built Phase 1e+) and dismisses the sheet so the main window shows the loaded project.
+- [x] Delete uses an `NSAlert` confirmation; calls `ProjectLibrary.delete(_:)` and refreshes the index.
+- [x] Show in Finder uses `NSWorkspace.shared.activateFileViewerSelecting`.
+- [ ] Promote to a proper separate `Window` scene (file menu entry, own entry in the Dock/Window menu) — deferred; needs app-level VM plumbing.
+- [ ] Legacy project read-only import — deferred to Phase 0.5 follow-up.
 
 **Phase 6 — Polish + Claude Design brief** (ongoing)
 - Animations, loading states, empty states.
