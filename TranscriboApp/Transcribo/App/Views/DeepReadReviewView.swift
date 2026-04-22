@@ -19,6 +19,36 @@ struct DeepReadReviewView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(ConsensusTheme.Colors.background)
+        .background(keyboardShortcutHost)
+    }
+
+    /// Hidden buttons that register global keyboard shortcuts for the
+    /// review view. Zero-sized so they never take focus or paint pixels;
+    /// `.keyboardShortcut` still binds them at the window level.
+    @ViewBuilder
+    private var keyboardShortcutHost: some View {
+        Group {
+            Button("Next uncertainty") { jumpNext() }
+                .keyboardShortcut("j", modifiers: [.command])
+            Button("Previous uncertainty") { jumpPrevious() }
+                .keyboardShortcut("k", modifiers: [.command])
+            Button("Close popover") { activePopoverIndex = nil }
+                .keyboardShortcut(".", modifiers: [.command])
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func jumpNext() {
+        guard let next = viewModel.nextUncertainty(after: activePopoverIndex) else { return }
+        activePopoverIndex = next
+    }
+
+    private func jumpPrevious() {
+        guard let prev = viewModel.previousUncertainty(before: activePopoverIndex) else { return }
+        activePopoverIndex = prev
     }
 
     // MARK: - Transcript column
@@ -137,7 +167,7 @@ struct DeepReadReviewView: View {
             )
         }
         .buttonStyle(.plain)
-        .help("Jump to the next uncertain turn")
+        .help("Jump to the next uncertain turn (⌘J next, ⌘K previous)")
     }
 
     private func confidenceBadge(value: Double) -> some View {
@@ -286,6 +316,7 @@ struct DeepReadReviewView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(ConsensusTheme.Colors.accent)
+                .keyboardShortcut("p", modifiers: [.command])
 
                 Button {
                     viewModel.markUncertaintyResolved(at: index)
@@ -297,6 +328,7 @@ struct DeepReadReviewView: View {
                         .padding(.vertical, 4)
                 }
                 .buttonStyle(.bordered)
+                .keyboardShortcut("r", modifiers: [.command])
             }
         }
         .padding(ConsensusTheme.Spacing.lg)

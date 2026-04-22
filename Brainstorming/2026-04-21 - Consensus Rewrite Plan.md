@@ -272,7 +272,7 @@ The typeface change alone will make the app feel 2x more considered. Everything 
   - [x] **1d.1**: Uncertainty popovers (LLM-flagged turns are amber-highlighted; clicking Review shows a popover with Play Context and Mark Resolved actions; header shows "N to review" badge that jumps to the next unresolved uncertainty). `AudioContextPlayer` reused from the legacy Manual Editor. Resolved state is per-session (cleared on project close).
   - [ ] **1d.2**: Verbatim/clean toggle — requires extending `LLMReconcileService`'s prompt to produce both in one pass, stored as `StylePair` on TranscriptPass.
   - [ ] **1d.3**: A/B choice + manual override in the uncertainty popover — requires the LLM to surface per-turn alternatives, not just an `isUncertain` flag. Biggest prompt change.
-  - [ ] **1d.4**: ⌘→/⌘←/⌘1/⌘2 keyboard shortcuts for review navigation.
+  - [x] **1d.4**: Keyboard shortcuts in the review view — ⌘J (next uncertainty), ⌘K (previous), ⌘. (close popover), ⌘P (play/stop context, within popover), ⌘R (mark resolved, within popover). ⌘J/⌘K use J/K rather than arrow keys to avoid clashing with text-field cursor navigation; discoverable via the "N to review" badge's tooltip.
 - [ ] **Phase 1e**: `SummaryPane` (editable summary + to-dos, per-section Copy + Export + Regenerate), `ExportSheet` (format picker + include-summary checkbox, Obsidian/Markdown as first-class target with YAML frontmatter).
 - Plan-defined views, status column:
   - [x] `DeepReadSetupView` · [x] (generic) progress view · [ ] `SpeakerNamingView` · [ ] full `TranscriptReviewView` (basic version shipped) · [ ] `UncertaintyPopover` · [ ] `SummaryPane` · [ ] `ExportSheet`
