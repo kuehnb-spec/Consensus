@@ -180,7 +180,10 @@ final class DeepReadViewModel {
             activePassContent = pass
 
             stage = .namingSpeakers(
-                suggestions: Self.buildSuggestions(from: updated.speakers)
+                suggestions: Self.buildSuggestions(
+                    from: updated.speakers,
+                    segments: pass.segments
+                )
             )
         } catch {
             report(error)
@@ -188,16 +191,27 @@ final class DeepReadViewModel {
         }
     }
 
-    /// Builds the suggestion list the naming screen binds to. Phase 1c.2 will
-    /// enrich this with "Hi, this is X" intro scans and voice library matches.
-    private static func buildSuggestions(from speakers: [Speaker]) -> [SpeakerSuggestion] {
-        speakers.map { speaker in
-            SpeakerSuggestion(
+    /// Builds the suggestion list the naming screen binds to. Phase 1c.2
+    /// enriches the diarizer's default labels with matches from the
+    /// `IntroScanner` ("Hi, this is X" / "My name is X" / etc.); voice
+    /// library matching arrives in Phase 4.
+    private static func buildSuggestions(
+        from speakers: [Speaker],
+        segments: [TranscriptionSegment]
+    ) -> [SpeakerSuggestion] {
+        let intros = IntroScanner.scan(segments: segments)
+        let introByID = Dictionary(
+            uniqueKeysWithValues: intros.map { ($0.speakerID, $0) }
+        )
+        return speakers.map { speaker in
+            let intro = introByID[speaker.id]
+            let usingIntro = intro != nil && !speaker.isConfirmed
+            return SpeakerSuggestion(
                 id: speaker.id,
-                suggestedName: speaker.displayName,
+                suggestedName: usingIntro ? intro!.proposedName : speaker.displayName,
                 voiceLibraryMatchID: speaker.voiceLibraryID,
                 sampleClipURL: nil,
-                confidence: speaker.isConfirmed ? 1.0 : 0.0
+                confidence: intro?.confidence ?? (speaker.isConfirmed ? 1.0 : 0.0)
             )
         }
     }
@@ -221,10 +235,16 @@ final class DeepReadViewModel {
     }
 
     /// Called from `SpeakerNamingView` when the user confirms speaker names.
-    /// Phase 1c.1: writes the confirmed names back into the project and
-    /// advances directly to `.reviewing`. Phase 1c.2 will branch on Speed —
-    /// when Deep, run Engine B + `LLMReconcileService` with the confirmed
-    /// names as `knownSpeakerNames` before advancing.
+    /// Writes the confirmed names onto the project and then branches on
+    /// Speed:
+    /// - `.standard` (Quick) → advances directly to `.reviewing` with the
+    ///    Standard pass that's already on disk.
+    /// - `.deep` / `.verified` / `.perfect` → advances to `.reconciling`,
+    ///    runs `DeepPassRunner` (Whisper + LLMReconcileService) with the
+    ///    confirmed names as `knownSpeakerNames`, writes `.deep` pass to
+    ///    disk, swaps it in as the active pass, and advances to `.reviewing`.
+    ///    If the deep run fails, falls back to the Standard pass with an
+    ///    error alert so the user still sees their transcript.
     func confirmSpeakers(_ mappings: [SpeakerSuggestion]) async {
         guard var current = project else { return }
 
@@ -240,9 +260,71 @@ final class DeepReadViewModel {
 
         do {
             project = try library.save(current)
-            stage = .reviewing
         } catch {
             report(error)
+            return
+        }
+
+        switch current.settings.speed {
+        case .standard:
+            stage = .reviewing
+        case .deep, .verified, .perfect:
+            await runDeepPass()
+        }
+    }
+
+    /// Runs the Deep-tier pass (Engine B + LLM reconciliation) on top of
+    /// the already-persisted Standard pass. Keeps the VM live so the
+    /// reconciliation progress updates the UI in real time.
+    private func runDeepPass() async {
+        guard let current = project,
+              let standardPass = activePassContent else {
+            stage = .reviewing
+            return
+        }
+
+        stage = .reconciling(progress: .zero)
+
+        let runStart = Date()
+        let runner = DeepPassRunner()
+
+        do {
+            let deepPass = try await runner.run(
+                audioURL: current.audio.originalURL,
+                standardPass: standardPass,
+                speakers: current.speakers,
+                options: .init(
+                    whisperModel: .largeV3,
+                    llmModel: CleanupModel.recommended(),
+                    domainHint: current.settings.domainHint,
+                    language: "en",
+                    audioDurationSeconds: current.audio.durationSeconds
+                ),
+                progress: { [weak self] update in
+                    Task { @MainActor [weak self] in
+                        self?.stage = .reconciling(progress: .init(
+                            fraction: update.fraction,
+                            label: update.label,
+                            elapsedSeconds: Date().timeIntervalSince(runStart)
+                        ))
+                    }
+                }
+            )
+
+            try library.savePass(deepPass, for: current.id)
+
+            var updated = current
+            updated.activePass = deepPass.kind
+            project = try library.save(updated)
+            activePassContent = deepPass
+
+            stage = .reviewing
+        } catch {
+            // Deep path failed — fall back to the Standard pass we already have.
+            // The user still gets a transcript; an alert explains the degrade.
+            errorMessage = "Deep reconciliation failed: \(error.localizedDescription). Showing the Standard-tier transcript instead."
+            showError = true
+            stage = .reviewing
         }
     }
 
