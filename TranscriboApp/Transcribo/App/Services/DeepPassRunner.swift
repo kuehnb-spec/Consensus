@@ -199,10 +199,28 @@ final class DeepPassRunner {
             engineA: standardPass.segments
         )
 
+        // For each LLM-flagged uncertain turn, capture the Engine A and
+        // Engine B text as click-to-apply alternatives in the review
+        // popover. Sourced now (not at click time) so the UI doesn't have
+        // to hold onto Engine B's full output indefinitely.
+        let engineAName = standardPass.engineAttribution.primaryEngine.isEmpty
+            ? "Engine A"
+            : "\(standardPass.engineAttribution.primaryEngine) (Engine A)"
+        let engineBName = "\(options.whisperModel.displayName) (Engine B)"
+        let alternatives = Self.buildAlternatives(
+            uncertainIndices: uncertainIndices,
+            reconciled: mergedSegments,
+            engineA: standardPass.segments,
+            engineB: engineBSegments,
+            engineALabel: engineAName,
+            engineBLabel: engineBName
+        )
+
         return TranscriptPass(
             kind: .deep,
             segments: mergedSegments,
             uncertainSegmentIndices: uncertainIndices,
+            alternativesByIndex: alternatives,
             engineAttribution: EngineAttribution(
                 primaryEngine: standardPass.engineAttribution.primaryEngine,
                 supportingEngines: [options.whisperModel.displayName] + standardPass.engineAttribution.supportingEngines,
@@ -216,6 +234,48 @@ final class DeepPassRunner {
                 stageTimings: stageTimings
             )
         )
+    }
+
+    /// For each uncertain segment index, build the list of alternatives
+    /// (Engine A overlap + Engine B overlap). Skips sources that overlap
+    /// zero text, skips duplicates of the current reconciled text.
+    private static func buildAlternatives(
+        uncertainIndices: Set<Int>,
+        reconciled: [TranscriptionSegment],
+        engineA: [TranscriptionSegment],
+        engineB: [TranscriptionSegment],
+        engineALabel: String,
+        engineBLabel: String
+    ) -> [Int: [TurnAlternative]] {
+        var out: [Int: [TurnAlternative]] = [:]
+        for idx in uncertainIndices.sorted() {
+            guard idx >= 0, idx < reconciled.count else { continue }
+            let seg = reconciled[idx]
+            let aText = overlappingText(engine: engineA, around: seg)
+            let bText = overlappingText(engine: engineB, around: seg)
+            var list: [TurnAlternative] = []
+            if !aText.isEmpty && aText != seg.text {
+                list.append(TurnAlternative(source: engineALabel, text: aText))
+            }
+            if !bText.isEmpty && bText != seg.text && bText != aText {
+                list.append(TurnAlternative(source: engineBLabel, text: bText))
+            }
+            if !list.isEmpty {
+                out[idx] = list
+            }
+        }
+        return out
+    }
+
+    private static func overlappingText(
+        engine: [TranscriptionSegment],
+        around seg: TranscriptionSegment
+    ) -> String {
+        engine
+            .filter { $0.end > seg.start && $0.start < seg.end }
+            .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     /// For each reconciled (clean) segment, concatenates Engine A segments

@@ -670,6 +670,31 @@ final class DeepReadViewModel {
         isPlayingContext = false
     }
 
+    /// Apply one of the Engine-A / Engine-B alternatives onto an uncertain
+    /// turn. Overwrites `segments[index].text` and the matching
+    /// `styles.cleanText[index]`, then persists the pass and marks the
+    /// uncertainty resolved so the badge count drops immediately.
+    func applyAlternative(at index: Int, text: String) {
+        guard var pass = activePassContent,
+              let project,
+              index >= 0, index < pass.segments.count
+        else { return }
+
+        pass.segments[index].text = text
+        if var styles = pass.styles, index < styles.cleanText.count {
+            styles.cleanText[index] = text
+            pass.styles = styles
+        }
+        activePassContent = pass
+        resolvedUncertaintyIndices.insert(index)
+
+        do {
+            try library.savePass(pass, for: project.id)
+        } catch {
+            report(error)
+        }
+    }
+
     // MARK: - Export
 
     /// Export formats exposed in the review toolbar. Phase 1e ships text,

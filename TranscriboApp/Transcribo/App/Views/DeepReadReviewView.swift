@@ -362,16 +362,31 @@ struct DeepReadReviewView: View {
     // MARK: - Uncertainty popover
 
     private func uncertaintyPopover(index: Int, segment: TranscriptionSegment) -> some View {
-        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
+        let alternatives = viewModel.activePassContent?.alternativesByIndex[index] ?? []
+
+        return VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
             VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
                 Text("LLM flagged this turn")
                     .font(ConsensusType.displayEyebrow)
                     .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
                     .tracking(0.8)
-                Text("The reconciliation had low confidence here. Play the context to verify the transcript against the audio.")
+                Text("The reconciliation had low confidence here. Play the audio to verify, or swap in one of the engine alternatives below.")
                     .font(ConsensusType.displayCaption)
                     .foregroundStyle(ConsensusTheme.Colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if !alternatives.isEmpty {
+                VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
+                    Text("ALTERNATIVES")
+                        .font(ConsensusType.displayEyebrow)
+                        .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                        .tracking(0.8)
+
+                    ForEach(Array(alternatives.enumerated()), id: \.offset) { i, alt in
+                        alternativeButton(index: index, alt: alt, position: i)
+                    }
+                }
             }
 
             HStack(spacing: ConsensusTheme.Spacing.sm) {
@@ -408,7 +423,70 @@ struct DeepReadReviewView: View {
             }
         }
         .padding(ConsensusTheme.Spacing.lg)
-        .frame(width: 320)
+        .frame(width: 360)
+    }
+
+    private func alternativeButton(
+        index: Int,
+        alt: TurnAlternative,
+        position: Int
+    ) -> some View {
+        // Position 0 → ⌘1, position 1 → ⌘2 (matches the rewrite plan's
+        // A/B shortcuts).
+        let shortcutKey: KeyEquivalent? = position == 0 ? "1" : (position == 1 ? "2" : nil)
+
+        return Button {
+            viewModel.applyAlternative(at: index, text: alt.text)
+            activePopoverIndex = nil
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: ConsensusTheme.Spacing.xs) {
+                    Text(alt.source.uppercased())
+                        .font(ConsensusType.displayEyebrow)
+                        .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                        .tracking(0.8)
+                    if let key = shortcutKey {
+                        Text("⌘\(String(key.character))")
+                            .font(ConsensusType.monoMetric)
+                            .foregroundStyle(ConsensusTheme.Colors.textMuted)
+                    }
+                }
+                Text(alt.text)
+                    .font(ConsensusType.displayBody)
+                    .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                    .lineLimit(3)
+                    .truncationMode(.tail)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, ConsensusTheme.Spacing.md)
+            .padding(.vertical, ConsensusTheme.Spacing.sm)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm, style: .continuous)
+                    .fill(ConsensusTheme.Colors.surfaceSecondary)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm, style: .continuous)
+                            .stroke(ConsensusTheme.Colors.borderSubtle, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .modifier(OptionalKeyboardShortcut(key: shortcutKey))
+    }
+
+    // MARK: - Keyboard shortcut helper
+
+    /// Applies a `.keyboardShortcut` only when the key is non-nil.
+    private struct OptionalKeyboardShortcut: ViewModifier {
+        let key: KeyEquivalent?
+        func body(content: Content) -> some View {
+            if let key {
+                content.keyboardShortcut(key, modifiers: [.command])
+            } else {
+                content
+            }
+        }
     }
 
     // MARK: - Formatters

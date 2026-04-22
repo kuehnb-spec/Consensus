@@ -28,6 +28,13 @@ struct TranscriptPass: Codable, Sendable {
     /// so the set survives transcript edits that preserve positions.
     var uncertainSegmentIndices: Set<Int>
 
+    /// Alternative text sources per uncertain segment, keyed by index into
+    /// `segments`. The Phase 1d.3 review popover renders these as
+    /// click-to-apply options so the user can swap in Engine A's or
+    /// Engine B's text if the LLM's reconciliation read the audio wrong.
+    /// Empty for passes without multi-engine reconciliation.
+    var alternativesByIndex: [Int: [TurnAlternative]]
+
     /// Which engines ran. Empty for `.standard` (single-engine); non-empty
     /// for `.deep` / `.verified` (multi-engine reconciliation).
     var engineAttribution: EngineAttribution
@@ -45,6 +52,7 @@ struct TranscriptPass: Codable, Sendable {
         createdAt: Date = Date(),
         segments: [TranscriptionSegment],
         uncertainSegmentIndices: Set<Int> = [],
+        alternativesByIndex: [Int: [TurnAlternative]] = [:],
         engineAttribution: EngineAttribution = EngineAttribution(),
         styles: StylePair? = nil,
         quality: QualitySummary = QualitySummary()
@@ -53,10 +61,25 @@ struct TranscriptPass: Codable, Sendable {
         self.createdAt = createdAt
         self.segments = segments
         self.uncertainSegmentIndices = uncertainSegmentIndices
+        self.alternativesByIndex = alternativesByIndex
         self.engineAttribution = engineAttribution
         self.styles = styles
         self.quality = quality
     }
+}
+
+/// One click-to-apply option in the uncertainty popover. Phase 1d.3 sources
+/// these from Engine A and Engine B's pre-reconciliation segments for turns
+/// the LLM flagged as uncertain. Later can carry LLM-emitted alternatives
+/// once the prompt supports it.
+struct TurnAlternative: Codable, Hashable, Sendable {
+    /// Where the text came from ("Engine A (Parakeet)", "Engine B
+    /// (Whisper Large v3)", "LLM reconciliation", …). Displayed as a
+    /// small label in the popover.
+    let source: String
+
+    /// The candidate text the user can accept.
+    let text: String
 }
 
 // MARK: - Engine attribution
