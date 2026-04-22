@@ -195,16 +195,28 @@ struct ProjectLibraryView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: ConsensusTheme.Spacing.md) {
-            Image(systemName: "tray")
+        let isSearching = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !viewModel.library.index.isEmpty
+
+        return VStack(spacing: ConsensusTheme.Spacing.md) {
+            Image(systemName: isSearching ? "magnifyingglass" : "tray")
                 .font(.system(size: 40, weight: .light))
                 .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-            Text("No projects yet")
+            Text(isSearching ? "No matches" : "No projects yet")
                 .font(ConsensusType.displaySubheading)
                 .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-            Text("Drop audio on the main window to create your first project.")
+            Text(isSearching
+                 ? "No projects match \"\(query)\". Try a different title or speaker name."
+                 : "Drop audio on the main window to create your first project.")
                 .font(ConsensusType.displayCaption)
                 .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 360)
+            if isSearching {
+                Button("Clear search") { query = "" }
+                    .buttonStyle(.bordered)
+                    .padding(.top, ConsensusTheme.Spacing.xs)
+            }
         }
     }
 

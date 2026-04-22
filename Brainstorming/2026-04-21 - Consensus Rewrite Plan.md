@@ -314,9 +314,11 @@ The typeface change alone will make the app feel 2x more considered. Everything 
 - [ ] Promote to a proper separate `Window` scene (file menu entry, own entry in the Dock/Window menu) — deferred; needs app-level VM plumbing.
 - [ ] Legacy project read-only import — deferred to Phase 0.5 follow-up.
 
-**Phase 6 — Polish + Claude Design brief** (ongoing)
-- Animations, loading states, empty states.
-- Write Claude Design brief and iterate on aesthetic refresh.
+**Phase 6 — Polish + Claude Design brief** (ongoing) — **first polish pass, April 21 evening**
+- [x] Stage transition animations. Switching between `.idle → .importingAudio → .setup → .transcribing → …` now cross-fades with a subtle 99% scale-in over 200 ms. Keyed on a case-only `stageIdentityToken` so progress-tick re-renders don't animate.
+- [x] `KeyboardShortcutsView` — cheat-sheet sheet reachable via ⌘/. Five grouped sections (Global / Setup / Speaker naming / Review / Export) with every shortcut in the rewrite, rendered as `⌘J` "keycap" chips in a mono font. Discoverability win for everything Phase 1d.4, 1e.1, 5, and the root shortcut host ship.
+- [x] Project Library empty state now distinguishes "no projects yet" (first launch) from "no matches" (search typo) with different iconography, copy, and a Clear-search button in the second case.
+- [ ] Claude Design brief + full aesthetic refresh — scheduled for mid-May per the plan's "Later" note on visual identity. Keeping the current Deep-Slate + Indigo language through the autonomous push.
 
 ## What happens to the current app during the rewrite
 

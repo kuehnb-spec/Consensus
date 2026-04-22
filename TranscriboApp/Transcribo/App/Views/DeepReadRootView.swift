@@ -11,56 +11,17 @@ struct DeepReadRootView: View {
     @State private var showingInspector: Bool = false
     @State private var showingLibrary: Bool = false
     @State private var showingVoiceLibrary: Bool = false
+    @State private var showingShortcuts: Bool = false
 
     var body: some View {
         ZStack {
             ConsensusTheme.Colors.background
                 .ignoresSafeArea()
 
-            switch viewModel.stage {
-            case .idle:
-                DeepReadDropView(viewModel: viewModel)
-
-            case .importingAudio(let url):
-                StageProgressView(
-                    headline: "Preparing audio",
-                    detail: url.lastPathComponent,
-                    fraction: nil
-                )
-
-            case .setup:
-                DeepReadSetupView(viewModel: viewModel)
-
-            case .transcribing(let progress):
-                StageProgressView(
-                    headline: "Transcribing",
-                    detail: progress.label.isEmpty ? "Engine A pass in progress…" : progress.label,
-                    fraction: progress.fraction
-                )
-
-            case .namingSpeakers(let suggestions):
-                SpeakerNamingView(
-                    viewModel: viewModel,
-                    suggestions: suggestions
-                )
-
-            case .reconciling(let progress):
-                StageProgressView(
-                    headline: "Reconciling",
-                    detail: progress.label.isEmpty ? "LLM pass in progress…" : progress.label,
-                    fraction: progress.fraction
-                )
-
-            case .reviewing:
-                DeepReadReviewView(viewModel: viewModel)
-
-            case .exporting:
-                PlaceholderStageView(
-                    stage: "Export",
-                    plan: "Phase 1d — format picker + include-summary checkbox."
-                )
-            }
+            currentStageView
+                .transition(.opacity.combined(with: .scale(scale: 0.99)))
         }
+        .animation(.easeInOut(duration: 0.2), value: stageIdentityToken)
         .preferredColorScheme(.dark)
         .tint(ConsensusTheme.Colors.accent)
         .fileImporter(
@@ -94,6 +55,9 @@ struct DeepReadRootView: View {
         }
         .sheet(isPresented: $showingVoiceLibrary) {
             VoiceLibraryView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showingShortcuts) {
+            KeyboardShortcutsView()
         }
         .background(libraryShortcutHost)
         .toolbar {
@@ -164,6 +128,72 @@ struct DeepReadRootView: View {
         }
     }
 
+    // MARK: - Stage routing
+
+    @ViewBuilder
+    private var currentStageView: some View {
+        switch viewModel.stage {
+        case .idle:
+            DeepReadDropView(viewModel: viewModel)
+
+        case .importingAudio(let url):
+            StageProgressView(
+                headline: "Preparing audio",
+                detail: url.lastPathComponent,
+                fraction: nil
+            )
+
+        case .setup:
+            DeepReadSetupView(viewModel: viewModel)
+
+        case .transcribing(let progress):
+            StageProgressView(
+                headline: "Transcribing",
+                detail: progress.label.isEmpty ? "Engine A pass in progress…" : progress.label,
+                fraction: progress.fraction
+            )
+
+        case .namingSpeakers(let suggestions):
+            SpeakerNamingView(
+                viewModel: viewModel,
+                suggestions: suggestions
+            )
+
+        case .reconciling(let progress):
+            StageProgressView(
+                headline: "Reconciling",
+                detail: progress.label.isEmpty ? "LLM pass in progress…" : progress.label,
+                fraction: progress.fraction
+            )
+
+        case .reviewing:
+            DeepReadReviewView(viewModel: viewModel)
+
+        case .exporting:
+            PlaceholderStageView(
+                stage: "Export",
+                plan: "Phase 1e.4 — format picker + include-summary checkbox."
+            )
+        }
+    }
+
+    /// A simple Equatable token the `.animation(_:value:)` can key off of.
+    /// The `Stage` enum has associated values that don't fit into Equatable
+    /// cheaply (progress updates fire on every fraction change and would
+    /// animate each tick). This token changes only when the case changes.
+    private var stageIdentityToken: Int {
+        switch viewModel.stage {
+        case .idle:             return 0
+        case .importingAudio:   return 1
+        case .setup:            return 2
+        case .transcribing:     return 3
+        case .namingSpeakers:   return 4
+        case .reconciling:      return 5
+        case .reviewing:        return 6
+        case .exporting:        return 7
+        }
+    }
+
     // MARK: - Hidden keyboard-shortcut host
 
     /// Zero-sized button group that registers window-level keyboard
@@ -176,6 +206,11 @@ struct DeepReadRootView: View {
                 showingLibrary.toggle()
             }
             .keyboardShortcut("l", modifiers: [.command])
+
+            Button("Keyboard shortcuts") {
+                showingShortcuts.toggle()
+            }
+            .keyboardShortcut("/", modifiers: [.command])
         }
         .frame(width: 0, height: 0)
         .opacity(0)
