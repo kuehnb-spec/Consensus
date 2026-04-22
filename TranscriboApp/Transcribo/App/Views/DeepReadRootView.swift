@@ -85,9 +85,22 @@ struct DeepReadRootView: View {
                     .foregroundStyle(ConsensusTheme.Colors.textPrimary)
             }
             if viewModel.project != nil {
-                // Export + Copy actions only make sense once there's a
-                // transcript on screen.
+                // Export + Copy + Summary-pane toggle only make sense once
+                // there's a transcript on screen.
                 if case .reviewing = viewModel.stage {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            viewModel.toggleSummaryPane()
+                        } label: {
+                            Label(
+                                viewModel.showSummaryPane ? "Hide summary" : "Show summary",
+                                systemImage: viewModel.showSummaryPane
+                                    ? "sidebar.trailing"
+                                    : "sidebar.squares.trailing"
+                            )
+                        }
+                        .help("Toggle the summary & to-dos pane")
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         copyMenu
                     }

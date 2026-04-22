@@ -17,9 +17,18 @@ struct DeepReadReviewView: View {
         HStack(spacing: 0) {
             transcriptColumn
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if viewModel.showSummaryPane {
+                SummaryPane(viewModel: viewModel)
+                    .transition(.move(edge: .trailing))
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: viewModel.showSummaryPane)
         .background(ConsensusTheme.Colors.background)
         .background(keyboardShortcutHost)
+        .onAppear {
+            viewModel.loadSummaryIfNeeded()
+        }
     }
 
     /// Hidden buttons that register global keyboard shortcuts for the

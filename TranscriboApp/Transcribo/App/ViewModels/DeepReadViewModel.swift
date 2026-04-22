@@ -48,6 +48,24 @@ final class DeepReadViewModel {
     /// Shared audio player for Play Context actions.
     private let audioPlayer = AudioContextPlayer()
 
+    /// The summary + to-dos document for the current project. Loaded from
+    /// disk on entering `.reviewing`; edited in `SummaryPane`; saved via
+    /// `ProjectLibrary.saveSummary(_:for:)`.
+    var summary: SummaryDocument = SummaryDocument()
+
+    /// Whether the summary pane is visible in the review view. Persisted
+    /// on `project.settings.includeSummary` so the choice survives a
+    /// close-and-reopen.
+    var showSummaryPane: Bool = false
+
+    /// UI state for summary generation.
+    enum SummaryState: Equatable {
+        case idle
+        case running(fraction: Double, label: String)
+        case error(String)
+    }
+    var summaryState: SummaryState = .idle
+
     /// User-facing error, consumed by the parent view's alert modifier.
     var errorMessage: String?
     var showError: Bool = false
@@ -370,9 +388,134 @@ final class DeepReadViewModel {
         audioPlayer.stop()
         isPlayingContext = false
         resolvedUncertaintyIndices = []
+        summary = SummaryDocument()
+        summaryState = .idle
+        showSummaryPane = false
         project = nil
         activePassContent = nil
         stage = .idle
+    }
+
+    // MARK: - Summary
+
+    /// Load the summary document for the current project from disk. Called
+    /// from the review view on first appearance. No-op if there's no
+    /// project or if `summaryState` is already populated for it.
+    func loadSummaryIfNeeded() {
+        guard let project, case .idle = summaryState else { return }
+        if let loaded = try? library.loadSummary(project.id) {
+            summary = loaded
+        }
+        // Auto-show the pane if the project was set up with summary on,
+        // or if there's already content on disk.
+        if project.settings.includeSummary ||
+           !summary.summary.isEmpty ||
+           !summary.todos.isEmpty {
+            showSummaryPane = true
+        }
+    }
+
+    func toggleSummaryPane() {
+        showSummaryPane.toggle()
+    }
+
+    /// Runs `SummaryRunner` against the active pass and persists the
+    /// result. Called from the SummaryPane's Generate / Regenerate
+    /// buttons. On success, updates `summary` and persists to
+    /// `summary.json`. On failure, surfaces an error on `summaryState`.
+    func regenerateSummary() async {
+        guard let project, let pass = activePassContent else { return }
+
+        let runner = SummaryRunner()
+        summaryState = .running(fraction: 0, label: "Starting…")
+
+        do {
+            let output = try await runner.run(
+                project: project,
+                pass: pass,
+                model: CleanupModel.recommended(),
+                progress: { [weak self] update in
+                    Task { @MainActor [weak self] in
+                        self?.summaryState = .running(
+                            fraction: update.fraction,
+                            label: update.label
+                        )
+                    }
+                }
+            )
+
+            var updated = summary
+            updated.summary = output.summary
+            updated.todos = output.todos
+            updated.summaryRegeneratedAt = Date()
+            updated.todosRegeneratedAt = Date()
+            updated.summaryEditedByUser = false
+            updated.todosEditedByUser = false
+            try library.saveSummary(updated, for: project.id)
+            summary = updated
+            summaryState = .idle
+        } catch {
+            summaryState = .error(error.localizedDescription)
+        }
+    }
+
+    /// Write user-edited summary text back to disk. Called from the
+    /// SummaryPane's text editor on commit.
+    func saveSummaryEdit(_ newSummary: String) {
+        guard let project else { return }
+        summary.summary = newSummary
+        summary.summaryEditedByUser = true
+        try? library.saveSummary(summary, for: project.id)
+    }
+
+    /// Toggle a to-do's done state; persists immediately.
+    func toggleTodoDone(_ todoID: UUID) {
+        guard let project,
+              let idx = summary.todos.firstIndex(where: { $0.id == todoID }) else { return }
+        summary.todos[idx].isDone.toggle()
+        summary.todosEditedByUser = true
+        try? library.saveSummary(summary, for: project.id)
+    }
+
+    /// Edit a to-do's text; persists immediately.
+    func updateTodoText(_ todoID: UUID, _ newText: String) {
+        guard let project,
+              let idx = summary.todos.firstIndex(where: { $0.id == todoID }) else { return }
+        summary.todos[idx].text = newText
+        summary.todosEditedByUser = true
+        try? library.saveSummary(summary, for: project.id)
+    }
+
+    /// Copy the summary text to the pasteboard.
+    func copySummary() {
+        guard !summary.summary.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(summary.summary, forType: .string)
+        copyConfirmationVisible = true
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            self?.copyConfirmationVisible = false
+        }
+    }
+
+    /// Copy the to-dos to the pasteboard as a Markdown checklist.
+    func copyTodos() {
+        guard !summary.todos.isEmpty else { return }
+        let lines = summary.todos.map { todo -> String in
+            let box = todo.isDone ? "[x]" : "[ ]"
+            let owner = todo.ownerSpeakerID.flatMap { id in
+                project?.speakers.first { $0.id == id }?.displayName
+            }
+            let suffix = owner.map { " (\($0))" } ?? ""
+            return "- \(box) \(todo.text)\(suffix)"
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+        copyConfirmationVisible = true
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            self?.copyConfirmationVisible = false
+        }
     }
 
     // MARK: - Uncertainty review
