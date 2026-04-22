@@ -811,6 +811,16 @@ final class DeepReadViewModel {
         update { $0.settings.domainHint = hint }
     }
 
+    func setSummaryLength(_ length: SummaryLength) {
+        summary.length = length
+        if let project { try? library.saveSummary(summary, for: project.id) }
+    }
+
+    func setSummarySpecialInstructions(_ text: String) {
+        summary.specialInstructions = text
+        if let project { try? library.saveSummary(summary, for: project.id) }
+    }
+
     private func update(_ mutate: (inout ProjectDocument) -> Void) {
         guard var current = project else { return }
         mutate(&current)

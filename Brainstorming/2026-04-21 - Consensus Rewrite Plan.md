@@ -290,10 +290,13 @@ The typeface change alone will make the app feel 2x more considered. Everything 
 - [ ] Export to Desktop as Legal PDF + Markdown by default (deferred; needs PDF renderer in Phase 1e.4+).
 - [ ] Max-5 uncertainty cap in Quick Take (deferred polish).
 
-**Phase 3 — Studio** (2-3 sessions)
-- Wrap the Deep Read UI with a control surface: tier picker, engine controls, advanced summary options, voice library manager, pipeline inspector.
-- Manual Editor already built — integrate.
-- Process Log + Diagnostic Mode already built — integrate.
+**Phase 3 — Studio** (2-3 sessions) — **partial ship, April 21 evening**
+- [x] Studio setup card: all four SpeedTier rows (Standard / Deep / Verified / Perfect) in vertical stack with tagline and radio affordance, instead of Deep Read's two-chip picker.
+- [x] Domain hint picker: General / Legal / Medical / Technical / Business chips + a "Custom…" text field for free-form domains. Wired through `DomainHint.custom(String)`.
+- [x] Advanced summary knobs when `includeSummary` is on: length segmented picker (High-level / Brief / Detailed) bound to `SummaryDocument.length`, and a multi-line "Special instructions" text field bound to `SummaryDocument.specialInstructions`.
+- [x] Pipeline Inspector: `gauge.medium` toolbar button in Studio mode opens a sheet with PASS / ENGINES / QUALITY / STAGE TIMINGS sections, timings sorted by canonical pipeline order with mono-font values, all text selectable.
+- [ ] Manual Editor + Process Log + Diagnostic Mode integration (deferred — the legacy views still work; integration into the new toolbar needs a routing decision).
+- [ ] Multi-pass controls (force FA on/off, engine model overrides, smoother parameter overrides) — deferred, needs cross-cutting service changes.
 
 **Phase 4 — Voice library** (1-2 sessions)
 - Auto-detect from "Hi, this is X" via a small LLM scan of the first 90s.

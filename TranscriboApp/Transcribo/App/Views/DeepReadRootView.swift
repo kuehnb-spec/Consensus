@@ -8,6 +8,7 @@ struct DeepReadRootView: View {
     @EnvironmentObject private var settings: AppSettings
 
     @State private var showingExportSheet: Bool = false
+    @State private var showingInspector: Bool = false
 
     var body: some View {
         ZStack {
@@ -83,6 +84,9 @@ struct DeepReadRootView: View {
         .sheet(isPresented: $showingExportSheet) {
             ExportSheet(viewModel: viewModel)
         }
+        .sheet(isPresented: $showingInspector) {
+            PipelineInspectorView(viewModel: viewModel)
+        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Text("Consensus")
@@ -93,6 +97,16 @@ struct DeepReadRootView: View {
                 // Export + Copy + Summary-pane toggle only make sense once
                 // there's a transcript on screen.
                 if case .reviewing = viewModel.stage {
+                    if viewModel.project?.mode == .studio {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button {
+                                showingInspector = true
+                            } label: {
+                                Label("Inspector", systemImage: "gauge.medium")
+                            }
+                            .help("Open the Pipeline Inspector")
+                        }
+                    }
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             viewModel.toggleSummaryPane()

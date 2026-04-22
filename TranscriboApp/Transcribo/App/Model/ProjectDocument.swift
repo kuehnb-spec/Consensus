@@ -280,6 +280,10 @@ enum DomainHint: Codable, Hashable, Sendable {
         case .custom(let text): return text
         }
     }
+
+    /// Canonical list of presets for the Studio domain picker. Does not
+    /// include `.custom` — the UI surfaces that separately.
+    static let presets: [DomainHint] = [.general, .legal, .medical, .technical, .business]
 }
 
 enum TranscriptStyle: String, Codable, CaseIterable, Hashable, Sendable {
