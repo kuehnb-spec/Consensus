@@ -8,6 +8,7 @@ import SwiftUI
 /// cost when the flag is off. If either store fails to initialise, a simple
 /// error card is shown instead of the root view.
 struct RewrittenSurface: View {
+    @EnvironmentObject private var settings: AppSettings
     @State private var viewModel: DeepReadViewModel?
     @State private var setupError: String?
 
@@ -30,7 +31,9 @@ struct RewrittenSurface: View {
             let library = try ProjectLibrary()
             let voice = try VoiceLibraryStore()
             try voice.reload()
-            viewModel = DeepReadViewModel(library: library, voiceStore: voice)
+            let vm = DeepReadViewModel(library: library, voiceStore: voice)
+            vm.mode = ModeState(rawValue: settings.rewrittenDefaultModeRaw) ?? .deepRead
+            viewModel = vm
         } catch {
             setupError = error.localizedDescription
         }

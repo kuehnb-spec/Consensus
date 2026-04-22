@@ -282,10 +282,13 @@ The typeface change alone will make the app feel 2x more considered. Everything 
   - [x] `DeepReadSetupView` · [x] (generic) progress view · [ ] `SpeakerNamingView` · [ ] full `TranscriptReviewView` (basic version shipped) · [ ] `UncertaintyPopover` · [ ] `SummaryPane` · [ ] `ExportSheet`
 - VM: `DeepReadViewModel` — shared orchestrator for all three modes. Stage machine covers all eight flow states; 1c/1d/1e unstub the later stages.
 
-**Phase 2 — Quick Take** (1 session)
-- Trim the Deep Read UI down to one scroll view. Same VM (`DeepReadViewModel`) but with `suppressUI: true` flags on the stages Quick Take hides.
-- Auto-select tier based on audio length.
-- Skip summary/todos by default.
+**Phase 2 — Quick Take** (1 session) — **DONE, April 21 evening**
+- [x] Mode picker chips on the drop view (Quick Take / Deep Read / Studio) with icon, label, and tagline; selection persists across launches via `AppSettings.rewrittenDefaultModeRaw`.
+- [x] `beginImport(from:)` branches on mode: Quick Take skips the `.setup` stage entirely and kicks off transcription immediately (zero configuration screens per the plan). Deep Read + Studio still land on the setup card.
+- [x] Speed auto-picks from audio duration for Quick Take — `.deep` for ≤30 min (fits inside the single-shot LLM context), `.standard` otherwise.
+- [x] Summary + to-dos default to off for Quick Take.
+- [ ] Export to Desktop as Legal PDF + Markdown by default (deferred; needs PDF renderer in Phase 1e.4+).
+- [ ] Max-5 uncertainty cap in Quick Take (deferred polish).
 
 **Phase 3 — Studio** (2-3 sessions)
 - Wrap the Deep Read UI with a control surface: tier picker, engine controls, advanced summary options, voice library manager, pipeline inspector.

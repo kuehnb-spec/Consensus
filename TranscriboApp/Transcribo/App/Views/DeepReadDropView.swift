@@ -7,7 +7,8 @@ import UniformTypeIdentifiers
 ///
 /// Shown when `DeepReadViewModel.stage == .idle`.
 struct DeepReadDropView: View {
-    let viewModel: DeepReadViewModel
+    @Bindable var viewModel: DeepReadViewModel
+    @EnvironmentObject private var settings: AppSettings
 
     @State private var isTargeted: Bool = false
 
@@ -32,6 +33,10 @@ struct DeepReadDropView: View {
                         .font(ConsensusType.displayBody)
                         .foregroundStyle(ConsensusTheme.Colors.textSecondary)
                 }
+
+                // Mode picker — three chips governing what happens after a drop.
+                modePicker
+                    .frame(maxWidth: 520)
 
                 // Drop zone card
                 dropCard
@@ -146,6 +151,56 @@ struct DeepReadDropView: View {
         let fmt = RelativeDateTimeFormatter()
         fmt.unitsStyle = .short
         return fmt.localizedString(for: date, relativeTo: Date())
+    }
+
+    // MARK: - Mode picker
+
+    private var modePicker: some View {
+        HStack(spacing: ConsensusTheme.Spacing.sm) {
+            ForEach(ModeState.allCases) { mode in
+                modeChip(mode: mode, selected: viewModel.mode == mode)
+            }
+        }
+    }
+
+    private func modeChip(mode: ModeState, selected: Bool) -> some View {
+        Button {
+            viewModel.mode = mode
+            settings.rewrittenDefaultModeRaw = mode.rawValue
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: ConsensusTheme.Spacing.xs) {
+                    Image(systemName: mode.iconSystemName)
+                        .font(.system(size: 12, weight: .medium))
+                    Text(mode.displayName)
+                        .font(ConsensusType.displayBody.weight(selected ? .semibold : .medium))
+                }
+                Text(mode.tagline)
+                    .font(ConsensusType.displayCaption)
+                    .foregroundStyle(selected ? ConsensusTheme.Colors.textSecondary : ConsensusTheme.Colors.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, ConsensusTheme.Spacing.md)
+            .padding(.vertical, ConsensusTheme.Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                    .fill(selected ? ConsensusTheme.Colors.accentSubtle : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                            .stroke(
+                                selected ? ConsensusTheme.Colors.accent : ConsensusTheme.Colors.border,
+                                lineWidth: selected ? 1.5 : 1
+                            )
+                    )
+            )
+            .foregroundStyle(
+                selected ? ConsensusTheme.Colors.accent : ConsensusTheme.Colors.textPrimary
+            )
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: selected)
     }
 
     // MARK: - Drop card

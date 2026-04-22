@@ -141,6 +141,11 @@ final class AppSettings: ObservableObject {
     /// flag removed.
     @AppStorage("useRewrittenUI") var useRewrittenUI: Bool = false
 
+    /// Default mode for new projects in the rewritten UI (Quick Take /
+    /// Deep Read / Studio). Persists across launches so a user who always
+    /// uses Quick Take doesn't have to re-pick every time.
+    @AppStorage("rewrittenDefaultMode") var rewrittenDefaultModeRaw: String = "deepRead"
+
     @AppStorage("projectTemplates") var projectTemplatesData: Data = Data()
 
     /// Saved project setting templates.

@@ -180,7 +180,14 @@ final class DeepReadViewModel {
 
     /// Kick off the import from a dropped audio URL. Validates the file,
     /// copies or links it into the project directory, persists a fresh
-    /// `ProjectDocument`, and advances the stage to `.setup`.
+    /// `ProjectDocument`, and advances the stage.
+    ///
+    /// For `.deepRead` and `.studio`, the flow stops at `.setup` so the
+    /// user can pick Speed + Include options. For `.quickTake`, the setup
+    /// stage is bypassed entirely (no configuration screens, per the plan)
+    /// — Speed auto-picks from audio duration (≤30 min → Deep, else
+    /// Standard), summary stays off by default, transcription starts
+    /// immediately.
     func beginImport(from url: URL) async {
         stage = .importingAudio(url: url)
 
@@ -194,17 +201,38 @@ final class DeepReadViewModel {
                 contentHash: nil
             )
             let title = url.deletingPathExtension().lastPathComponent
+            var settings = ProjectSettings()
+            if mode == .quickTake {
+                settings.speed = Self.recommendedQuickTakeSpeed(durationSeconds: info.duration)
+                settings.includeSummary = false
+                settings.includeTodos = false
+            }
             let document = ProjectDocument(
                 title: title,
                 audio: audio,
-                mode: mode
+                mode: mode,
+                settings: settings
             )
             let created = try library.create(document)
             self.project = created
-            self.stage = .setup
+
+            if mode == .quickTake {
+                // Skip the setup card — go straight to Transcribing.
+                await startTranscription()
+            } else {
+                self.stage = .setup
+            }
         } catch {
             report(error)
         }
+    }
+
+    /// Speed tier Quick Take should auto-pick from audio length.
+    /// Under 30 minutes gets the LLM reconciliation tier; over 30 minutes
+    /// falls back to Standard so the single-shot LLM prompt doesn't blow
+    /// out its context window.
+    static func recommendedQuickTakeSpeed(durationSeconds: Double) -> SpeedTier {
+        durationSeconds <= 30 * 60 ? .deep : .standard
     }
 
     /// Called from the setup card when the user presses Transcribe.
