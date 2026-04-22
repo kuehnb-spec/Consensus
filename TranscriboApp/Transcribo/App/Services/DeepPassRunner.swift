@@ -188,6 +188,17 @@ final class DeepPassRunner {
             reconciled.enumerated().compactMap { $0.element.isUncertain ? $0.offset : nil }
         )
 
+        // Pair reconciled (clean) text with Engine A-derived verbatim text.
+        // Engine A's output carries the acoustic ground truth — including
+        // disfluencies, false starts, fillers — that the LLM tends to
+        // smooth away. Aligning by time overlap lets the user toggle
+        // between "grammatically-smoothed" and "faithful-to-audio" views
+        // without a second LLM pass.
+        let styles = Self.buildStylePair(
+            reconciled: mergedSegments,
+            engineA: standardPass.segments
+        )
+
         return TranscriptPass(
             kind: .deep,
             segments: mergedSegments,
@@ -198,13 +209,37 @@ final class DeepPassRunner {
                 diarizer: standardPass.engineAttribution.diarizer,
                 language: options.language
             ),
-            styles: nil,
+            styles: styles,
             quality: QualitySummary(
                 diarizationConfidence: standardPass.quality.diarizationConfidence,
                 uncertainSegmentCount: uncertainIndices.count,
                 stageTimings: stageTimings
             )
         )
+    }
+
+    /// For each reconciled (clean) segment, concatenates Engine A segments
+    /// whose time range overlaps to produce the verbatim counterpart.
+    /// Falls back to the clean text when no Engine A overlap is found
+    /// (rare, typically only happens with very short segments at the edges).
+    private static func buildStylePair(
+        reconciled: [TranscriptionSegment],
+        engineA: [TranscriptionSegment]
+    ) -> StylePair {
+        var verbatim: [String] = []
+        var clean: [String] = []
+        for seg in reconciled {
+            let overlapping = engineA.filter { a in
+                a.end > seg.start && a.start < seg.end
+            }
+            let joined = overlapping
+                .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            verbatim.append(joined.isEmpty ? seg.text : joined)
+            clean.append(seg.text)
+        }
+        return StylePair(verbatimText: verbatim, cleanText: clean)
     }
 
     // MARK: - Adapters

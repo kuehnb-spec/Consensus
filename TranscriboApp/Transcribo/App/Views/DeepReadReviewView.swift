@@ -142,6 +142,10 @@ struct DeepReadReviewView: View {
 
             Spacer()
 
+            if hasStylePair {
+                styleToggle
+            }
+
             if viewModel.unresolvedUncertaintyCount > 0 {
                 reviewCountBadge(count: viewModel.unresolvedUncertaintyCount)
             }
@@ -150,6 +154,53 @@ struct DeepReadReviewView: View {
                 confidenceBadge(value: diarizationConfidence)
             }
         }
+    }
+
+    private var hasStylePair: Bool {
+        guard let pass = viewModel.activePassContent else { return false }
+        return pass.styles?.isAligned == true
+    }
+
+    private var currentStyle: TranscriptStyle {
+        viewModel.project?.settings.transcriptStyle ?? .clean
+    }
+
+    private var styleToggle: some View {
+        HStack(spacing: 2) {
+            styleChip(label: "Clean", isActive: currentStyle == .clean) {
+                viewModel.setTranscriptStyle(.clean)
+            }
+            styleChip(label: "Verbatim", isActive: currentStyle == .verbatim) {
+                viewModel.setTranscriptStyle(.verbatim)
+            }
+        }
+        .padding(2)
+        .background(
+            Capsule(style: .continuous)
+                .fill(ConsensusTheme.Colors.surfaceSecondary)
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(ConsensusTheme.Colors.borderSubtle, lineWidth: 1)
+                )
+        )
+    }
+
+    private func styleChip(label: String, isActive: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(ConsensusType.displayCaption.weight(isActive ? .semibold : .regular))
+                .padding(.horizontal, ConsensusTheme.Spacing.sm)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(isActive ? ConsensusTheme.Colors.accentSubtle : Color.clear)
+                )
+                .foregroundStyle(
+                    isActive ? ConsensusTheme.Colors.accent : ConsensusTheme.Colors.textSecondary
+                )
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.12), value: isActive)
     }
 
     private func reviewCountBadge(count: Int) -> some View {
@@ -199,6 +250,22 @@ struct DeepReadReviewView: View {
                 .fill(ConsensusTheme.Colors.surfaceSecondary)
                 .overlay(Capsule(style: .continuous).stroke(ConsensusTheme.Colors.borderSubtle, lineWidth: 1))
         )
+    }
+
+    /// Returns the text to render for a given segment, respecting the
+    /// active verbatim/clean toggle. Falls back to `segment.text` when
+    /// the current pass doesn't carry a `StylePair` or when the toggle
+    /// is set to clean (the default).
+    private func styledText(for segment: TranscriptionSegment, at index: Int) -> String {
+        guard let pass = viewModel.activePassContent,
+              let styles = pass.styles,
+              styles.isAligned,
+              currentStyle == .verbatim,
+              index >= 0, index < styles.verbatimText.count
+        else {
+            return segment.text
+        }
+        return styles.verbatimText[index]
     }
 
     // MARK: - Empty state
@@ -272,7 +339,7 @@ struct DeepReadReviewView: View {
                 }
             }
 
-            Text(segment.text)
+            Text(styledText(for: segment, at: index))
                 .font(ConsensusType.transcriptBody)
                 .foregroundStyle(ConsensusTheme.Colors.textPrimary)
                 .textSelection(.enabled)

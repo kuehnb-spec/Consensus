@@ -759,6 +759,9 @@ final class DeepReadViewModel {
     private func renderActivePass(format: ExportFormat, includeSummary: Bool) -> String? {
         guard let project, let pass = activePassContent else { return nil }
 
+        // Respect the current verbatim/clean toggle on export.
+        let styledPass = Self.applyStyle(pass: pass, style: project.settings.transcriptStyle)
+
         let summary: SummaryDocument?
         if includeSummary {
             summary = try? library.loadSummary(project.id)
@@ -768,22 +771,43 @@ final class DeepReadViewModel {
 
         switch format {
         case .plainText:
-            return TranscriptExporter.plainText(project: project, pass: pass)
+            return TranscriptExporter.plainText(project: project, pass: styledPass)
         case .markdown:
             return TranscriptExporter.markdown(
                 project: project,
-                pass: pass,
+                pass: styledPass,
                 summary: summary,
                 includeSummary: includeSummary
             )
         case .obsidianMarkdown:
             return TranscriptExporter.obsidianMarkdown(
                 project: project,
-                pass: pass,
+                pass: styledPass,
                 summary: summary,
                 includeSummary: includeSummary
             )
         }
+    }
+
+    /// Return a copy of `pass` whose `segments[].text` reflects the
+    /// chosen style. When `.verbatim` is requested and a `StylePair` is
+    /// present, substitute the Engine-A-derived verbatim text in.
+    /// Clean mode (or passes without a style pair) returns the pass
+    /// unchanged.
+    private static func applyStyle(pass: TranscriptPass, style: TranscriptStyle) -> TranscriptPass {
+        guard style == .verbatim,
+              let styles = pass.styles,
+              styles.isAligned,
+              styles.verbatimText.count == pass.segments.count
+        else { return pass }
+
+        var copy = pass
+        copy.segments = zip(pass.segments, styles.verbatimText).map { segment, verbatim in
+            var s = segment
+            s.text = verbatim
+            return s
+        }
+        return copy
     }
 
     // MARK: - Settings mutators
