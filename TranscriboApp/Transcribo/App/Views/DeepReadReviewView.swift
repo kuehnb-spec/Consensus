@@ -8,7 +8,10 @@ import SwiftUI
 /// and inline LLM-surfaced uncertainty popovers. Phase 1d adds the
 /// summary pane and export sheet.
 struct DeepReadReviewView: View {
-    let viewModel: DeepReadViewModel
+    @Bindable var viewModel: DeepReadViewModel
+
+    /// Which uncertainty popover is open, by segment index. `nil` = none.
+    @State private var activePopoverIndex: Int?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -32,26 +35,36 @@ struct DeepReadReviewView: View {
                         .frame(height: 1)
                 }
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: ConsensusTheme.Spacing.lg) {
-                    if let pass = viewModel.activePassContent {
-                        if pass.segments.isEmpty {
-                            emptyPassMessage
-                        } else {
-                            ForEach(Array(pass.segments.enumerated()), id: \.offset) { _, segment in
-                                turnRow(segment: segment)
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: ConsensusTheme.Spacing.lg) {
+                        if let pass = viewModel.activePassContent {
+                            if pass.segments.isEmpty {
+                                emptyPassMessage
+                            } else {
+                                ForEach(Array(pass.segments.enumerated()), id: \.offset) { index, segment in
+                                    turnRow(index: index, segment: segment)
+                                        .id(index)
+                                }
                             }
+                        } else {
+                            ProgressView("Loading transcript…")
+                                .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                                .padding(ConsensusTheme.Spacing.xxl)
                         }
-                    } else {
-                        ProgressView("Loading transcript…")
-                            .foregroundStyle(ConsensusTheme.Colors.textSecondary)
-                            .padding(ConsensusTheme.Spacing.xxl)
+                    }
+                    .padding(.horizontal, ConsensusTheme.Spacing.xxl)
+                    .padding(.vertical, ConsensusTheme.Spacing.xl)
+                    .frame(maxWidth: 820, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .onChange(of: activePopoverIndex) { _, newValue in
+                    if let newValue {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            scrollProxy.scrollTo(newValue, anchor: .center)
+                        }
                     }
                 }
-                .padding(.horizontal, ConsensusTheme.Spacing.xxl)
-                .padding(.vertical, ConsensusTheme.Spacing.xl)
-                .frame(maxWidth: 820, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .center)
             }
         }
     }
@@ -90,10 +103,41 @@ struct DeepReadReviewView: View {
 
             Spacer()
 
+            if viewModel.unresolvedUncertaintyCount > 0 {
+                reviewCountBadge(count: viewModel.unresolvedUncertaintyCount)
+            }
+
             if let diarizationConfidence = viewModel.activePassContent?.quality.diarizationConfidence {
                 confidenceBadge(value: diarizationConfidence)
             }
         }
+    }
+
+    private func reviewCountBadge(count: Int) -> some View {
+        Button {
+            guard let next = viewModel.nextUncertainty(after: activePopoverIndex) else { return }
+            activePopoverIndex = next
+        } label: {
+            HStack(spacing: ConsensusTheme.Spacing.xs) {
+                Image(systemName: "questionmark.circle.fill")
+                    .font(.system(size: 11))
+                Text("\(count) to review")
+                    .font(ConsensusType.displayCaption.weight(.medium))
+            }
+            .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
+            .padding(.horizontal, ConsensusTheme.Spacing.sm)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(ConsensusTheme.Colors.confidenceAmber.opacity(0.12))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(ConsensusTheme.Colors.confidenceAmber.opacity(0.35), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .help("Jump to the next uncertain turn")
     }
 
     private func confidenceBadge(value: Double) -> some View {
@@ -140,12 +184,13 @@ struct DeepReadReviewView: View {
 
     // MARK: - Turn row
 
-    private func turnRow(segment: TranscriptionSegment) -> some View {
+    private func turnRow(index: Int, segment: TranscriptionSegment) -> some View {
         let speaker = viewModel.project?.speakers.first { $0.id == segment.speakerID }
         let palette = ConsensusTheme.Colors.speakerPalette
         let colorIndex = speaker?.paletteIndex ?? 0
         let color = palette[colorIndex % palette.count]
         let displayName = speaker?.displayName ?? segment.speakerID
+        let isUncertain = viewModel.isUncertain(index: index)
 
         return VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
             HStack(spacing: ConsensusTheme.Spacing.sm) {
@@ -160,6 +205,32 @@ struct DeepReadReviewView: View {
                 Text(formattedTimestamp(segment.start))
                     .font(ConsensusType.monoTimestamp)
                     .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+
+                Spacer()
+
+                if isUncertain {
+                    Button {
+                        activePopoverIndex = (activePopoverIndex == index) ? nil : index
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "questionmark.circle.fill")
+                                .font(.system(size: 11))
+                            Text("Review")
+                                .font(ConsensusType.displayCaption.weight(.medium))
+                        }
+                        .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
+                    }
+                    .buttonStyle(.plain)
+                    .popover(
+                        isPresented: Binding(
+                            get: { activePopoverIndex == index },
+                            set: { if !$0 { activePopoverIndex = nil } }
+                        ),
+                        arrowEdge: .trailing
+                    ) {
+                        uncertaintyPopover(index: index, segment: segment)
+                    }
+                }
             }
 
             Text(segment.text)
@@ -168,6 +239,68 @@ struct DeepReadReviewView: View {
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.horizontal, isUncertain ? ConsensusTheme.Spacing.md : 0)
+        .padding(.vertical, isUncertain ? ConsensusTheme.Spacing.sm : 0)
+        .background(
+            isUncertain
+            ? RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                .fill(ConsensusTheme.Colors.confidenceAmber.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                        .stroke(ConsensusTheme.Colors.confidenceAmber.opacity(0.35), lineWidth: 1)
+                )
+            : nil
+        )
+    }
+
+    // MARK: - Uncertainty popover
+
+    private func uncertaintyPopover(index: Int, segment: TranscriptionSegment) -> some View {
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
+            VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
+                Text("LLM flagged this turn")
+                    .font(ConsensusType.displayEyebrow)
+                    .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
+                    .tracking(0.8)
+                Text("The reconciliation had low confidence here. Play the context to verify the transcript against the audio.")
+                    .font(ConsensusType.displayCaption)
+                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: ConsensusTheme.Spacing.sm) {
+                Button {
+                    if viewModel.isPlayingContext {
+                        viewModel.stopContext()
+                    } else {
+                        viewModel.playContext(for: segment)
+                    }
+                } label: {
+                    Label(
+                        viewModel.isPlayingContext ? "Stop" : "Play context",
+                        systemImage: viewModel.isPlayingContext ? "stop.fill" : "play.fill"
+                    )
+                    .font(ConsensusType.displayBody.weight(.medium))
+                    .padding(.horizontal, ConsensusTheme.Spacing.sm)
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(ConsensusTheme.Colors.accent)
+
+                Button {
+                    viewModel.markUncertaintyResolved(at: index)
+                    activePopoverIndex = nil
+                } label: {
+                    Label("Mark resolved", systemImage: "checkmark")
+                        .font(ConsensusType.displayBody.weight(.medium))
+                        .padding(.horizontal, ConsensusTheme.Spacing.sm)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(ConsensusTheme.Spacing.lg)
+        .frame(width: 320)
     }
 
     // MARK: - Formatters

@@ -34,6 +34,19 @@ final class DeepReadViewModel {
     /// from here rather than re-hitting disk. Cleared on `close()`.
     private(set) var activePassContent: TranscriptPass?
 
+    /// Indices (into `activePassContent.segments`) that the user has
+    /// explicitly marked as resolved from the uncertainty list. Survives
+    /// only for the duration of the open project — cleared on `close()`.
+    /// Persistence to disk can come later if the use case demands it.
+    var resolvedUncertaintyIndices: Set<Int> = []
+
+    /// Whether the audio player is currently playing a context clip.
+    /// Drives the Play / Stop button icon in the uncertainty popover.
+    private(set) var isPlayingContext: Bool = false
+
+    /// Shared audio player for Play Context actions.
+    private let audioPlayer = AudioContextPlayer()
+
     /// User-facing error, consumed by the parent view's alert modifier.
     var errorMessage: String?
     var showError: Bool = false
@@ -353,9 +366,91 @@ final class DeepReadViewModel {
     /// Return to the idle state, releasing the current project from memory.
     /// The project stays on disk; reopen via the Project Library window.
     func close() {
+        audioPlayer.stop()
+        isPlayingContext = false
+        resolvedUncertaintyIndices = []
         project = nil
         activePassContent = nil
         stage = .idle
+    }
+
+    // MARK: - Uncertainty review
+
+    /// Count of uncertain segments the user still needs to look at.
+    /// Drives the "N to review" badge in the review view header.
+    var unresolvedUncertaintyCount: Int {
+        guard let pass = activePassContent else { return 0 }
+        return pass.uncertainSegmentIndices.subtracting(resolvedUncertaintyIndices).count
+    }
+
+    /// True when this segment index is flagged by the LLM AND not yet
+    /// resolved by the user.
+    func isUncertain(index: Int) -> Bool {
+        guard let pass = activePassContent else { return false }
+        return pass.uncertainSegmentIndices.contains(index)
+            && !resolvedUncertaintyIndices.contains(index)
+    }
+
+    /// Mark an uncertain segment as resolved — removes it from the review
+    /// counter but keeps the LLM flag on disk so the pass stays honest.
+    func markUncertaintyResolved(at index: Int) {
+        resolvedUncertaintyIndices.insert(index)
+    }
+
+    /// Undo a resolve — puts the segment back into the counter.
+    func unresolveUncertainty(at index: Int) {
+        resolvedUncertaintyIndices.remove(index)
+    }
+
+    /// The next unresolved-uncertainty segment index after `current`,
+    /// wrapping to the start if needed. `nil` when none remain.
+    func nextUncertainty(after current: Int?) -> Int? {
+        guard let pass = activePassContent else { return nil }
+        let candidates = pass.uncertainSegmentIndices
+            .subtracting(resolvedUncertaintyIndices)
+            .sorted()
+        guard !candidates.isEmpty else { return nil }
+        if let current, let found = candidates.first(where: { $0 > current }) {
+            return found
+        }
+        return candidates.first
+    }
+
+    /// The previous unresolved-uncertainty segment, wrapping to the end.
+    func previousUncertainty(before current: Int?) -> Int? {
+        guard let pass = activePassContent else { return nil }
+        let candidates = pass.uncertainSegmentIndices
+            .subtracting(resolvedUncertaintyIndices)
+            .sorted()
+        guard !candidates.isEmpty else { return nil }
+        if let current, let found = candidates.last(where: { $0 < current }) {
+            return found
+        }
+        return candidates.last
+    }
+
+    // MARK: - Play Context
+
+    /// Play the audio under a segment ±`padding` seconds. Used by the Play
+    /// Context button in uncertainty popovers and future inline playback.
+    func playContext(
+        for segment: TranscriptionSegment,
+        padding: TimeInterval = 2
+    ) {
+        guard let url = project?.audio.originalURL else { return }
+        let start = max(0, segment.start - padding)
+        let end = segment.end + padding
+        isPlayingContext = true
+        audioPlayer.play(url: url, from: start, to: end) { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.isPlayingContext = false
+            }
+        }
+    }
+
+    func stopContext() {
+        audioPlayer.stop()
+        isPlayingContext = false
     }
 
     // MARK: - Settings mutators

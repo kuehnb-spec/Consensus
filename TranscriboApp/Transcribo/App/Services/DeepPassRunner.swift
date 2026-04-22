@@ -184,11 +184,14 @@ final class DeepPassRunner {
                 words: nil
             )
         }
-        let uncertain = reconciled.filter(\.isUncertain).count
+        let uncertainIndices = Set(
+            reconciled.enumerated().compactMap { $0.element.isUncertain ? $0.offset : nil }
+        )
 
         return TranscriptPass(
             kind: .deep,
             segments: mergedSegments,
+            uncertainSegmentIndices: uncertainIndices,
             engineAttribution: EngineAttribution(
                 primaryEngine: standardPass.engineAttribution.primaryEngine,
                 supportingEngines: [options.whisperModel.displayName] + standardPass.engineAttribution.supportingEngines,
@@ -198,7 +201,7 @@ final class DeepPassRunner {
             styles: nil,
             quality: QualitySummary(
                 diarizationConfidence: standardPass.quality.diarizationConfidence,
-                uncertainSegmentCount: uncertain,
+                uncertainSegmentCount: uncertainIndices.count,
                 stageTimings: stageTimings
             )
         )

@@ -268,7 +268,11 @@ The typeface change alone will make the app feel 2x more considered. Everything 
 - [~] **Phase 1c**: *(1c.1 done)*
   - [x] **1c.1**: `SpeakerNamingView` shows after transcription; user confirms or renames speakers; names persist on `project.speakers` with `isConfirmed`. Skip and Continue (⌘↩) buttons. Speaker chips use palette colours.
   - [x] **1c.2**: `IntroScanner` (regex-based "Hi, this is X" / "My name is X" / "X speaking" detection) pre-fills naming suggestions from the Standard pass. `DeepPassRunner` wraps WhisperKit + `LLMReconcileService` to produce the `.deep` pass on top of the Standard pass when Speed ≥ Deep; confirmed names feed in as `knownSpeakerNames`; `.deep` is persisted and becomes `project.activePass`. Fails gracefully to the Standard pass with an alert if the deep run errors. Voice library match still pending (Phase 4).
-- [ ] **Phase 1d**: `TranscriptReviewView` upgrades — verbatim/clean toggle, inline uncertainty popovers (A/B/manual + Play Context widget), "3 to review" counter with ⌘→/⌘← navigation, keyboard shortcuts ⌘1/⌘2 for option A/B.
+- [~] **Phase 1d**: *(1d.1 done)*
+  - [x] **1d.1**: Uncertainty popovers (LLM-flagged turns are amber-highlighted; clicking Review shows a popover with Play Context and Mark Resolved actions; header shows "N to review" badge that jumps to the next unresolved uncertainty). `AudioContextPlayer` reused from the legacy Manual Editor. Resolved state is per-session (cleared on project close).
+  - [ ] **1d.2**: Verbatim/clean toggle — requires extending `LLMReconcileService`'s prompt to produce both in one pass, stored as `StylePair` on TranscriptPass.
+  - [ ] **1d.3**: A/B choice + manual override in the uncertainty popover — requires the LLM to surface per-turn alternatives, not just an `isUncertain` flag. Biggest prompt change.
+  - [ ] **1d.4**: ⌘→/⌘←/⌘1/⌘2 keyboard shortcuts for review navigation.
 - [ ] **Phase 1e**: `SummaryPane` (editable summary + to-dos, per-section Copy + Export + Regenerate), `ExportSheet` (format picker + include-summary checkbox, Obsidian/Markdown as first-class target with YAML frontmatter).
 - Plan-defined views, status column:
   - [x] `DeepReadSetupView` · [x] (generic) progress view · [ ] `SpeakerNamingView` · [ ] full `TranscriptReviewView` (basic version shipped) · [ ] `UncertaintyPopover` · [ ] `SummaryPane` · [ ] `ExportSheet`

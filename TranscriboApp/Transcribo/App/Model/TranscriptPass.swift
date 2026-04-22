@@ -21,6 +21,13 @@ struct TranscriptPass: Codable, Sendable {
     /// Segments in time order.
     var segments: [TranscriptionSegment]
 
+    /// Indices into `segments` that the LLM flagged as genuinely uncertain
+    /// during reconciliation. Surfaces in the review view as highlighted
+    /// turns with an explanatory popover. Empty for passes the LLM didn't
+    /// run on (e.g. `.standard`). Stored as indices rather than segment IDs
+    /// so the set survives transcript edits that preserve positions.
+    var uncertainSegmentIndices: Set<Int>
+
     /// Which engines ran. Empty for `.standard` (single-engine); non-empty
     /// for `.deep` / `.verified` (multi-engine reconciliation).
     var engineAttribution: EngineAttribution
@@ -37,6 +44,7 @@ struct TranscriptPass: Codable, Sendable {
         kind: PassKind,
         createdAt: Date = Date(),
         segments: [TranscriptionSegment],
+        uncertainSegmentIndices: Set<Int> = [],
         engineAttribution: EngineAttribution = EngineAttribution(),
         styles: StylePair? = nil,
         quality: QualitySummary = QualitySummary()
@@ -44,6 +52,7 @@ struct TranscriptPass: Codable, Sendable {
         self.kind = kind
         self.createdAt = createdAt
         self.segments = segments
+        self.uncertainSegmentIndices = uncertainSegmentIndices
         self.engineAttribution = engineAttribution
         self.styles = styles
         self.quality = quality
