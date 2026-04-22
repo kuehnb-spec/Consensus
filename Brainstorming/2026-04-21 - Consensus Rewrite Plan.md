@@ -298,11 +298,12 @@ The typeface change alone will make the app feel 2x more considered. Everything 
 - [ ] Manual Editor + Process Log + Diagnostic Mode integration (deferred — the legacy views still work; integration into the new toolbar needs a routing decision).
 - [ ] Multi-pass controls (force FA on/off, engine model overrides, smoother parameter overrides) — deferred, needs cross-cutting service changes.
 
-**Phase 4 — Voice library** (1-2 sessions)
-- Auto-detect from "Hi, this is X" via a small LLM scan of the first 90s.
-- SpeakerKit embedding extraction for library storage.
-- Match-on-transcription.
-- Voice Library manager view (Studio only).
+**Phase 4 — Voice library** (1-2 sessions) — **partial ship, April 21 evening**
+- [x] "Hi, this is X" detection — shipped earlier as regex-based `IntroScanner` (Phase 1c.2). LLM variant still open if recall needs improvement.
+- [x] `VoiceLibraryView` — Studio-only sheet. Split sidebar (voice list + search + colour-coded avatars) / detail (rename, tag chips, project appearances, delete). Wired through `VoiceLibraryStore`'s add/update/remove/recordAppearance.
+- [x] Toolbar button `person.wave.2` in Studio `.reviewing` state.
+- [ ] **SpeakerKit embedding extraction for library storage** — deferred. Requires reading SpeakerKit's pyannote-v4 CoreML model output to get the 256-float embedding per speaker; the `SpeakerKitDiarizationService` wrapper doesn't surface it today. Plumbing lives on `VoiceIdentity.embedding` waiting to be populated.
+- [ ] **Match-on-transcription** — deferred, gated on embedding extraction. The cosine-similarity matcher (`VoiceLibrary.matches(for:myVoiceBoost:)`) is already implemented and tested in-model; it wires in at the same moment extraction lands.
 
 **Phase 5 — Project Library window** (1 session) — **DONE as sheet, April 21 evening**
 - [x] `ProjectLibraryView` — 680×560 sheet presentation: header with project count + sort picker (Most recent / Name / Duration) + search field, LazyVStack of project rows (title, duration, relative timestamp, up to 4 speaker names), per-row actions (Show in Finder, Delete with confirmation, Open), right-click context menu with same actions, empty state.

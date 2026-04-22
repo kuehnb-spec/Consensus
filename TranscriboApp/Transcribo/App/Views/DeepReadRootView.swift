@@ -10,6 +10,7 @@ struct DeepReadRootView: View {
     @State private var showingExportSheet: Bool = false
     @State private var showingInspector: Bool = false
     @State private var showingLibrary: Bool = false
+    @State private var showingVoiceLibrary: Bool = false
 
     var body: some View {
         ZStack {
@@ -91,6 +92,9 @@ struct DeepReadRootView: View {
         .sheet(isPresented: $showingLibrary) {
             ProjectLibraryView(viewModel: viewModel)
         }
+        .sheet(isPresented: $showingVoiceLibrary) {
+            VoiceLibraryView(viewModel: viewModel)
+        }
         .background(libraryShortcutHost)
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -118,6 +122,14 @@ struct DeepReadRootView: View {
                                 Label("Inspector", systemImage: "gauge.medium")
                             }
                             .help("Open the Pipeline Inspector")
+                        }
+                        ToolbarItem(placement: .primaryAction) {
+                            Button {
+                                showingVoiceLibrary = true
+                            } label: {
+                                Label("Voice Library", systemImage: "person.wave.2")
+                            }
+                            .help("Manage the voice library")
                         }
                     }
                     ToolbarItem(placement: .primaryAction) {
