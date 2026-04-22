@@ -273,7 +273,11 @@ The typeface change alone will make the app feel 2x more considered. Everything 
   - [ ] **1d.2**: Verbatim/clean toggle — requires extending `LLMReconcileService`'s prompt to produce both in one pass, stored as `StylePair` on TranscriptPass.
   - [ ] **1d.3**: A/B choice + manual override in the uncertainty popover — requires the LLM to surface per-turn alternatives, not just an `isUncertain` flag. Biggest prompt change.
   - [x] **1d.4**: Keyboard shortcuts in the review view — ⌘J (next uncertainty), ⌘K (previous), ⌘. (close popover), ⌘P (play/stop context, within popover), ⌘R (mark resolved, within popover). ⌘J/⌘K use J/K rather than arrow keys to avoid clashing with text-field cursor navigation; discoverable via the "N to review" badge's tooltip.
-- [ ] **Phase 1e**: `SummaryPane` (editable summary + to-dos, per-section Copy + Export + Regenerate), `ExportSheet` (format picker + include-summary checkbox, Obsidian/Markdown as first-class target with YAML frontmatter).
+- [~] **Phase 1e**: *(1e.1 done)*
+  - [x] **1e.1**: `TranscriptExporter` (plain text, Markdown, Obsidian Markdown with YAML frontmatter). Toolbar adds **Copy** menu (⇧⌘C for Markdown) and **Export…** menu (⌘E for Markdown, Save Panel). Appears only in `.reviewing` stage so there's no naked export affordance before a transcript exists.
+  - [ ] **1e.2**: Summary + to-dos generation via `TranscriptCleanupService`. Auto-runs after `.deep` pass when `settings.includeSummary` / `settings.includeTodos` is on. Persists to `summary.json`.
+  - [ ] **1e.3**: `SummaryPane` (editable summary + to-dos, per-section Copy + Regenerate). Right-side pane in the review view, togglable.
+  - [ ] **1e.4**: `ExportSheet` — structured export UI with include-summary checkbox, replaces the current menu-driven flow for Studio mode. Menu can stay for Quick Take.
 - Plan-defined views, status column:
   - [x] `DeepReadSetupView` · [x] (generic) progress view · [ ] `SpeakerNamingView` · [ ] full `TranscriptReviewView` (basic version shipped) · [ ] `UncertaintyPopover` · [ ] `SummaryPane` · [ ] `ExportSheet`
 - VM: `DeepReadViewModel` — shared orchestrator for all three modes. Stage machine covers all eight flow states; 1c/1d/1e unstub the later stages.

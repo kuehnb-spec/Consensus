@@ -811,3 +811,19 @@ Review view: each LLM-flagged turn now renders with an amber-tinted background +
 Infrastructure note: had to swap a `private lazy var audioPlayer` to `private let audioPlayer = AudioContextPlayer()` because the `@Observable` macro's generated init-accessors don't support lazy stored properties. Functionally equivalent for this use — the VM is heavy enough that deferring a 5-line class instance isn't meaningful.
 
 `swift build` clean; `./build-app.sh --release --install` green; app launched under the flag, no crash, flag reset. When the user completes a Deep run, they now see the transcript with amber-highlighted uncertain turns, a counter, and a one-click path to play the audio and confirm or dismiss each flag. Phase 1d.2 (verbatim/clean toggle), 1d.3 (A/B choices), and 1d.4 (keyboard navigation) remain.
+
+### April 21, 2026 (late evening, continued 5) — Phase 1d.4 + 1e.1: Keyboard Shortcuts and Export
+
+Knocked out two small-but-useful slices as polish.
+
+**Phase 1d.4 — keyboard shortcuts.** ⌘J jumps to the next unresolved uncertainty (opens its popover with scroll-into-view animation); ⌘K to previous; ⌘. closes an open popover; ⌘P triggers Play/Stop context within a popover; ⌘R marks the current turn resolved. Chose J/K over ⌘→/⌘← so the shortcuts don't fight with text-field cursor navigation inside the Manual Editor and other text inputs. Global shortcuts live on a hidden zero-sized `keyboardShortcutHost` `Group` (opacity 0, `.allowsHitTesting(false)`, `.accessibilityHidden(true)`) — SwiftUI binds `.keyboardShortcut` at the window level whether or not the button is visible. The "N to review" badge's help tooltip spells them out for discoverability.
+
+**Phase 1e.1 — export.** `App/Services/TranscriptExporter.swift` is a pure-function facade that renders `(ProjectDocument, TranscriptPass, optional SummaryDocument) → String` in three formats: **Plain text** (speaker name + timestamp + text per paragraph), **Markdown** (H1 title, metadata line, optional summary/todos section, per-turn bold speaker + code-formatted timestamp), and **Obsidian Markdown** (same body plus YAML frontmatter with title/date/duration/speakers/tags — matches the shape in the rewrite plan's export-target section). Helpers for duration formatting, timestamp formatting, YAML escaping/list building. Intentionally no PDF/DOCX/SRT yet — those need their own renderers.
+
+VM added `ExportFormat` enum (`.plainText` / `.markdown` / `.obsidianMarkdown`), `copyToPasteboard(format:)` (uses `NSPasteboard.general`, flips a transient `copyConfirmationVisible` flag for 1.8s so the toolbar button can swap the icon to a checkmark), and `exportToFile(format:includeSummary:)` (opens an `NSSavePanel` with the pre-filled filename, writes the rendered string to disk). Requires adding `import AppKit` to the VM for `NSPasteboard` + `NSSavePanel`.
+
+`DeepReadRootView` toolbar grew two `Menu` buttons that appear only in `.reviewing`: **Copy** (with three submenu options — Markdown is ⇧⌘C) and **Export** (same three options — Markdown save is ⌘E). The Copy menu label animates from "Copy / doc.on.doc" to "Copied / checkmark" when `copyConfirmationVisible` is true. Toolbar items have `.help` tooltips with the shortcut hints.
+
+Tested: flipped flag, launched app, confirmed toolbar renders with the new menus — no crash, flag reset. The export path is end-to-end: from a completed Deep run a user can now copy the transcript to the clipboard as Markdown or save it to a .md file via the save panel, with per-turn speaker bolds and timestamps.
+
+Deferred intentionally: 1e.2 (auto-generate summary + to-dos via TranscriptCleanupService after the Deep pass), 1e.3 (SummaryPane view — editable + per-section Copy/Regenerate), 1e.4 (full ExportSheet with include-summary checkbox for Studio mode). The menu-driven approach is good enough for Quick Take + Deep Read ergonomics.

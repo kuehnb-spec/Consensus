@@ -85,6 +85,16 @@ struct DeepReadRootView: View {
                     .foregroundStyle(ConsensusTheme.Colors.textPrimary)
             }
             if viewModel.project != nil {
+                // Export + Copy actions only make sense once there's a
+                // transcript on screen.
+                if case .reviewing = viewModel.stage {
+                    ToolbarItem(placement: .primaryAction) {
+                        copyMenu
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        exportMenu
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         viewModel.close()
@@ -95,6 +105,47 @@ struct DeepReadRootView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Export / copy menus
+
+    private var copyMenu: some View {
+        Menu {
+            Button("Copy as Markdown") {
+                viewModel.copyToPasteboard(format: .markdown)
+            }
+            .keyboardShortcut("c", modifiers: [.command, .shift])
+            Button("Copy as plain text") {
+                viewModel.copyToPasteboard(format: .plainText)
+            }
+            Button("Copy as Obsidian Markdown") {
+                viewModel.copyToPasteboard(format: .obsidianMarkdown)
+            }
+        } label: {
+            Label(
+                viewModel.copyConfirmationVisible ? "Copied" : "Copy",
+                systemImage: viewModel.copyConfirmationVisible ? "checkmark" : "doc.on.doc"
+            )
+        }
+        .help("Copy the transcript to the clipboard (⇧⌘C for Markdown)")
+    }
+
+    private var exportMenu: some View {
+        Menu {
+            Button("Save as Markdown…") {
+                _ = viewModel.exportToFile(format: .markdown)
+            }
+            .keyboardShortcut("e", modifiers: [.command])
+            Button("Save as Obsidian Markdown…") {
+                _ = viewModel.exportToFile(format: .obsidianMarkdown)
+            }
+            Button("Save as plain text…") {
+                _ = viewModel.exportToFile(format: .plainText)
+            }
+        } label: {
+            Label("Export", systemImage: "square.and.arrow.up")
+        }
+        .help("Save the transcript to a file (⌘E for Markdown)")
     }
 }
 

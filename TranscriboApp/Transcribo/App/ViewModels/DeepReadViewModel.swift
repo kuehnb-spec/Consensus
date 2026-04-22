@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import AVFoundation
+import AppKit
 
 /// Orchestrates the Deep Read flow — and, via the `mode` property, the
 /// trimmed Quick Take and expanded Studio surfaces too. There is one shared
@@ -451,6 +452,116 @@ final class DeepReadViewModel {
     func stopContext() {
         audioPlayer.stop()
         isPlayingContext = false
+    }
+
+    // MARK: - Export
+
+    /// Export formats exposed in the review toolbar. Phase 1e ships text,
+    /// Markdown, and Obsidian Markdown; Legal PDF / DOCX / SRT layer on
+    /// later with their own renderers.
+    enum ExportFormat: String, CaseIterable, Identifiable, Hashable, Sendable {
+        case plainText
+        case markdown
+        case obsidianMarkdown
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .plainText:        return "Plain text (.txt)"
+            case .markdown:         return "Markdown (.md)"
+            case .obsidianMarkdown: return "Obsidian Markdown (.md)"
+            }
+        }
+
+        var fileExtension: String {
+            switch self {
+            case .plainText:        return "txt"
+            case .markdown, .obsidianMarkdown: return "md"
+            }
+        }
+    }
+
+    /// Transient flag that flips true for a couple of seconds after a
+    /// successful copy-to-clipboard so the toolbar button can show a
+    /// checkmark. Read by the review view.
+    var copyConfirmationVisible: Bool = false
+
+    /// Render the current active pass in the chosen format and place it on
+    /// the pasteboard. Convenience for "grab the transcript right now"
+    /// flows. Summary/to-dos not included by default — the explicit
+    /// `exportToFile` flow has the include-summary checkbox.
+    func copyToPasteboard(format: ExportFormat = .markdown) {
+        guard let rendered = renderActivePass(format: format, includeSummary: false) else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(rendered, forType: .string)
+
+        copyConfirmationVisible = true
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            self?.copyConfirmationVisible = false
+        }
+    }
+
+    /// Opens an `NSSavePanel` and writes the rendered transcript to disk.
+    /// Returns the saved URL (or `nil` on cancel / error). Runs on the main
+    /// actor — safe to call directly from a SwiftUI action.
+    @discardableResult
+    func exportToFile(
+        format: ExportFormat = .markdown,
+        includeSummary: Bool = false
+    ) -> URL? {
+        guard let rendered = renderActivePass(format: format, includeSummary: includeSummary),
+              let project else { return nil }
+
+        let panel = NSSavePanel()
+        panel.title = "Export transcript"
+        panel.nameFieldStringValue = "\(project.title).\(format.fileExtension)"
+        panel.allowedContentTypes = format.fileExtension == "txt"
+            ? [.plainText]
+            : [.plainText] // macOS UTType doesn't have .markdown natively; .plainText covers .md
+        panel.canCreateDirectories = true
+
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+
+        do {
+            try rendered.write(to: url, atomically: true, encoding: .utf8)
+            return url
+        } catch {
+            report(error)
+            return nil
+        }
+    }
+
+    private func renderActivePass(format: ExportFormat, includeSummary: Bool) -> String? {
+        guard let project, let pass = activePassContent else { return nil }
+
+        let summary: SummaryDocument?
+        if includeSummary {
+            summary = try? library.loadSummary(project.id)
+        } else {
+            summary = nil
+        }
+
+        switch format {
+        case .plainText:
+            return TranscriptExporter.plainText(project: project, pass: pass)
+        case .markdown:
+            return TranscriptExporter.markdown(
+                project: project,
+                pass: pass,
+                summary: summary,
+                includeSummary: includeSummary
+            )
+        case .obsidianMarkdown:
+            return TranscriptExporter.obsidianMarkdown(
+                project: project,
+                pass: pass,
+                summary: summary,
+                includeSummary: includeSummary
+            )
+        }
     }
 
     // MARK: - Settings mutators
