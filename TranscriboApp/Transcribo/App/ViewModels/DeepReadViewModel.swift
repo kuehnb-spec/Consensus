@@ -303,6 +303,14 @@ final class DeepReadViewModel {
         case .deep, .verified, .perfect:
             await runDeepPass()
         }
+
+        // If the user opted into Summary at setup, kick off auto-generation
+        // in the background so the pane populates while they're reading.
+        // Runs on top of whatever transcript pass just completed.
+        if current.settings.includeSummary, activePassContent != nil {
+            showSummaryPane = true
+            Task { await regenerateSummary() }
+        }
     }
 
     /// Runs the Deep-tier pass (Engine B + LLM reconciliation) on top of
