@@ -179,10 +179,26 @@ final class DeepReadViewModel {
             project = try library.save(updated)
             activePassContent = pass
 
-            stage = .reviewing
+            stage = .namingSpeakers(
+                suggestions: Self.buildSuggestions(from: updated.speakers)
+            )
         } catch {
             report(error)
             stage = .setup
+        }
+    }
+
+    /// Builds the suggestion list the naming screen binds to. Phase 1c.2 will
+    /// enrich this with "Hi, this is X" intro scans and voice library matches.
+    private static func buildSuggestions(from speakers: [Speaker]) -> [SpeakerSuggestion] {
+        speakers.map { speaker in
+            SpeakerSuggestion(
+                id: speaker.id,
+                suggestedName: speaker.displayName,
+                voiceLibraryMatchID: speaker.voiceLibraryID,
+                sampleClipURL: nil,
+                confidence: speaker.isConfirmed ? 1.0 : 0.0
+            )
         }
     }
 
@@ -205,14 +221,29 @@ final class DeepReadViewModel {
     }
 
     /// Called from `SpeakerNamingView` when the user confirms speaker names.
-    /// Advances to `.reconciling` for the LLM second-pass refinement.
+    /// Phase 1c.1: writes the confirmed names back into the project and
+    /// advances directly to `.reviewing`. Phase 1c.2 will branch on Speed —
+    /// when Deep, run Engine B + `LLMReconcileService` with the confirmed
+    /// names as `knownSpeakerNames` before advancing.
     func confirmSpeakers(_ mappings: [SpeakerSuggestion]) async {
-        guard project != nil else { return }
-        stage = .reconciling(progress: .zero)
+        guard var current = project else { return }
 
-        // TODO (Phase 1c): run LLMReconcileService with the confirmed names
-        // and the domain hint, persist the deep pass, compute uncertainty
-        // items, transition to `.reviewing`.
+        for suggestion in mappings {
+            guard let idx = current.speakers.firstIndex(where: { $0.id == suggestion.id }) else { continue }
+            let trimmed = suggestion.suggestedName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                current.speakers[idx].displayName = trimmed
+            }
+            current.speakers[idx].isConfirmed = true
+            current.speakers[idx].voiceLibraryID = suggestion.voiceLibraryMatchID
+        }
+
+        do {
+            project = try library.save(current)
+            stage = .reviewing
+        } catch {
+            report(error)
+        }
     }
 
     /// Called from the interactive review view as the user resolves A/B

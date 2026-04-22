@@ -33,10 +33,10 @@ struct DeepReadRootView: View {
                     fraction: progress.fraction
                 )
 
-            case .namingSpeakers:
-                PlaceholderStageView(
-                    stage: "Speaker naming",
-                    plan: "Phase 1c — confirm auto-detected names, integrate voice library."
+            case .namingSpeakers(let suggestions):
+                SpeakerNamingView(
+                    viewModel: viewModel,
+                    suggestions: suggestions
                 )
 
             case .reconciling(let progress):

@@ -262,18 +262,17 @@ The typeface change alone will make the app feel 2x more considered. Everything 
 - [ ] Legacy-project migration path (read-only "Legacy Project" import for existing `TranscriptionProject` files on disk) — deferred to Phase 1 prep, lives with the ViewModel layer.
 - [ ] On-disk load/save for `ProjectDocument` and `VoiceLibrary` — deferred to Phase 1 prep, lives with the ViewModel layer.
 
-**Phase 1 — Deep Read end-to-end** (3-4 sessions)
-- This is the central flow. Build this first because Quick Take is a trimmed version and Studio is an expanded version.
-- New Views:
-  - `DeepReadSetupView` (drop + Speed/Include choices)
-  - `TranscriptionProgressView` (the big progress bar with stages)
-  - `SpeakerNamingView` (confirm auto-detected names, voice library integration)
-  - `TranscriptReviewView` (the main transcript with inline uncertainties + counter + verbatim/clean toggle)
-  - `UncertaintyPopover` (the A/B/manual + Play Context widget)
-  - `SummaryPane` (editable summary + to-dos, copy/export buttons)
-  - `ExportSheet` (formats + include-summary checkbox)
-- New VM: `DeepReadViewModel` — orchestrates the flow stages.
-- Wire the existing services end-to-end through this ViewModel.
+**Phase 1 — Deep Read end-to-end** (3-4 sessions) — **1a + 1b COMPLETE, April 21 evening**
+- [x] **Phase 1a**: store layer (`ProjectLibrary`, `VoiceLibraryStore`), `DeepReadViewModel` skeleton, idle→setup stages wired, `DeepReadRootView` (stage router), `DeepReadDropView` (polished drop target), `DeepReadSetupView` (Speed/Include card), `RewrittenSurface` (root wrapper with lazy VM init), `useRewrittenUI` toggle in Settings. All behind the `useRewrittenUI` flag; legacy UI unchanged.
+- [x] **Phase 1b**: `TranscriptPass` model type, `StandardPassRunner` (Parakeet + SpeakerKit + merge adapter), `startTranscription()` runs the real Standard-tier pipeline end-to-end, pass persisted to `<project>/passes/standard.json`, speaker roster built with palette indices, `DeepReadReviewView` renders the transcript with speaker chips, Source Serif body, JetBrains Mono timestamps, and a diarization confidence pill.
+- [~] **Phase 1c**: *(1c.1 done)*
+  - [x] **1c.1**: `SpeakerNamingView` shows after transcription; user confirms or renames speakers; names persist on `project.speakers` with `isConfirmed`. Skip and Continue (⌘↩) buttons. Speaker chips use palette colours.
+  - [ ] **1c.2**: Engine B (WhisperKit) runs in parallel with Engine A when Speed = Deep → `LLMReconcileService` reconciles both → voice library match + "Hi, this is X" scan pre-fill names → second LLM pass with confirmed names as `knownSpeakerNames` → `.deep` pass written to disk.
+- [ ] **Phase 1d**: `TranscriptReviewView` upgrades — verbatim/clean toggle, inline uncertainty popovers (A/B/manual + Play Context widget), "3 to review" counter with ⌘→/⌘← navigation, keyboard shortcuts ⌘1/⌘2 for option A/B.
+- [ ] **Phase 1e**: `SummaryPane` (editable summary + to-dos, per-section Copy + Export + Regenerate), `ExportSheet` (format picker + include-summary checkbox, Obsidian/Markdown as first-class target with YAML frontmatter).
+- Plan-defined views, status column:
+  - [x] `DeepReadSetupView` · [x] (generic) progress view · [ ] `SpeakerNamingView` · [ ] full `TranscriptReviewView` (basic version shipped) · [ ] `UncertaintyPopover` · [ ] `SummaryPane` · [ ] `ExportSheet`
+- VM: `DeepReadViewModel` — shared orchestrator for all three modes. Stage machine covers all eight flow states; 1c/1d/1e unstub the later stages.
 
 **Phase 2 — Quick Take** (1 session)
 - Trim the Deep Read UI down to one scroll view. Same VM (`DeepReadViewModel`) but with `suppressUI: true` flags on the stages Quick Take hides.
