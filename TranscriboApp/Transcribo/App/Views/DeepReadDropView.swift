@@ -12,43 +12,140 @@ struct DeepReadDropView: View {
     @State private var isTargeted: Bool = false
 
     var body: some View {
-        VStack(spacing: ConsensusTheme.Spacing.xxl) {
-            Spacer(minLength: ConsensusTheme.Spacing.xxl)
+        ScrollView {
+            VStack(spacing: ConsensusTheme.Spacing.xxl) {
+                Spacer(minLength: ConsensusTheme.Spacing.xxl)
 
-            // Wordmark + tagline
-            VStack(spacing: ConsensusTheme.Spacing.sm) {
-                Image(systemName: "waveform")
-                    .font(.system(size: 44, weight: .light))
-                    .foregroundStyle(ConsensusTheme.Colors.accent)
-                    .padding(.bottom, ConsensusTheme.Spacing.xs)
+                // Wordmark + tagline
+                VStack(spacing: ConsensusTheme.Spacing.sm) {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 44, weight: .light))
+                        .foregroundStyle(ConsensusTheme.Colors.accent)
+                        .padding(.bottom, ConsensusTheme.Spacing.xs)
 
-                Text("Consensus")
-                    .font(ConsensusType.display(size: 34, weight: .semibold))
-                    .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-                    .tracking(-0.5)
+                    Text("Consensus")
+                        .font(ConsensusType.display(size: 34, weight: .semibold))
+                        .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                        .tracking(-0.5)
 
-                Text("Privacy-first transcription with speaker diarization.")
-                    .font(ConsensusType.displayBody)
-                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                    Text("Privacy-first transcription with speaker diarization.")
+                        .font(ConsensusType.displayBody)
+                        .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                }
+
+                // Drop zone card
+                dropCard
+                    .frame(width: 520, height: 240)
+
+                // Recent projects — only shown when there is at least one
+                if !viewModel.library.index.isEmpty {
+                    recentProjectsSection
+                        .frame(maxWidth: 520)
+                }
+
+                Spacer(minLength: ConsensusTheme.Spacing.lg)
+
+                // Footer
+                HStack(spacing: ConsensusTheme.Spacing.sm) {
+                    Image(systemName: "lock.shield")
+                        .font(.system(size: 12, weight: .regular))
+                    Text("All processing happens on this device.")
+                        .font(ConsensusType.displayCaption)
+                }
+                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                .padding(.bottom, ConsensusTheme.Spacing.xl)
             }
-
-            // Drop zone card
-            dropCard
-                .frame(width: 520, height: 240)
-
-            Spacer(minLength: ConsensusTheme.Spacing.lg)
-
-            // Footer
-            HStack(spacing: ConsensusTheme.Spacing.sm) {
-                Image(systemName: "lock.shield")
-                    .font(.system(size: 12, weight: .regular))
-                Text("All processing happens on this device.")
-                    .font(ConsensusType.displayCaption)
-            }
-            .foregroundStyle(ConsensusTheme.Colors.textTertiary)
-            .padding(.bottom, ConsensusTheme.Spacing.xl)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task {
+            await viewModel.refreshRecentProjects()
+        }
+    }
+
+    // MARK: - Recent projects
+
+    private var recentProjectsSection: some View {
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
+            Text("RECENT")
+                .font(ConsensusType.displayEyebrow)
+                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                .tracking(1.0)
+
+            VStack(spacing: ConsensusTheme.Spacing.xs) {
+                ForEach(viewModel.library.index.prefix(5)) { entry in
+                    recentProjectRow(entry: entry)
+                }
+            }
+        }
+    }
+
+    private func recentProjectRow(entry: ProjectLibrary.ProjectIndexEntry) -> some View {
+        Button {
+            Task { await viewModel.openProject(entry.id) }
+        } label: {
+            HStack(spacing: ConsensusTheme.Spacing.md) {
+                Image(systemName: "waveform.circle")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(ConsensusTheme.Colors.accent)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.title)
+                        .font(ConsensusType.displayBody.weight(.medium))
+                        .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    HStack(spacing: ConsensusTheme.Spacing.xs) {
+                        Text(Self.formatDuration(entry.durationSeconds))
+                            .font(ConsensusType.monoMetric)
+                        Text("·")
+                            .foregroundStyle(ConsensusTheme.Colors.textMuted)
+                        Text(Self.relative(entry.updatedAt))
+                            .font(ConsensusType.displayCaption)
+                        if !entry.speakerNames.isEmpty {
+                            Text("·")
+                                .foregroundStyle(ConsensusTheme.Colors.textMuted)
+                            Text(entry.speakerNames.prefix(3).joined(separator: ", "))
+                                .font(ConsensusType.displayCaption)
+                                .lineLimit(1)
+                        }
+                    }
+                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+            }
+            .padding(.horizontal, ConsensusTheme.Spacing.md)
+            .padding(.vertical, ConsensusTheme.Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                    .fill(ConsensusTheme.Colors.surfaceSecondary.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                            .stroke(ConsensusTheme.Colors.borderSubtle, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private static func formatDuration(_ seconds: Double) -> String {
+        let total = Int(seconds)
+        let h = total / 3600
+        let m = (total % 3600) / 60
+        let s = total % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
+        return String(format: "%d:%02d", m, s)
+    }
+
+    private static func relative(_ date: Date) -> String {
+        let fmt = RelativeDateTimeFormatter()
+        fmt.unitsStyle = .short
+        return fmt.localizedString(for: date, relativeTo: Date())
     }
 
     // MARK: - Drop card

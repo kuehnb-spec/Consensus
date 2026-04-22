@@ -141,6 +141,43 @@ final class DeepReadViewModel {
 
     // MARK: - Flow
 
+    /// Refresh the project library's index so the drop screen's recent-
+    /// projects section can show the latest rows. Safe to call from an
+    /// `.onAppear` — cheap (reads per-project `project.json` headers only).
+    func refreshRecentProjects() async {
+        do {
+            try await library.reload()
+        } catch {
+            // Non-fatal — the drop screen still works, the recent list is
+            // just empty.
+        }
+    }
+
+    /// Open a previously-transcribed project. Loads its document + active
+    /// pass from disk, hydrates the in-memory caches, advances to the
+    /// stage that makes sense given what's there (`.reviewing` if a pass
+    /// is saved, `.setup` otherwise), and flips the summary pane on if
+    /// the project has saved summary content.
+    func openProject(_ id: UUID) async {
+        do {
+            let doc = try library.load(id)
+            let pass = try library.loadPass(doc.activePass, for: id)
+            project = doc
+            activePassContent = pass
+            resolvedUncertaintyIndices = []
+            if let loadedSummary = try? library.loadSummary(id) {
+                summary = loadedSummary
+                showSummaryPane = !loadedSummary.summary.isEmpty || !loadedSummary.todos.isEmpty
+            } else {
+                summary = SummaryDocument()
+                showSummaryPane = doc.settings.includeSummary
+            }
+            stage = pass == nil ? .setup : .reviewing
+        } catch {
+            report(error)
+        }
+    }
+
     /// Kick off the import from a dropped audio URL. Validates the file,
     /// copies or links it into the project directory, persists a fresh
     /// `ProjectDocument`, and advances the stage to `.setup`.
