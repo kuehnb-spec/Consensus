@@ -750,6 +750,12 @@ final class DeepReadViewModel {
         }
     }
 
+    /// Public entry point for views (e.g. `ExportSheet`) that want the
+    /// rendered string without triggering pasteboard or save-panel I/O.
+    func renderExport(format: ExportFormat, includeSummary: Bool) -> String? {
+        renderActivePass(format: format, includeSummary: includeSummary)
+    }
+
     private func renderActivePass(format: ExportFormat, includeSummary: Bool) -> String? {
         guard let project, let pass = activePassContent else { return nil }
 

@@ -7,6 +7,8 @@ struct DeepReadRootView: View {
     @Bindable var viewModel: DeepReadViewModel
     @EnvironmentObject private var settings: AppSettings
 
+    @State private var showingExportSheet: Bool = false
+
     var body: some View {
         ZStack {
             ConsensusTheme.Colors.background
@@ -78,6 +80,9 @@ struct DeepReadRootView: View {
         } message: {
             Text(viewModel.errorMessage ?? "An unknown error occurred.")
         }
+        .sheet(isPresented: $showingExportSheet) {
+            ExportSheet(viewModel: viewModel)
+        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Text("Consensus")
@@ -145,6 +150,13 @@ struct DeepReadRootView: View {
 
     private var exportMenu: some View {
         Menu {
+            Button("Export with options…") {
+                showingExportSheet = true
+            }
+            .keyboardShortcut("e", modifiers: [.command, .shift])
+
+            Divider()
+
             Button("Save as Markdown…") {
                 _ = viewModel.exportToFile(format: .markdown)
             }
@@ -158,7 +170,7 @@ struct DeepReadRootView: View {
         } label: {
             Label("Export", systemImage: "square.and.arrow.up")
         }
-        .help("Save the transcript to a file (⌘E for Markdown)")
+        .help("Save the transcript to a file (⌘E for Markdown, ⇧⌘E for options)")
     }
 }
 
