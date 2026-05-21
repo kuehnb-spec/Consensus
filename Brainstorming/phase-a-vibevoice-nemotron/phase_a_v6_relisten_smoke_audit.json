@@ -1,0 +1,116 @@
+{
+  "model_load_seconds": 1.4246978759765625,
+  "total_generate_seconds": 6.302065849304199,
+  "candidate_segments": [
+    1,
+    2,
+    3,
+    6
+  ],
+  "applied_count": 1,
+  "audit": [
+    {
+      "segment_index": 1,
+      "start": 2.78,
+      "end": 5.26,
+      "before": "Hello, this is Bernard Cohen.",
+      "relisten_text": "Hello, this is Brant Kuehn.",
+      "patches": [
+        {
+          "find_start": 15,
+          "find_end": 28,
+          "find": "Bernard Cohen",
+          "replace": "Brant Kuehn",
+          "find_words": 2,
+          "replace_words": 2
+        }
+      ],
+      "after": "Hello, this is Brant Kuehn.",
+      "applied": true,
+      "generate_seconds": 2.198403835296631,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 3.12,
+          "speaker_id": null,
+          "text": "Hello, this is Brant Kuehn."
+        },
+        {
+          "start": 3.12,
+          "end": 4.08,
+          "speaker_id": 1,
+          "text": "Yeah."
+        }
+      ]
+    },
+    {
+      "segment_index": 2,
+      "start": 5.26,
+      "end": 6.87,
+      "before": "Yes, hi, it's Tracy.",
+      "relisten_text": "Thank you. Yes, hi, it's Marie. Hey, I'm Marie.",
+      "patches": [],
+      "after": "Yes, hi, it's Tracy.",
+      "applied": false,
+      "generate_seconds": 1.1870338916778564,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 3.21,
+          "speaker_id": null,
+          "text": "Thank you. Yes, hi, it's Marie. Hey, I'm Marie."
+        }
+      ]
+    },
+    {
+      "segment_index": 3,
+      "start": 6.87,
+      "end": 8.86,
+      "before": "Hey, Marie, thanks for calling.",
+      "relisten_text": "Hey, Marie. Thanks for calling.",
+      "patches": [],
+      "after": "Hey, Marie, thanks for calling.",
+      "applied": false,
+      "generate_seconds": 1.9213590621948242,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.75,
+          "speaker_id": null,
+          "text": "Hi, it's Marie."
+        },
+        {
+          "start": 0.75,
+          "end": 2.8,
+          "speaker_id": 1,
+          "text": "Hey, Marie. Thanks for calling."
+        },
+        {
+          "start": 2.8,
+          "end": 3.59,
+          "speaker_id": null,
+          "text": "Yep."
+        }
+      ]
+    },
+    {
+      "segment_index": 6,
+      "start": 16.04,
+      "end": 18.32,
+      "before": "Uh, yes.",
+      "relisten_text": "This week? Uh, yes.",
+      "patches": [],
+      "after": "Uh, yes.",
+      "applied": false,
+      "generate_seconds": 0.9952690601348877,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 3.88,
+          "speaker_id": null,
+          "text": "This week? Uh, yes."
+        }
+      ]
+    }
+  ]
+}

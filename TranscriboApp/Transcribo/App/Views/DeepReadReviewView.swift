@@ -4,9 +4,9 @@ import SwiftUI
 /// standard-pass output (Engine A + SpeakerKit): speaker turns in time
 /// order, with Source Serif body text and JetBrains Mono timestamps.
 ///
-/// Phase 1c layers on the speaker-naming result, verbatim/clean toggle,
-/// and inline LLM-surfaced uncertainty popovers. Phase 1d adds the
-/// summary pane and export sheet.
+/// Deep Review now surfaces patch-editor changes as review items: the app
+/// shows the patched transcript by default, then lets the user inspect audio
+/// evidence or revert the exact turns that changed.
 struct DeepReadReviewView: View {
     @Bindable var viewModel: DeepReadViewModel
 
@@ -211,7 +211,7 @@ struct DeepReadReviewView: View {
             HStack(spacing: ConsensusTheme.Spacing.xs) {
                 Image(systemName: "questionmark.circle.fill")
                     .font(.system(size: 11))
-                Text("\(count) to review")
+                Text("\(count) patch\(count == 1 ? "" : "es")")
                     .font(ConsensusType.displayCaption.weight(.medium))
             }
             .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
@@ -227,7 +227,7 @@ struct DeepReadReviewView: View {
             )
         }
         .buttonStyle(.plain)
-        .help("Jump to the next uncertain turn (⌘J next, ⌘K previous)")
+        .help("Jump to the next patch-review item (⌘J next, ⌘K previous)")
     }
 
     private func confidenceBadge(value: Double) -> some View {
@@ -319,7 +319,7 @@ struct DeepReadReviewView: View {
                         activePopoverIndex = (activePopoverIndex == index) ? nil : index
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "questionmark.circle.fill")
+                            Image(systemName: "checkmark.seal.fill")
                                 .font(.system(size: 11))
                             Text("Review")
                                 .font(ConsensusType.displayCaption.weight(.medium))
@@ -363,22 +363,36 @@ struct DeepReadReviewView: View {
 
     private func uncertaintyPopover(index: Int, segment: TranscriptionSegment) -> some View {
         let alternatives = viewModel.activePassContent?.alternativesByIndex[index] ?? []
+        let notes = viewModel.activePassContent?.patchReviewNotesByIndex[index] ?? []
 
         return VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
             VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
-                Text("LLM flagged this turn")
+                Text("Patch editor changed this turn")
                     .font(ConsensusType.displayEyebrow)
                     .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
                     .tracking(0.8)
-                Text("The reconciliation had low confidence here. Play the audio to verify, or swap in one of the engine alternatives below.")
+                Text("The new Deep Review architecture only applies exact patches that survived local audio checks. Play the audio to verify, or revert to the original VibeVoice text below.")
                     .font(ConsensusType.displayCaption)
                     .foregroundStyle(ConsensusTheme.Colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            if !notes.isEmpty {
+                VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
+                    Text("PATCHES")
+                        .font(ConsensusType.displayEyebrow)
+                        .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                        .tracking(0.8)
+
+                    ForEach(Array(notes.enumerated()), id: \.offset) { _, note in
+                        patchNote(note)
+                    }
+                }
+            }
+
             if !alternatives.isEmpty {
                 VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
-                    Text("ALTERNATIVES")
+                    Text("REVERT")
                         .font(ConsensusType.displayEyebrow)
                         .foregroundStyle(ConsensusTheme.Colors.textTertiary)
                         .tracking(0.8)
@@ -424,6 +438,42 @@ struct DeepReadReviewView: View {
         }
         .padding(ConsensusTheme.Spacing.lg)
         .frame(width: 360)
+    }
+
+    private func patchNote(_ note: PatchReviewNote) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(note.source.uppercased())
+                .font(ConsensusType.displayEyebrow)
+                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                .tracking(0.8)
+            Text("“\(note.find)” → “\(note.replace)”")
+                .font(ConsensusType.displayBody)
+                .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let confidence = note.confidence {
+                Text(String(format: "Confidence %.0f%%", confidence * 100))
+                    .font(ConsensusType.monoMetric)
+                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+            }
+            if let reason = note.reason, !reason.isEmpty {
+                Text(reason)
+                    .font(ConsensusType.displayCaption)
+                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, ConsensusTheme.Spacing.md)
+        .padding(.vertical, ConsensusTheme.Spacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm, style: .continuous)
+                .fill(ConsensusTheme.Colors.surfaceSecondary.opacity(0.7))
+                .overlay(
+                    RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm, style: .continuous)
+                        .stroke(ConsensusTheme.Colors.borderSubtle, lineWidth: 1)
+                )
+        )
     }
 
     private func alternativeButton(

@@ -3,7 +3,7 @@ import Foundation
 import ZIPFoundation
 
 enum ExportFormat: String, CaseIterable, Identifiable, Codable, Sendable {
-    case txt, md, json, srt, rtf, docx, legalPDF
+    case txt, md, obsidianMarkdown, json, srt, rtf, docx, legalPDF
 
     var id: String { rawValue }
 
@@ -11,6 +11,7 @@ enum ExportFormat: String, CaseIterable, Identifiable, Codable, Sendable {
         switch self {
         case .txt: return "Text"
         case .md: return "Markdown"
+        case .obsidianMarkdown: return "Obsidian Markdown"
         case .json: return "JSON"
         case .srt: return "SRT Subtitles"
         case .rtf: return "Rich Text"
@@ -22,6 +23,7 @@ enum ExportFormat: String, CaseIterable, Identifiable, Codable, Sendable {
     var fileExtension: String {
         switch self {
         case .legalPDF: return "pdf"
+        case .obsidianMarkdown: return "md"
         default: return rawValue
         }
     }
@@ -30,6 +32,7 @@ enum ExportFormat: String, CaseIterable, Identifiable, Codable, Sendable {
         switch self {
         case .txt: return "doc.text"
         case .md: return "text.badge.checkmark"
+        case .obsidianMarkdown: return "note.text"
         case .json: return "curlybraces"
         case .srt: return "captions.bubble"
         case .rtf: return "doc.richtext"
@@ -73,6 +76,7 @@ enum ExportService {
         switch format {
         case .txt: data = Data(formatText(result: result, speakerMapping: speakerMapping).utf8)
         case .md: data = Data(formatMarkdown(result: result, speakerMapping: speakerMapping).utf8)
+        case .obsidianMarkdown: data = Data(formatObsidianMarkdown(result: result, speakerMapping: speakerMapping).utf8)
         case .json: data = try formatJSON(result: result)
         case .srt: data = Data(formatSRT(result: result, speakerMapping: speakerMapping).utf8)
         case .rtf: data = Data(formatRTF(result: result, speakerMapping: speakerMapping).utf8)
@@ -200,6 +204,26 @@ enum ExportService {
             }
         }
 
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func formatObsidianMarkdown(
+        result: TranscriptionResult,
+        speakerMapping: SpeakerMapping
+    ) -> String {
+        let speakers = result.detectedSpeakers.map { speakerMapping.displayName(for: $0) }
+        let speakerList = speakers
+            .map { "\"\($0.replacingOccurrences(of: "\"", with: "\\\""))\"" }
+            .joined(separator: ", ")
+        var lines: [String] = []
+        lines.append("---")
+        lines.append("title: \"\(result.audioFileName.replacingOccurrences(of: "\"", with: "\\\""))\"")
+        lines.append("duration: \"\(TimeFormatting.timestamp(result.duration))\"")
+        lines.append("speakers: [\(speakerList)]")
+        lines.append("tags: [consensus/transcript]")
+        lines.append("---")
+        lines.append("")
+        lines.append(formatMarkdown(result: result, speakerMapping: speakerMapping))
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 

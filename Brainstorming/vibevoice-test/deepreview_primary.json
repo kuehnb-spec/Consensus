@@ -1,0 +1,379 @@
+{
+  "engineName": "FluidAudio ASR",
+  "diarizationEngineName": "Multi-Pass + LLM Boundary Confirmation",
+  "modelName": "Parakeet v3",
+  "turns": [
+    {
+      "speaker": "SPEAKER_1",
+      "start": 3.2799999713897705,
+      "end": 4.579999923706055,
+      "text": "Hello, this is Brankine."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 5.71999979019165,
+      "end": 6.960000038146973,
+      "text": "Yes, hi, it's Marie."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 6.960000038146973,
+      "end": 15.380000114440918,
+      "text": "Hey, Maria, thanks for calling. So, yeah, what's going on? What's going on? You guys have mediation next week?"
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 17.260000228881836,
+      "end": 17.81999969482422,
+      "text": "Yes."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 18.6200008392334,
+      "end": 23.299999237060547,
+      "text": "And I take it that it's not leading it, right? Right? No,"
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 23.459999084472656,
+      "end": 26.639999389648438,
+      "text": "No. She's got Virginia on that. On"
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 27.079999923706055,
+      "end": 31.520000457763672,
+      "text": "Are you involved? Are helping out, or is it just sort of separate work streams?"
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 31.280000686645508,
+      "end": 42.52000045776367,
+      "text": "No, no, that's that's I mean, I get, I you know I got a little bit of an update at one point of you know, know, strategy how they were going to approach it, how or she, you you know, what she's thinking about the numbers. But but um, I'm not involved, not involved in on anything."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 42.77000045776367,
+      "end": 46.939998626708984,
+      "text": "But but um got I'm no not involved not involved in on anything."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 47.27000045776367,
+      "end": 54.31999969482422,
+      "text": "So you're not going to be attending or dialing in or whatever next week? No. Got it. Okay. Yeah, look, I think a few things about. Talk So about. Uh, is the idea of asking the arbitrator to push our our call initial call back until after that mediation. I I think that was your idea, which I think is actually a pretty decent idea. Okay. I think I'd probably be in favor of that."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 55.20000076293945,
+      "end": 58.08000183105469,
+      "text": "Yeah, look, I think think a few things things about. talk"
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 57.97999954223633,
+      "end": 57.97999954223633,
+      "text": "So"
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 58.08000183105469,
+      "end": 69.13999938964844,
+      "text": "about. Uh is is idea of asking the arbitrator arbitrator push our our call initial initial call back until after that mediation."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 70.05999755859375,
+      "end": 77.9000015258789,
+      "text": "I I think that was your idea, which I think is actually a pretty decent idea. Okay. I think I'd probably be in favor of that."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 78.5,
+      "end": 78.77999877929688,
+      "text": "Mm -hmm."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 79.26000213623047,
+      "end": 90.05999755859375,
+      "text": "And I'm pretty sure if I recommend it to the client, they'll be okay with it too. Um, that that was that suggestion something that like to do were you just brainstorming? I don't want to, like, you know."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 90.05999755859375,
+      "end": 91.44000244140625,
+      "text": "I don't want to, like, you know."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 92.08000183105469,
+      "end": 105.5999984741211,
+      "text": "Yeah, no, I mean, if you're going that, I would definitely recommend that as well. as well. Um, You know, I just think if we, you know, it's a one-day ADR, hopefully so by the end of Tuesday we'll have a lot more information about where things stand. If and there's a pay down, you know, a full pay down, a partial pay down, you know, that's obviously going to put us in a really a different position. Position, um, we we will be on Monday. So um, you know, I I don't want to waste time or, you know, incur the cost of Love we don't need."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 106.0,
+      "end": 112.91999816894531,
+      "text": "if and there's a pay down, you know, a full pay down, a partial pay down, you know, that's obviously going to put us put in a really a different position."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 113.12000274658203,
+      "end": 124.04000091552734,
+      "text": "position um we we will be on Monday. So um you know, I I don't want to waste waste time or, you know, incur the cost cost of Love Love we don't to."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 123.91999816894531,
+      "end": 124.36000061035156,
+      "text": "need A"
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 124.36000061035156,
+      "end": 134.66000366210938,
+      "text": "Hundred percent. I also want to incur her her I think you think can pretty pretty much assume if you'll give me like  or 20 minutes we finish our call, uh to confirm. But uh I think can pretty you pretty much assume that uh have have client okay to write to the arbitrator uh and that."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 135.10000610351562,
+      "end": 143.82000732421875,
+      "text": "But uh I think can pretty you pretty much assume that uh have have client okay to write to the arbitrator uh and that."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 144.60000610351562,
+      "end": 152.6199951171875,
+      "text": "Okay. Okay. I did look yesterday at have some sort of cancellation policy. policy. Think think was was business day is fine. Fine. So so should should at least, least you, know, reach out by tomorrow."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 152.72000122070312,
+      "end": 156.82000732421875,
+      "text": "fine. So so should should at least, least you, know, reach out by tomorrow."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 157.25,
+      "end": 179.36000061035156,
+      "text": "Tell you what, here's what I'm going to do. I'm going to email my client right now. Give me one second. Okay. Um if if he writes back while we're on the call, have you you know uh you can go ahead and just, you know, email or call the case manager manager whatever whatever tell tell that you have my my consent to suggest we move it back."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 179.89999389648438,
+      "end": 180.33999633789062,
+      "text": "Okay. You know what, it looks like like this is is um an actual arbitration hearing. hearing."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 180.8000030517578,
+      "end": 182.97999572753906,
+      "text": "You know what, it looks like like this is"
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 183.0399932861328,
+      "end": 184.47999572753906,
+      "text": "is"
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 184.47999572753906,
+      "end": 190.0800018310547,
+      "text": "um an actual arbitration hearing. hearing."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 190.1999969482422,
+      "end": 203.5399932861328,
+      "text": "Had, for what it's worth, I had another another of these these for legalists for jams we we one of the calls, calls there was no issue with with there was no issue with But but that said, it's also a different arbitrator. They may have different policies individually. individually Right. Well, he wrote back, so if you want to go ahead and send an an email Oh, wow. That was fast. Well, I told him I told him were having a call. a Okay. So Yeah."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 203.85000610351562,
+      "end": 208.77999877929688,
+      "text": "They may have different policies individually. individually Right."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 210.8800048828125,
+      "end": 219.5,
+      "text": "Well, he wrote back, so if you want to go ahead and send an an email Oh, wow. That was fast. Well, I told him I told him were having a call. a Okay."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 219.9199981689453,
+      "end": 221.75999450683594,
+      "text": "So Yeah."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 221.72000122070312,
+      "end": 234.4199981689453,
+      "text": "Okay. So I I'll yeah, to them after them we get off. off. Um you there I mean, want to do it do it for the next week or you know, I are you trying or guess we'll just just have her let us us know what her availability is? is."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 234.39999389648438,
+      "end": 234.72000122070312,
+      "text": "is."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 234.83999633789062,
+      "end": 243.75999450683594,
+      "text": "I think I we that. do think we just let her us tell us her availability her is. is. Um I don't know if if were going to let let the know why we're putting putting it off. Don't have an opinion about whether we should give a rationale rationale you you email. Um might be be complicated complicated you know, she'll wonder and wonder uh go and back you papers read papers and spend time time out out going on. It might be better just to remain remain silent it. it. But I Yeah,"
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 243.8000030517578,
+      "end": 257.7799987792969,
+      "text": "don't have an opinion about whether we should give a rationale rationale you you email. Um might be be complicated complicated you know, she'll wonder and wonder uh go and back you papers read papers and spend time time out out going on."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 257.7799987792969,
+      "end": 262.2200012207031,
+      "text": "It might be better just to remain remain silent it. it. But I Yeah,"
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 262.4800109863281,
+      "end": 267.94000244140625,
+      "text": "Long, as mean, I maybe I'll just indicate indicate it's, it's know, know and Mutual, yeah. That should be enough, be yeah."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 269.7400207519531,
+      "end": 283.1000061035156,
+      "text": "So So I guess guess brings brings us to uh there anything else else we we should talk about regarding the case? case? I note I that that we haven't, legalist has not received a request for any additional funding. And I don't know if that indicates that that Anthony Anthony found found another source of funds or don't I remember remember the the what the what the is of her needs. Basically I basically I'm getting basically what at is at is time the big issue was was we we down down to the wire we didn't know anything about about much much requested until until a day before. before. And would, would there's going to be a be need for I'd rather rather know about early early so can we figure figure out it's doable or not. not. So I curious if if you're able to give me any insight into whether we should put that on our calendar."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 283.4200134277344,
+      "end": 283.4200134277344,
+      "text": "And"
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 283.4200134277344,
+      "end": 300.5199890136719,
+      "text": "I don't know if that indicates that that Anthony Anthony found found another source of funds or don't I remember remember the the what the what the is of her needs."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 300.8399963378906,
+      "end": 310.70001220703125,
+      "text": "Basically I basically I'm getting basically what at is at is time the big issue was was we we down down to the wire we didn't know anything about about much much requested until until a day before."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 310.7200012207031,
+      "end": 321.4599914550781,
+      "text": "before. And would, would there's going to be a be need for I'd rather rather know about early early so can we figure figure out it's doable or not."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 321.3599853515625,
+      "end": 328.1600036621094,
+      "text": "not. So I curious if if you're able to give me any insight into whether we should put that on our calendar."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 329.0400085449219,
+      "end": 340.6400146484375,
+      "text": "Yeah. I haven't talked about payroll with recently, her I but believe that it's probably probably tomorrow. Um so obviously I, I wasn't wasn't to approach approach because you I had, had you know, know, you and and listen, I apologize that that came down to the wire wire it was like a little bit of a bait and switch and then opening it up again on Monday, you know, that wasn't my my I"
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 340.6400146484375,
+      "end": 357.739990234375,
+      "text": "Um so obviously I, I wasn't wasn't to approach approach because you I had, had you know, know, you and and listen, I apologize that that came down to the wire wire it was like a little bit of a bait and switch and then opening it up again on Monday, you know, that wasn't my my I"
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 357.739990234375,
+      "end": 360.55999755859375,
+      "text": "know. know. We all have clients. I know. I"
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 360.8800048828125,
+      "end": 376.7200012207031,
+      "text": "Yeah. Um, Um, you know, I certainly didn't want to be dealing it with on a Friday night either. Um but yeah, there was, you know, continued interest in, in trying to settle that it next week, which I think I conveyed to you and, you know, never really heard back from, from you guys. So I thought that was a dead end at this point."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 376.8800048828125,
+      "end": 379.260009765625,
+      "text": "So I thought that was a dead end at this point."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 379.3999938964844,
+      "end": 380.0199890136719,
+      "text": "Ah, okay."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 380.6600036621094,
+      "end": 393.44000244140625,
+      "text": "Okay. Um, you know, I was not planning on bothering you about funding this week. Um, my understanding was that legalist isn't open to that short of, you know, revisiting potential that settlement agreement. Um but again, you know, I kind of figured you had said, you know, if I I authorization, I'll you let know. And, uh, it sounded sounded me like you hadn't. I so was dropping it."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 394.79998779296875,
+      "end": 403.5199890136719,
+      "text": "Um but again, you know, I kind of figured figure you had said, you know, if I I authorization, I'll you let know. And, uh, it sounded sounded me like you hadn't."
+    },
+    {
+      "speaker": "SPEAKER_0",
+      "start": 403.7799987792969,
+      "end": 406.29998779296875,
+      "text": "I so was dropping it."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 406.5,
+      "end": 420.5400085449219,
+      "text": "Okay. All right. All right. all Uh, look, I think we would definitely, I'm sure the client would still interested be in something that is similar to what we had proposed, uh, or at least similar to what we had come to. Down I thought through negotiation that up until that Friday then And my recollection on was Monday And I don't mean mean to mischaracterize. Mischaracterize if I if I am doing that, that take it as a as sneaky or or um it's just my memory might be off. But I seem to recall that the structure of what Miss Anthony or amounts the of what Miss Anthony was asking for on Monday was different than where I thought we had left on Friday. Um So if what we what were talking about about Friday Friday is"
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 420.3999938964844,
+      "end": 432.6199951171875,
+      "text": "down I thought through negotiation that up until that Friday then And my recollection on was Monday And I don't mean mean to mischaracterize."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 431.67999267578125,
+      "end": 441.1199951171875,
+      "text": "s mischaracterize if I if I am doing that, that take it as a as sneaky or or um it's just my memory might be off."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 441.260009765625,
+      "end": 448.9800109863281,
+      "text": "But I seem to recall that the structure of what Miss Anthony or amounts the of what Miss Anthony was asking for on Monday was different than where I thought we had left on Friday."
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 450.0799865722656,
+      "end": 450.6400146484375,
+      "text": "Um"
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 450.6199951171875,
+      "end": 450.6199951171875,
+      "text": "So"
+    },
+    {
+      "speaker": "SPEAKER_1",
+      "start": 451.2799987792969,
+      "end": 456.0799865722656,
+      "text": "if what we what were talking about about Friday Friday is"
+    }
+  ]
+}

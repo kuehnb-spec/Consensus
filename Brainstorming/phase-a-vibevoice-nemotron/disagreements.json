@@ -1,0 +1,358 @@
+{
+  "label_a": "VibeVoice",
+  "label_b": "Parakeet",
+  "source_a": "../vibevoice-test/vibevoice_with_context.json",
+  "source_b": "../vibevoice-test/fluidaudio_baseline.json",
+  "disagreements": [
+    {
+      "start": 2.78,
+      "end": 5.599999904632568,
+      "speaker": null,
+      "a_text": "Hello, this is Brant Kuehn.",
+      "b_text": "Hello, this is Branickin.",
+      "a_segment_indices": [
+        1
+      ],
+      "b_segment_indices": [
+        0
+      ],
+      "diff_summary": "A: \"brant kuehn\" / B: \"branickin\""
+    },
+    {
+      "start": 6.87,
+      "end": 16.8799991607666,
+      "speaker": null,
+      "a_text": "Hey, Marie, thanks for calling.",
+      "b_text": "Hey Maria, thanks for calling. Yep. So uh yeah, what's what's going on? You guys have mediation next week?",
+      "a_segment_indices": [
+        3
+      ],
+      "b_segment_indices": [
+        2
+      ],
+      "diff_summary": "A: \"marie\" / B: \"maria\"; A: \"(nothing)\" / B: \"yep so uh yeah what's what's going on you guys have mediation next week\""
+    },
+    {
+      "start": 6.960000038146973,
+      "end": 22.8799991607666,
+      "speaker": 1,
+      "a_text": "Uh, yes.",
+      "b_text": "Hey Maria, thanks for calling. Yep. So uh yeah, what's what's going on? You guys have mediation next week? Uh yes. And I take it that you are not leading it, right? It's",
+      "a_segment_indices": [
+        6
+      ],
+      "b_segment_indices": [
+        2,
+        3
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"hey maria thanks for calling yep so uh yeah what's what's going on you guys have mediation next week\"; A: \"(nothing)\" / B: \"and i take it that you are not leading it right it's\""
+    },
+    {
+      "start": 16.8799991607666,
+      "end": 23.2,
+      "speaker": null,
+      "a_text": "And I take it that you are not leading it, right? It's the...",
+      "b_text": "Uh yes. And I take it that you are not leading it, right? It's",
+      "a_segment_indices": [
+        7
+      ],
+      "b_segment_indices": [
+        3
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"uh yes\"; A: \"the\" / B: \"(nothing)\""
+    },
+    {
+      "start": 22.8799991607666,
+      "end": 47.36000061035156,
+      "speaker": 1,
+      "a_text": "No, no, she's got, uh, Virginia counsel on that. No, no, that's, that's separate. I mean, I get, you know, I got a little bit of update at one point of, of, you know, strategy for how they were going to approach it or how she, you know, what she's seeing about the numbers, but, um.",
+      "b_text": "the No. She's got uh Virginia Council on that. Are you involved? Are you helping out or is it just sort of separate work streams? No, no, that's that's separate. I mean I get, you know I I got a little bit of update at one point of of, you know, strategy for how they were gonna approach it or how she you know w what she's thinking about the numbers but um got it no I'm I'm not involved in merits on anything.",
+      "a_segment_indices": [
+        8,
+        10
+      ],
+      "b_segment_indices": [
+        4,
+        5,
+        6
+      ],
+      "diff_summary": "A: \"no\" / B: \"the\"; A: \"counsel\" / B: \"council\" | A: \"(nothing)\" / B: \"are you involved are you helping out or is it just sort of separate work streams\"; A: \"(nothing)\" / B: \"i\"; A: \"going to\" / B: \"gonna\"; A: \"(nothing)\" / B: \"w\"; \u2026"
+    },
+    {
+      "start": 31.520000457763672,
+      "end": 78.08000183105469,
+      "speaker": null,
+      "a_text": "Got it. So you're not going to be there attending or dialing in or whatever next week? Yeah, look, I think there's a few things to talk about. Uh, one is the idea of asking the arbitrator to push our call, our initial call, back until after that mediation. Um, I think that was your idea, which I think is actually a pretty decent idea.",
+      "b_text": "No, no, that's that's separate. I mean I get, you know I I got a little bit of update at one point of of, you know, strategy for how they were gonna approach it or how she you know w what she's thinking about the numbers but um got it no I'm I'm not involved in merits on anything. So you're not gonna be there attending or dialing in or whatever next week? No. Got it. Okay. Um Yeah, look, I think there's a few things to talk about. So you're not gonna be there attending or dialing in or whatever next week? No. Got it. Okay. Um Yeah, look, I think there's a few things to talk about. Uh one is the idea of asking the arbitrator to push our call our initial call back until after that mediation. Um I think that was your idea, which I think is actually a pretty decent idea. Okay. Um I think I'd probably be in favor of",
+      "a_segment_indices": [
+        11,
+        13,
+        16
+      ],
+      "b_segment_indices": [
+        6,
+        7,
+        8,
+        9
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"no no that's that's separate i mean i get you know i i got a little bit of update at one point of of you know strategy for how they were gonna approach it or how she you know w what she's thinking about the numbers but um\"; A: \"(nothing)\" / B: \"no i'm i'm not involved in merits on anything\" | A: \"going to\" / B: \"gonna\"; A: \"(nothing)\" / B: \"no got it okay um yeah look i think there's a few things to talk about\" | A: \"(nothing)\" / B: \"so you're not gonna be there attending or dialing in or whatever next week no got it okay um\"; A: \"(nothing)\" / B: \"okay um i think i'd probably be in favor of\""
+    },
+    {
+      "start": 69.83999633789062,
+      "end": 78.08000183105469,
+      "speaker": 1,
+      "a_text": "Okay.",
+      "b_text": "Um I think that was your idea, which I think is actually a pretty decent idea. Okay. Um I think I'd probably be in favor of",
+      "a_segment_indices": [
+        17
+      ],
+      "b_segment_indices": [
+        9
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"um i think that was your idea which i think is actually a pretty decent idea\"; A: \"(nothing)\" / B: \"um i think i'd probably be in favor of\""
+    },
+    {
+      "start": 79.02,
+      "end": 91.85,
+      "speaker": null,
+      "a_text": "Uh, and I'm pretty sure that if I recommend it to the client, they'll be okay with it, too. Um, is that, was that suggestion something that you'd like to do, or were you just brainstorming? I don't want to, like, you know.",
+      "b_text": "Uh and I' pretty sure that if I recommend it to the client, they'll be okay with it too. Um is that was that suggestion something that you'd like to do or were you just brainstorming? I don't wanna like you",
+      "a_segment_indices": [
+        20
+      ],
+      "b_segment_indices": [
+        11,
+        12
+      ],
+      "diff_summary": "A: \"i'm\" / B: \"i\"; A: \"want to\" / B: \"wanna\"; A: \"know\" / B: \"(nothing)\""
+    },
+    {
+      "start": 91.5199966430664,
+      "end": 124.55999755859375,
+      "speaker": 1,
+      "a_text": "Yeah, no, I mean, if you're amenable to that, I would definitely recommend that as well. Um, you know, I just think if we, you know, it's a one-day ADR, so hopefully by the end of Tuesday, we'll have a lot more information about where things stand, and if there's a pay down, you know, a full pay down, a partial pay down, you know, that's, that's obviously going to put us all in, in a really different position, um, than we will be on Monday. So, um, you know, I, I certainly don't want to waste anyone's time or, you know, incur the cost of Ms. Love if we don't need to.",
+      "b_text": "know Yeah, no, I mean if you're amenable to that, I I would definitely recommend that as well. Um you know, I just think if we you know, it's a one day ADR so hopefully by the end of Tuesday we'll have a lot more information about where things stand and if there's a pay down you know, a full pay down, a partial pay down, you know, that's that's obviously gonna put us all in in a really different position um than we will be on Monday. So um you know, I I certainly don't want to waste anyone's time or you know, incur the cost of Miss Love if we don't need to.",
+      "a_segment_indices": [
+        21
+      ],
+      "b_segment_indices": [
+        13,
+        14
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"know\"; A: \"(nothing)\" / B: \"i\"; A: \"going to\" / B: \"gonna\"; A: \"ms\" / B: \"miss\"; \u2026"
+    },
+    {
+      "start": 124.37,
+      "end": 144.25,
+      "speaker": null,
+      "a_text": "100%. I also don't want to incur her costs. I, I think you can pretty much assume if you'll give me, like, 20 minutes after we finish our call, uh, just to confirm, uh, but I think you can pretty much assume that, uh, I'll have client okay to write to the arbitrator, uh, and ask that.",
+      "b_text": "Hundred percent. I also don't want to incur her cost. I I think you can pretty much assume if you'll give me like twenty minutes after we finish our call, uh just to confirm, uh but I think you can pretty much assume that uh I'll have client okay to write to the arbitrator uh and ask",
+      "a_segment_indices": [
+        22
+      ],
+      "b_segment_indices": [
+        15
+      ],
+      "diff_summary": "A: \"100\" / B: \"hundred percent\"; A: \"costs\" / B: \"cost\"; A: \"20\" / B: \"twenty\"; A: \"that\" / B: \"(nothing)\"; \u2026"
+    },
+    {
+      "start": 143.9199981689453,
+      "end": 157.36000061035156,
+      "speaker": 1,
+      "a_text": "Okay, because I did look yesterday at, they have some sort of cancellation policy. I think it was one business day is fine. Um, so we should definitely at least, you know, reach out by tomorrow.",
+      "b_text": "that. Okay. Cause I did look yesterday at they have some sort of cancellation policy. I think it was one business day is fine. Um so we should definitely at least you, know re,ach out by tomorrow.",
+      "a_segment_indices": [
+        23
+      ],
+      "b_segment_indices": [
+        16,
+        17
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"that\"; A: \"because\" / B: \"cause\"; A: \"reach\" / B: \"re ach\""
+    },
+    {
+      "start": 157.16,
+      "end": 179.67999267578125,
+      "speaker": null,
+      "a_text": "Tell you what, here's what I'm going to do. I'm going to email my client right now. Give me one second.",
+      "b_text": "Tell you what, here's what I'm gonna do. I'm gonna email my client right now. Give me one second. Okay. Um and if he writes back while we're on the call, you have you know uh you can go ahead and just uh you know email or call the uh case manager or whatever and tell them that you have my my consent to suggest we move it",
+      "a_segment_indices": [
+        24
+      ],
+      "b_segment_indices": [
+        18
+      ],
+      "diff_summary": "A: \"going to\" / B: \"gonna\"; A: \"going to\" / B: \"gonna\"; A: \"(nothing)\" / B: \"okay um and if he writes back while we're on the call you have you know uh you can go ahead and just uh you know email or call the uh case manager or whatever and tell them that you have my my consent to suggest we move it\""
+    },
+    {
+      "start": 179.67999267578125,
+      "end": 190.0800018310547,
+      "speaker": 1,
+      "a_text": "Um, oh, you know what? It looks like maybe this is, um, for an actual arbitration hearing.",
+      "b_text": "back. Um you know what it looks like maybe this is um for an actual arbitration hearing.",
+      "a_segment_indices": [
+        27
+      ],
+      "b_segment_indices": [
+        19,
+        20,
+        21
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"back\"; A: \"oh\" / B: \"(nothing)\""
+    },
+    {
+      "start": 184.47999572753906,
+      "end": 221.75999450683594,
+      "speaker": null,
+      "a_text": "I had, for what it's worth, I had another one of these for Legalist, for JAMS, and we moved one of the calls and there was no issue with, there was no issue with that. Um, but that's it. It's also a different arbitrator. They may have different, different policies individually. Oh, gosh. Well, I told him, I told him we were having a call. Okay, yeah.",
+      "b_text": "um for an actual arbitration hearing. I had for what it's worth, I had another one of these for legalists for jams and we moved one of the calls and there was no issue with there was no issue with that. Um but that's it it's also different arbitrator, they may have different different policies individually and if you want to go ahead and send an email Oh wow I told him I told him we were having a call. Um but that's it it's also different arbitrator, they may have different different policies individually and if you want to go ahead and send an email Oh wow I told him I told him we were having a call. Um but that's it it's also different arbitrator, they may have different different policies individually and if you want to go ahead and send an email Oh wow I told him I told him we were having a call. Uh. So Yeah.",
+      "a_segment_indices": [
+        28,
+        29,
+        33
+      ],
+      "b_segment_indices": [
+        21,
+        22,
+        23,
+        24
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"um for an actual arbitration hearing\"; A: \"legalist\" / B: \"legalists\"; A: \"(nothing)\" / B: \"it's also different arbitrator they may have different different policies individually and if you want to go ahead and send an email oh wow i told him i told him we were having a call\" | A: \"(nothing)\" / B: \"um but that's it\"; A: \"a\" / B: \"(nothing)\"; A: \"(nothing)\" / B: \"and if you want to go ahead and send an email oh wow i told him i told him we were having a call\" | A: \"(nothing)\" / B: \"um but that's it it's also different arbitrator they may have different different policies individually and if you want to go ahead and send an email\"; A: \"gosh well\" / B: \"wow\"; A: \"okay\" / B: \"uh so\""
+    },
+    {
+      "start": 219.0399932861328,
+      "end": 234.72000122070312,
+      "speaker": 1,
+      "a_text": "Okay, so, uh, yeah, I'll write to them after we get off. Um, is there, I mean, do you want to do it for the next week, or, you know, are you trying to, or I guess we'll just let her, have her let us know what her availability is?",
+      "b_text": "Uh. So Yeah. Okay. So I I'll yeah, I'll write to them after we get off. Um is there I mean, do you wanna do it for the next week or you know, i are you trying or I guess we'll just let her have her let us know what her availability is.",
+      "a_segment_indices": [
+        34
+      ],
+      "b_segment_indices": [
+        24,
+        25
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"uh so yeah\"; A: \"uh\" / B: \"i i'll\"; A: \"want to\" / B: \"wanna\"; A: \"(nothing)\" / B: \"i\"; \u2026"
+    },
+    {
+      "start": 234.63,
+      "end": 267.9200134277344,
+      "speaker": null,
+      "a_text": "Yeah, I think we do that. I think we just let her tell us what her availability is. Um, and I don't know if you were gonna let the arbitrator know why we're putting it off. I don't have an opinion about whether we should give a rationale when you email. Um, it might be too complicated and, you know, then she'll wonder, uh, and go back and, you know, read papers and spend time figuring out what's going on. It might be better just to remain silent on it, but I'm okay with that.",
+      "b_text": "Yeah, I think we do that. I think we just let her act tell us what her availability is. Um and I don't know if you were gonna let the arbitrator know why we're putting it off. Yeah, I think we do that. I think we just let her act tell us what her availability is. Um and I don't know if you were gonna let the arbitrator know why we're putting it off. I don't have an opinion about whether we should give a rationale when you email. Um it might be too complicated and you know, then she'll wonder uh and go back and, you know, read papers and spend time figuring out what's going on. It might be better just to remain silent on it. But I will as long I mean maybe I'll just indicate that it's you know mutual and mutual, yeah. That should be enough.",
+      "a_segment_indices": [
+        35,
+        36
+      ],
+      "b_segment_indices": [
+        26,
+        27,
+        28,
+        29
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"i think we just let her act tell us what her availability is um and i don't know if you were gonna let the arbitrator know why we're putting it off\" | A: \"(nothing)\" / B: \"yeah i think we do that\"; A: \"(nothing)\" / B: \"act\"; A: \"i'm okay with\" / B: \"i will as long i mean maybe i'll just indicate\"; A: \"(nothing)\" / B: \"it's you know mutual and mutual yeah that should be enough\"; \u2026"
+    },
+    {
+      "start": 261.8399963378906,
+      "end": 269.9200134277344,
+      "speaker": 1,
+      "a_text": "Yeah, as long, as long, I mean, maybe I'll just indicate that it's, you know, mutual. That should be enough, yeah.",
+      "b_text": "will as long I mean maybe I'll just indicate that it's you know mutual and mutual, yeah. That should be enough. will as long I mean maybe I'll just indicate that it's you know mutual and mutual, yeah. That should be enough. Yeah.",
+      "a_segment_indices": [
+        37,
+        39
+      ],
+      "b_segment_indices": [
+        29,
+        30
+      ],
+      "diff_summary": "A: \"yeah as long\" / B: \"will\"; A: \"(nothing)\" / B: \"and mutual yeah that should be enough\" | A: \"(nothing)\" / B: \"will as long i mean maybe i'll just indicate that it's you know mutual and mutual yeah\""
+    },
+    {
+      "start": 267.9200134277344,
+      "end": 329.0400085449219,
+      "speaker": null,
+      "a_text": "So then I guess that brings us to, uh, is there anything else that we should talk about regarding resolving the case? And I, I note that we haven't, Legalist has not received a request for any additional funding. And I don't know, um, if that indicates that Ms. Anthony has found another source of funds, or I, I don't remember what the, what the, what the timing is of her needs. Basically what I'm, basically what I'm getting at is, last time the big issue was that we came down to the wire, and we didn't know anything about how much was requested until, like, a day before. And I would, if there's going to be a need for capital, I'd rather know about it early so that we can figure out whether it's doable or not. So I'm curious if you're able to give me any insight into whether we should put that on our calendar.",
+      "b_text": "Yeah. So then I guess that brings us to uh is there anything else that we should talk about regarding resolving the case? And I I note that we haven't legalist has not received a request for any additional funding. And I don't know um if that indicates that Miss Anthony has found another source of funds or I I don't remember what the what the what the timing is of her needs. I basically what I'm basically what I'm getting at is last time the big issue was that we came down to the wire and we didn't know anything about how much was requested until like a day before. And I would if there's gonna be a need for capital, I'd rather know about it early so that we can figure out whether it's doable or not. So I I'm curious if you're able to give me any insight into whether we should put that on our calendar.",
+      "a_segment_indices": [
+        40,
+        41
+      ],
+      "b_segment_indices": [
+        30,
+        31,
+        32,
+        33,
+        34,
+        35
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"yeah\"; A: \"ms\" / B: \"miss\" | A: \"(nothing)\" / B: \"i\"; A: \"going to\" / B: \"gonna\"; A: \"(nothing)\" / B: \"i\""
+    },
+    {
+      "start": 321.760009765625,
+      "end": 357.760009765625,
+      "speaker": 1,
+      "a_text": "Yeah, I haven't talked about payroll with her recently, but I believe that, uh, it's probably tomorrow. Um, so obviously I, I wasn't going to approach you because I had, you know, you know, and I, listen, I apologize that that came down to the wire and it was like a little bit of a bait and switch and then opening it up again on Monday. You know, that wasn't my intention.",
+      "b_text": "So I I'm curious if you're able to give me any insight into whether we should put that on our calendar. Yeah. I haven't talked about payroll with her recently, but I believe that uh it's probably tomorrow. Yeah. I haven't talked about payroll with her recently, but I believe that uh it's probably tomorrow. Um so obviously I I I wasn't gonna approach you because I I had you know a you know, and I listen, I apologize that that came down to the wire and it was like a little bit of a bait and switch and then opening it up again on Monday. You know, that wasn't my intention.",
+      "a_segment_indices": [
+        42,
+        43
+      ],
+      "b_segment_indices": [
+        35,
+        36,
+        37,
+        38
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"so i i'm curious if you're able to give me any insight into whether we should put that on our calendar\" | A: \"(nothing)\" / B: \"yeah i haven't talked about payroll with her recently but i believe that uh it's probably tomorrow\"; A: \"(nothing)\" / B: \"i\"; A: \"going to\" / B: \"gonna\"; A: \"(nothing)\" / B: \"i\"; \u2026"
+    },
+    {
+      "start": 357.5,
+      "end": 360.63,
+      "speaker": null,
+      "a_text": "I know. We all have clients. I know.",
+      "b_text": "I know. Um we all have clients. I I",
+      "a_segment_indices": [
+        44
+      ],
+      "b_segment_indices": [
+        39
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"um\"; A: \"know\" / B: \"i\""
+    },
+    {
+      "start": 360.55999755859375,
+      "end": 406.4,
+      "speaker": 1,
+      "a_text": "Yeah. Um, you know, I certainly didn't want to be dealing with it on a Friday night either. Um, but, yeah, there was, you know, continued interest in, in trying to settle it that next week, which I think I conveyed to you. And, you know, never really heard back from, from you guys. So, I thought that was a dead end at this point. Um, you know, I was not planning on bothering you about funding this week. Um, my understanding was that Legalist isn't open to that, short of, you know, revisiting that potential settlement agreement. Um, but again, you know, I kind of figured, you, you had said, you know, if I get authorization, I'll let you know. And, uh, it sounded to me like you hadn't, so, um, I was dropping it.",
+      "b_text": "know. Yeah. Um, you know, I certainly didn't want to be dealing with it on a Friday night either. Um but yeah, there was, you know, continued interest in in trying to settle it that next week, which I think I conveyed to you and you know never really heard back my understanding was that legalist isn't open to that know. Yeah. Um, you know, I certainly didn't want to be dealing with it on a Friday night either. Um but yeah, there was, you know, continued interest in in trying to settle it that next week, which I think I conveyed to you and you know never really heard back my understanding was that legalist isn't open to that short of, you know, revisiting that potential settlement agreement. Um but again, you know, I kind of figure you you had said, you know, if I get authorization, I'll let you know. And uh it sounded to me like you hadn't, so I was dropping",
+      "a_segment_indices": [
+        45,
+        47
+      ],
+      "b_segment_indices": [
+        40,
+        41,
+        42
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"know\"; A: \"from from you guys so i thought\" / B: \"my understanding was\"; A: \"was a dead end at this point\" / B: \"legalist isn't open to that\" | A: \"(nothing)\" / B: \"know yeah\"; A: \"(nothing)\" / B: \"certainly didn't want to be dealing with it on a friday night either um but yeah there\"; A: \"not planning on bothering\" / B: \"(nothing)\"; A: \"about funding this\" / B: \"know continued interest in in trying to settle it that next\"; \u2026"
+    },
+    {
+      "start": 406.1600036621094,
+      "end": 456.64,
+      "speaker": null,
+      "a_text": "Okay, alright, alright. And then my recollection was on Monday, uh, and I don't mean to, like, mischaracterize, so if I, if I am doing that, don't take it as a, something sneaky, or, um, it's just my memory might be off, but I seem to recall that the structure of what Ms. Anthony, or the amounts of what Ms. Anthony was asking for on Monday was different than where I thought we had left on Friday. Um, so, if, if what we were talking about on Friday is,",
+      "b_text": "it. Okay, all right, all right. Uh look, I think that we would definitely I'm sure the client would still be interested in something that is similar to what we had proposed uh or at least similar to what we had come down to I thought through negotiation that up until that Friday. And then my recollection was on Monday uh and I don't mean to like s mischaracterize so if I if I am doing that don't take it as a something sneaky or um it's just my memory might be off, but I seem to recall that the structure of what Miss Anthony or the amounts of what Miss Anthony was asking for on Monday was different than where I thought we had left on Friday. Um so if if if what we were talking about on Friday is",
+      "a_segment_indices": [
+        48,
+        50
+      ],
+      "b_segment_indices": [
+        43,
+        44,
+        45
+      ],
+      "diff_summary": "A: \"(nothing)\" / B: \"it\"; A: \"alright alright\" / B: \"all right all right uh look i think that we would definitely i'm sure the client would still be interested in something that is similar to what we had proposed uh or at least similar to what we had come down to i thought through negotiation that up until that friday\" | A: \"(nothing)\" / B: \"s\"; A: \"ms\" / B: \"miss\"; A: \"ms\" / B: \"miss\"; A: \"(nothing)\" / B: \"if\"; \u2026"
+    }
+  ]
+}

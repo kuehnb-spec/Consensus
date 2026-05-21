@@ -127,8 +127,22 @@ actor WhisperModelDownloadService {
     ) throws -> String {
         let topLevelFolders = Set(filenames.compactMap { $0.split(separator: "/").first.map(String.init) })
 
+        // 1. Exact match — the typical good case (`openai_whisper-large-v3` etc).
         if topLevelFolders.contains(requestedVariant) {
             return requestedVariant
+        }
+
+        // 2. Defensive prefix match for callers that pass the human label
+        // ("large-v3") rather than the canonical HF folder name. The repo has
+        // 13 folders containing the substring "large-v3" (size variants,
+        // turbo, dated revisions), so substring matching alone is ambiguous.
+        // Trying `openai_whisper-{variant}` picks the canonical OpenAI folder
+        // when one exists, which is what the rest of the app means by the
+        // human label. Caught the April 29 bug where DeepPassRunner passed
+        // `WhisperModel.rawValue` ("large-v3") instead of `whisperKitVariant`.
+        let prefixed = "openai_whisper-\(requestedVariant)"
+        if topLevelFolders.contains(prefixed) {
+            return prefixed
         }
 
         let matchingFolders = topLevelFolders.filter { $0.contains(requestedVariant) }

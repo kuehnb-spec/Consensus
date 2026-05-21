@@ -1,0 +1,30 @@
+[v3] reviewing 22 disagreement spans at threshold=0.75
+[v3] 1/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (5.7s; total 6s; eta 120s)
+[v3] 2/22 [keep:length_mismatch (a] verdict=replace_with_b conf=0.75 (7.2s; total 13s; eta 129s)
+[v3] 3/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (7.2s; total 20s; eta 127s)
+[v3] 4/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.2s; total 26s; eta 118s)
+[v3] 5/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (8.7s; total 35s; eta 119s)
+[v3] 6/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (11.7s; total 47s; eta 125s)
+[v3] 7/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.7s; total 54s; eta 115s)
+[v3] 8/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (8.7s; total 62s; eta 109s)
+[v3] 9/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (11.2s; total 73s; eta 106s)
+[v3] 10/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (8.7s; total 82s; eta 99s)
+[v3] 11/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (7.7s; total 90s; eta 90s)
+[v3] 12/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (7.2s; total 97s; eta 81s)
+[v3] 13/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (7.2s; total 104s; eta 72s)
+[v3] 14/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (9.7s; total 114s; eta 65s)
+[v3] 15/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (8.7s; total 123s; eta 57s)
+[v3] 16/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (9.7s; total 133s; eta 50s)
+[v3] 17/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.7s; total 139s; eta 41s)
+[v3] 18/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (13.2s; total 153s; eta 34s)
+[v3] 19/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (7.7s; total 160s; eta 25s)
+[v3] 20/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.7s; total 167s; eta 17s)
+[v3] 21/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (11.7s; total 179s; eta 9s)
+[v3] 22/22 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (11.7s; total 191s; eta 0s)
+
+[v3] done.
+  spans reviewed:        22
+  applied corrections:   0
+  rejection breakdown:   {'qwen_says_keep_a': 21, 'length_mismatch (a=5w vs corrected=19w; ratio 3.80)': 1}
+  total review time:     190s
+  wall clock:            191s

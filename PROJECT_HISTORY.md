@@ -885,3 +885,292 @@ User went to step away and issued a challenge: push through all remaining phases
 8. Claude Design brief + aesthetic refresh (Phase 6 full) — scheduled mid-May per the plan. Deep-Slate + Indigo + Inter/Source-Serif/JetBrains-Mono is good enough through the autonomous push.
 
 One-line sum: **the rewrite is feature-complete enough for a real-audio end-to-end user test**; what's deferred is non-blocking prompt engineering, SpeakerKit internals, and aesthetic polish. Flag flip → drop → transcribe → rename speakers → review with uncertainty popovers, Play Context, verbatim/clean toggle, summary pane, export with options, voice library manager, pipeline inspector, project library browser — all there, all wired.
+
+### April 23, 2026 — Scrambled-sentences bug + LLM judgment stage
+
+User ran a real phone-call project (2026-04-22 Larsen/Kuehn, 15 minutes) and the Deep Review Primary pass came back with visibly split sentences — fragments like "rather than what she" starting one turn when it belonged at the end of the previous one. Gold-standard sample still passed, so the bug was specific to real phone audio. Diagnosis traced the failure to three places that sorted the word stream by absolute start time after forced alignment ran: `SegmentMerger.extractPositionedWords`, `ConfidenceMergeService.reattributeAfterRetiming`, and `ConfidenceMergeService.groupIntoReferenceSegments`. On real audio, Qwen3-ForcedAligner produces zero-duration or non-monotonic timings on 15–26% of words — the sort interleaves words from different points in the conversation, producing the scrambling. An A/B simulation (Parakeet's native word-timed output grouped by Primary's diarization windows) confirmed FA-off reads cleanly across all 21 segments while FA-on was scrambled in every long segment.
+
+**Fix #1 — forced alignment off by default.** `enableForcedAlignment` flipped back to `false` in `Models/AppSettings.swift`. The rationale doc-comment was rewritten to explain the 2026-04-22 regression. FA can still be enabled manually for experimentation, but the default is now the safe path: Engine A's native word timings flow through unmodified.
+
+**Fix #2 — remove the global word sort (defense in depth).** Three call sites touched: `SegmentMerger.extractPositionedWords` no longer ends with `.sorted { $0.timing.start < $1.timing.start }` — it returns `positionedWords` in source order; `TranscriptionViewModel.rebuildWordTimeline` no longer calls `reattributeAfterRetiming` (which was the flatten-and-sort stage); the inner sorts at `ConfidenceMergeService.reattributeAfterRetiming` and `.groupIntoReferenceSegments` were also removed so the function is safe if re-used. Dead helper `countWordsThatMovedSpeaker` in `TranscriptionViewModel` removed — its only caller was the deleted re-attribution block.
+
+**Fix #3 — LLM judgment stage (new default mode).** User proposed a third design: start from clean Engine A, diff it against Engine B, and only send the LLM the windows where the engines substantively disagree. Fast because the LLM reads disagreements, not two full transcripts; accurate because those windows are exactly where Engine A tends to err. New enum case `DeepMergeMode.llmJudgment` added alongside `engineAOnly`, `confidenceWeighted`, and `llmReconcile`; default flipped to `.llmJudgment`. `LLMReconcileService` gained `DisputeWindow` / `DisputeChoice` / `DisputeResolution` types, a static `findDisputes(...)` that walks Engine A segments and pairs them with time-overlapping Engine B text (trivial diffs — case/punctuation/filler-only — are filtered via a normalized comparison so they never reach the LLM), and an async `judgeDisputes(...)` that batches disputes into prompts of ~25 windows, asks the LLM to pick `A` / `B` / `SUGGEST <text>` / `UNCERTAIN <reason>`, and parses the JSON response. `TranscriptionViewModel.runLLMJudgment(...)` wires the full path: load model → find disputes → batch-judge → apply resolutions (prefer-A is a no-op; prefer-B and suggest substitute the segment's words via linearly-distributed retiming and add a resolved flag; uncertain keeps Engine A text and adds an unresolved flag). `openReconciliationMerge()` dispatches the new case. Existing switch sites on `DeepMergeMode` (display names, descriptions) were extended.
+
+**Polish-options clarification.** User asked: "I thought we had wired in some options in the LLM review — different levels/types of polish, e.g. a choice to remove umms and filler words, or to just fix actual errors in the transcription. I don't see that at all. What am I missing?" Answer: the verbatim / clean toggle exists at `App/Views/DeepReadReviewView.swift:160-185`, backed by `StylePair` at `App/Model/TranscriptPass.swift:121` — but it's gated behind `settings.useRewrittenUI`, which is `false` by default. The legacy UI does not surface any of the rewrite's polish options. Flipping `useRewrittenUI = true` (Settings → rewritten UI, or `defaults write com.bdk.consensus useRewrittenUI -bool YES`) exposes the chip toggle and all the other rewrite-only polish. No code change here — just a wiring clarification.
+
+**Verify.** `swift build` clean (23.90s, no new warnings in the touched files). Next step for the user: open the project that was scrambling, re-run Deep Review with the new default (`.llmJudgment`), and check whether the Primary pass reads cleanly end-to-end.
+
+### April 28, 2026 — VibeVoice ASR scoping & baseline benchmark
+
+Researched Microsoft's VibeVoice-ASR (released Jan 21 2026, MIT license) as a candidate third engine alongside FluidAudio Parakeet and WhisperKit. The model is a 7–9B-parameter unified ASR + diarization + timestamping model that processes up to 60 minutes in a single inference pass with a `context=` hotword parameter, and it has a community MLX 4-bit port (mlx-community/VibeVoice-ASR-4bit, ~5.7 GB). On Apple Silicon Simon Willison saw ~8m45s per hour of audio with ~61 GB peak prefill memory — runnable on this 96 GB M2 Max but firmly a high-end-Mac-only engine.
+
+To benchmark against the existing pipeline, set up a controlled test in `Brainstorming/vibevoice-test/`: extracted the gold-standard `141 W 54th St 3.m4a` (7m 36s, 2 speakers, 41 turns, 1264 ref words) plus its manually-revised ground truth. Wrote `score.py` (WER + DER), `qualitative_diff.py` (timeline-aligned side-by-side), `extract_consensus_pass.py` (project.json → hypothesis), and `run_vibevoice.py` (mlx-audio sidecar). Scored three existing passes:
+
+| Engine + Diarizer | WER | DER | Note |
+|---|---:|---:|---|
+| FluidAudio Parakeet v3 + SpeakerKit | 14.72% | 4.96% | Bar to beat — best balanced |
+| WhisperKit Large v3 + SpeakerKit | 10.05% | 47.20% | Best WER, but Deep-Review B drops diarization |
+| Deep Review primary (multi-pass merge) | 70.65% | 8.66% | 704 insertions; merge artifact, not a fair single-engine number |
+
+Qualitative diff revealed FluidAudio's two main weaknesses: **proper-name errors** ("Brant Kuehn" → "Branickin", "Marie" → "Maria", "JAMS" → "jams", "Legalist" → "legalists") and **lost backchannel speaker turns** (short "Yep"/"Mm hmm" interjections from the second speaker get absorbed into the prior turn). Both are exactly what VibeVoice's hotword `context=` and joint diarization design target — a strong fit for the Consensus reconciliation philosophy where engines that fail in *different* ways produce richer cross-engine disagreement signal.
+
+After switching to phone hotspot to bypass a slow connection, downloaded the model (~19 min) and ran the actual benchmark.
+
+**VibeVoice 4-bit + hotwords: WER 10.21%, DER 6.43%, 1.84 min wall clock, 6 GB peak RAM.** That is WER parity with WhisperKit Large v3 (10.05%) while keeping diarization quality competitive with FluidAudio + SpeakerKit (4.96% DER). All four named entities the existing engines fumbled — "Brant Kuehn" (was "Branickin"), "Marie" (was "Maria"), "Legalist" (was "legalists"), "JAMS" (was "jams") — came out correctly via the `context=` hotword parameter. Without hotwords, VibeVoice still gets domain terms ("JAMS", "Legalist", "Virginia counsel") right; only the personal "Brant Kuehn" needed the bias (became "Brian Keane" otherwise). WER barely shifts with vs without hotwords (10.21 vs 9.97), but the with-hotword version is unambiguously preferable for legal use because the speaker names are correct.
+
+Memory was the surprise: Willison's blog reported 61 GB peak on the bf16 model, but the 4-bit quant ran at **6 GB peak RSS** — roughly a 10× reduction. That collapses the "high-end Macs only" gate from the scoping research; 16 GB Macs can comfortably run this.
+
+Recommendation logged in `Brainstorming/vibevoice-test/RESULTS.md`: integrate VibeVoice as an opt-in third ASR engine via a bundled Python+MLX sidecar (PyInstaller-packaged), feed the project's named speakers into `context=` automatically, and replace WhisperKit Large as the Deep Review B engine since VibeVoice carries its own working diarization (WhisperKit's Deep-Review-B path tags speakers UNKNOWN). RAM gate: 16 GB, not 64 GB.
+
+### April 28, 2026 — VibeVoice integrated as the lead ASR engine (dev-mode wiring)
+
+Per user direction (lead with VibeVoice; leave Deep Review / reconciliation in place for later refinement), wired VibeVoice into the live Consensus app as the new default primary engine.
+
+**New files**:
+- `TranscriboApp/Transcribo/Services/VibeVoiceTranscriptionService.swift` — Swift actor that shells out to a Python+MLX sidecar via `Process`, parses the JSON output, builds `[TranscriptionSegment]` with VV-prefixed speaker IDs, and synthesizes word timings (linear distribution across each segment, flat 0.95 confidence) so downstream forced-alignment and confidence-merge code keeps working.
+- `TranscriboApp/Scripts/VibeVoiceSidecar/run.py` — argparse-driven sidecar that emits JSON-line progress events on stderr and writes a structured result file. Designed to be parseable from Swift without text scraping.
+
+**Changed**:
+- `Models/DeepReviewEngine.swift` — added `VibeVoiceVariant` (currently just `.fourBitMLX`) and a new `case vibevoice(VibeVoiceVariant, context: String?)` to `TranscriptionEngineDescriptor`. Added `providesOwnDiarization: Bool` so the pipeline can auto-skip the separate diarization step for self-diarizing engines.
+- `Services/TranscriptionPipeline.swift` — added a `VibeVoiceTranscriptionService` instance, dispatch arms in the model-load and transcribe switches, and an auto-skip rule: when `engine.providesOwnDiarization` is true, the pipeline keeps VibeVoice's `VV_0` / `VV_1` labels instead of re-running SpeakerKit. Availability is checked up-front and surfaces a clear error if the sidecar paths are missing.
+- `ViewModels/TranscriptionViewModel.swift` — added `case vibevoice` to `PrimaryEngine` and made it the **default**. New `vibeVoiceHotwords()` helper auto-builds the `context=` string from any speaker names already on the project, so naming speakers in the Review step automatically improves the next pass. Wired into `startTranscription()`'s switch.
+- `Views/TranscriptionSetupView.swift` — VibeVoice is now the top option in the engine picker. When VibeVoice is selected the diarization-engine row is hidden (engine self-diarizes) and a sparkles-icon hint explains the speaker-name → hotword behavior.
+- `Utilities/SmokeRunner.swift` — added `--engine vibevoice` and `--context "..."` flags so the headless smoke runner can exercise the new path.
+
+**Dev-mode integration constraint**: the `VibeVoiceTranscriptionService` resolves the sidecar paths to the existing test rig at `Brainstorming/vibevoice-test/{venv,model-4bit}` and the new sidecar script at `TranscriboApp/Scripts/VibeVoiceSidecar/run.py`. This is hardcoded to the user's project directory for the quick-revision phase; production bundling (PyInstaller + bundled MLX model) is deferred. A `availabilityError()` static method surfaces a friendly message when any path is missing.
+
+**Verification**: `swift build` clean (34.7s first build, 23.7s incremental). Headless smoke test through the full Swift pipeline:
+```
+./.build/.../Consensus --smoke "TestAudio/141 W 54th St 3.m4a" \
+    --engine vibevoice \
+    --context "Brant Kuehn, Marie Larsen, Legalist, JAMS, ..."
+```
+Result: 52 segments, 2 speakers detected (`VV_0` / `VV_1`), 95% average confidence, 0 low-confidence words, 0 flagged segments. First three lines of the export read `[Music]` / `Hello, this is Brant Kuehn.` / `Yes, hi, it's Marie.` — proper names land correctly via the hotword pathway, end-to-end through the Swift app.
+
+**Followup planning** drafted in `Brainstorming/SECOND-LEVEL-REVIEW-PLAN.md`: a phased experimental plan for second-level review of VibeVoice transcripts. Phase 1 builds a flag aggregator (confidence-flagged + sanity-flagged + boundary-flagged spans). Phases 2–3 test two reviewer approaches: VibeVoice-on-narrowed-windows (same model, sharper context) vs Nvidia Nemotron 3 Nano Omni multimodal grounding (audio + text + reasoning in one 30B MoE released today). Phase 4 benchmarks both on the gold-standard audio; Phase 5 sets the integration bar at WER post-correction < 7%, precision > 70%, and < 30s per minute of audio. Tactical sequencing: build flag aggregator first (useful product feature even without auto-correction), then run Nemotron Track 3A via NIM API as the highest-value test, with VibeVoice narrow-window re-inference as a free baseline since the model is already loaded.
+
+### April 28, 2026 — VibeVoice + mode picker wired into the rewritten UI
+
+User flagged that the morning's VibeVoice integration didn't appear in the actual app — they were on the rewritten UI surface (the April 21 three-mode rewrite), which has its own pipeline runner (`StandardPassRunner`) that hardcoded Parakeet and never had an engine picker. They also couldn't find a mode-change button mid-flow. `AppSettings.useRewrittenUI` defaults to `true`, so the morning's edits to `Views/TranscriptionSetupView.swift` (the legacy surface) were dead code by default. Updated the auto-memory to record the user's preference for fresh `/Applications` installs during active testing so this misalignment is less likely to repeat.
+
+**Engine choice in the rewritten UI**:
+- Added `RewrittenEngineChoice` enum (`vibevoice` / `parakeet`) and a new `engine` field on `ProjectSettings` (defaulting to `.vibevoice`). Custom `Codable` decoder defaults the field for older saved projects so opening pre-rewrite documents still works.
+- Refactored `App/Services/StandardPassRunner.swift` to dispatch on the engine choice. The VibeVoice branch invokes `VibeVoiceTranscriptionService` (joint ASR + diarization in one pass — no separate SpeakerKit step), maps `EngineAttribution.diarizer` to "VibeVoice (built-in)", and reuses VibeVoice's per-segment speaker IDs directly. The Parakeet branch is the original Parakeet + SpeakerKit + merge implementation, untouched.
+- `DeepReadViewModel.startTranscription()` now reads `project.settings.engine` and forwards `vibeVoiceContext` built from confirmed speaker names plus a small set of seed terms keyed off `domainHint` (legal → court/deposition/mediation/arbitrator/counsel; medical, technical, business have analogous starters).
+- New `setEngine` and `setMode` mutators on the view model. `setMode` mirrors the change onto `project.mode` so close-and-reopen keeps it.
+
+**UI changes in `App/Views/DeepReadSetupView.swift`**:
+- New mode picker card at the top of the setup screen so users who entered via "open recent" (skipping the drop screen where the existing mode chips live) can still switch between Quick Take / Deep Read / Studio. Uses the same chip styling as the drop-screen picker for consistency.
+- New engine picker section between Speed and Domain, visible in all modes. Two chips (VibeVoice / Parakeet) with a one-line tagline beneath ("Recommended. Joint ASR + diarization. ~10% WER. Hotwords fix proper names." vs "FluidAudio Parakeet v3 + SpeakerKit. Faster but ~15% WER on real audio.").
+
+`swift build` clean (27.5s). Reinstalled to `/Applications/Consensus.app` (Apr 28 18:11:40); binary contains the new `RewrittenEngineChoice`, `enginePicker`, `engineChip`, and `setMode` symbols.
+
+### April 29, 2026 — Investigation: Consensus caused a thermal shutdown last night
+
+User reported the laptop "basically shut down" yesterday evening after using the new VibeVoice-enabled build. Investigation traced the chain:
+
+- **18:35** — User installed the new build, opened the rewritten UI, kicked off a VibeVoice transcription on a real ~28-minute m4a (the AAI Group call file).
+- **18:48:31** — `JetsamEvent` fired and was logged at `/Library/Logs/DiagnosticReports/JetsamEvent-2026-04-28-184831.ips`. The report explicitly names `largestProcess: Consensus` at 2.6 GB RSS, with system-wide compressions totalling 440k pages and ~38 GB of anonymous memory committed across the system. The Python sidecar isn't itemised in the top-RSS list (truncated), but our earlier benchmarks pegged it at ~6 GB peak when running.
+- **19:08:41** — User closed the laptop lid → `Clamshell Sleep` recorded by `pmset`.
+- **19:09 – 19:39** — System cycled between `Maintenance Sleep` and `DarkWake` every 30–45 seconds. Each DarkWake on a heavily-pressured system requires swapping pages back in, which keeps the SoC busy.
+- **20:13 – 20:15** — `WindowServer_2026-04-28-201638_Brants-MacBook-Pro.cpu_resource.diag` shows WindowServer at 72% CPU average for 125 seconds, with `Time Since Wake: 380s`. The display server was thrashing on a brief wake.
+- **21:27:00 onward** — `pmset` log fills with "Ignored DarkWake thermal emergency signal" lines, one per second, for 20+ seconds. The SoC was overheating; macOS was ignoring the signals (TCPKeepAlive active, no display) but the temperature kept climbing.
+- **~21:30** — Hardware thermal shutdown (no clean "shutdown time" entry in `last`, only a "reboot time" at 21:39).
+- **21:39:59** — `powerd` started up. User found the laptop powered off, hit the power button.
+
+**Root cause attribution to Consensus**: yes. Three concrete code-side faults:
+
+1. **Orphaned Python sidecars on quit.** `VibeVoiceTranscriptionService` spawns the mlx-audio sidecar via `Process` and never registers cleanup. If the user quits the Swift app (or the app crashes / is Jetsam'd), the Python child is reparented to `launchd` and keeps running with the 5+ GB MLX model resident in memory. The user might not even know it's still alive.
+2. **No power-management assertion during transcription.** When the user closes the lid mid-run, macOS happily enters Clamshell Sleep, then immediately starts cycling DarkWakes because the still-running Python child has audio/network/timer activity. Holding `IOPMAssertionCreateWithName(kIOPMAssertPreventUserIdleSystemSleep)` for the duration of a pass would have kept the lid-close from triggering sleep at all.
+3. **No memory preflight warning.** Starting a VibeVoice run when the system is already deep into compression (~440k compressions before VibeVoice even started its big peak) put the system over the edge. A simple `vm_statistics64`-based check before kicking off the run would have surfaced "system is under heavy memory pressure; close some apps first" before damage was done.
+
+The thermal shutdown wouldn't have happened on a single one of these — the lid-close-while-loaded path is what made it lethal. Sequential fixes deferred to the next entry; documenting the chain here so the diagnosis is traceable.
+
+### April 29, 2026 — Fixes for the thermal-shutdown chain
+
+Three guards landed in `VibeVoiceTranscriptionService.swift` plus one hook in `TranscriboApp.swift`:
+
+**1. Process-group ownership + orphan kill on quit.** `Scripts/VibeVoiceSidecar/run.py` now calls `os.setpgrp()` at the very top of the file before any heavy imports — the Python sidecar (and anything it spawns, like ffmpeg) becomes its own process group. The Swift service tracks every active sidecar PID in a static `ActiveSidecars` actor; on `applicationWillTerminate` the new `terminateAllActiveSidecars()` static method sends `SIGTERM` to `-pgid` for each registered PID, then waits up to 1.5 s and follows up with `SIGKILL` for any survivors. `withTaskCancellationHandler` plumbs the same kill into Task cancellation paths so a future Cancel button or a programmatic timeout will also kill the whole tree.
+
+**2. Sleep-prevention assertion held for the entire run.** Around the new `process.run()` invocation, the service holds an `IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleSystemSleep)` assertion for the lifetime of the run, with the reason string "Consensus is running a VibeVoice transcription". Released in a `defer` regardless of how the function exits. This is the single fix that would most directly have prevented April 28 — when the user closed the lid mid-run, the system would have refused to enter Clamshell Sleep instead of cycling DarkWakes for hours.
+
+**3. Memory preflight.** `memoryPreflightWarning()` calls `host_statistics64(HOST_VM_INFO64)` and refuses to start if free + inactive memory is under 10 GB (5 GB for the model + 5 GB headroom). Surfaces a friendly error: "About X.X GB available out of 96.0 GB total. VibeVoice needs ~10 GB headroom. Close some apps and try again." This trades a cheap false negative for never repeating last night.
+
+**`applicationWillTerminate` hook in `TranscriboApp.swift`'s `AppDelegate`** calls `VibeVoiceTranscriptionService.terminateAllActiveSidecars()` synchronously so the AppKit shutdown sequence waits for our cleanup before returning to the OS. Cmd-Q now reliably reaps the sidecar.
+
+**Known remaining gap**: a hard force-quit (`kill -9` on Consensus) bypasses `applicationWillTerminate` and the orphan returns. Mitigations (`kqueue`-based parent-death watcher in the sidecar, or a `MACH_NOTIFY_DEAD_NAME` port in Swift) are deferred — the common case is Cmd-Q or system reboot, both of which are now handled cleanly.
+
+Verified: `swift build` clean (23.4 s); `./build-app.sh --install` deployed at `/Applications/Consensus.app` Apr 29 12:41:44; symbol check shows `ActiveSidecars` and `PreventUserIdleSystemSleep` present; headless smoke (`--engine vibevoice` on the gold-standard audio) returns 53 segments, 2 speakers, 95% confidence, zero warnings — same numbers as before, no regression. Ready for the user to retry their real-audio workflow.
+
+### April 29, 2026 — VibeVoice progress UX, speaker-naming expand-on-tap, Deep tier Whisper variant fix
+
+User session built three improvements on top of the morning's stability fixes. Build pushed to `/Applications/Consensus.app` at 13:21:01.
+
+**1. Live progress for VibeVoice runs.** The old sidecar emitted exactly one progress event before calling `model.generate()` synchronously, which blocks for 5+ minutes on a 27-minute audio. mlx-audio's own tqdm bars use carriage returns for in-place updates — invisible to the Swift parser that only splits on newlines. So the bar sat at 5% for the entire generation. Switched the sidecar to `model.stream_transcribe()`, which yields one decoded chunk per token. Now emits a JSON progress event every 0.5 s with: a calibrated fraction (interpolated 5% → 92% based on `tokens_emitted / expected_tokens`, where expected is `audio_duration * 8` clamped to `max_tokens`); live token count + tokens/sec; and a `recent_text` snippet — the last ~240 chars of the rolling transcript with the model's structured-JSON wrapper stripped so the user sees actual readable speech. Threaded a third `recentText` parameter through the Swift `progressCallback` signature; both `StandardPassRunner.runVibeVoice` (rewritten UI) and `TranscriptionPipeline` (legacy UI) now consume it. The rewritten setup card's `StageProgressView` already handles multiline detail text — the live snippet renders below the status line in quotes. Also passes `--audio-duration` to the sidecar so the fraction is calibrated per run, and sets `TQDM_DISABLE=1` to silence the noisy library tqdm bars now that we have our own clean events.
+
+**2. Expand-on-tap speaker examples.** The "Who's speaking?" panel previously showed three short utterances per speaker, all from the earliest part of the recording. User asked for clicking a speaker's sample text to expand into more examples — useful when two speakers sound similar in the opening minute. Raised the per-speaker sample cap in `DeepReadViewModel.collectSamples` from 3 to 30 (still ≥5 words, ≤140 chars, ordered by start time). `SpeakerNamingView.sampleStack` is now a `Button` (`.plain` style) wrapping the existing quote stack: tapping toggles a `Set<String>` of expanded speakerIDs in `@State`. When expanded, a new `distributedSamples(_:count:)` helper picks 12 samples evenly distributed across the speaker's full sample list (by index, which mirrors timestamp order) — start, middle, end of the call — so the user sees a representative cross-section. A subtle chevron + label below the previews ("Show 9 more examples from across the recording" / "Show fewer") makes the affordance discoverable. Smooth `.easeInOut(0.18)` animation on toggle.
+
+**3. Deep tier Whisper Large v3 download bug.** User hit `Deep reconciliation failed: Model Download Failed: Could not resolve a unique folder for Whisper model 'large-v3'.` after assigning speaker names. Root cause in `App/Services/DeepPassRunner.swift:58`: the call to `whisper.loadModel(variant:)` passed `options.whisperModel.rawValue` (the human label `"large-v3"`) instead of `options.whisperModel.whisperKitVariant` (the canonical HF folder `"openai_whisper-large-v3"`). The argmaxinc/whisperkit-coreml repo has 13 folders containing the substring `large-v3` — different sizes, turbo variants, dated revisions — so the resolver's substring fallbacks couldn't pick a unique one. The Standard pipeline (`TranscriptionPipeline.swift:140`) already used the correct property; only the Deep runner had the typo. Two-part fix: (a) call site uses `whisperKitVariant` now; (b) defensive resolver upgrade in `WhisperModelDownloadService.resolveModelFolderName` — if the requested variant doesn't match exactly, try `"openai_whisper-{variant}"` as a second exact-match before falling through to substring matching. Stops the same kind of typo from breaking future code paths.
+
+Verified: `swift build` clean (10 s); reinstalled at `/Applications/Consensus.app` 13:21:01.
+
+**Pending when the user returns:** retry on the real-audio workflow. Expected behavior: smooth progress bar with live transcript snippet during the VibeVoice pass; tap-to-expand speaker examples after naming; Deep reconciliation now downloads `openai_whisper-large-v3` correctly and proceeds through the LLM reconcile stage.
+
+### April 30, 2026 — Phase A test rig wired up (VibeVoice + Nemotron, standard-of-proof)
+
+User asked to test Phase A from `Brainstorming/SECOND-LEVEL-REVIEW-PLAN.md`: VibeVoice + NVIDIA Nemotron 3 Nano Omni multimodal review on the gold-standard `141 W 54th St 3.m4a`. Critical architectural principle established and baked into the test rig: **VibeVoice's transcription is the presumptive truth. Nemotron's job is not to reconcile — only to overturn when justified by clear, specific evidence from the audio.** The prior Deep Review architecture's failure mode was symmetric reconciliation producing a jumble; this design is asymmetric by construction.
+
+**Toolchain decision**: llama.cpp + Unsloth `NVIDIA-Nemotron-3-Nano-Omni-30B-A3B-Reasoning-UD-Q4_K_XL.gguf` (22 GB) + `mmproj-F16.gguf` (~1 GB). Reasons over the MLX alternatives: (a) the only MLX port of Nemotron Omni is BF16 at 66 GB and its model card claims "Image-Text-to-Text" — the audio path may have been stripped during conversion; (b) llama.cpp's `llama-mtmd-cli` and `llama-server` have documented `--audio` support and the Unsloth GGUF retains the Parakeet speech encoder; (c) ~25 GB peak working RAM fits comfortably on the 96 GB M2 Max. Trade-off: slower than MLX would be for inference, but predictable and well-supported. `llama.cpp` installed via Homebrew; Q4_K_XL GGUF + mmproj download in flight at the time of writing (4.6 GB of 22 GB at the snapshot point).
+
+**Test rig**: `Brainstorming/phase-a-vibevoice-nemotron/run_phase_a.py`. Key decisions encoded:
+
+1. **Reuses `vibevoice-test/vibevoice_with_context.json`** (the existing 10.21% WER baseline on the gold-standard audio) as the input to review — no need to re-run VibeVoice.
+
+2. **Standard-of-proof is enforced in four layers, not just at the threshold**:
+   - **Prompt**: explicit "candidate is PRESUMED CORRECT" anchor. Lists trivial differences (punctuation, fillers, numeric format) that MUST be marked correct=true. Lists what counts as substantive (wrong word that changes meaning, wrong proper name, missing/added phrase). Tells the model to defer to the candidate when the audio is unclear. Demands a non-empty `evidence` field stating *what specifically* the model heard differently. Allows chain-of-thought reasoning before the final JSON line.
+   - **Decision function (`decide`)** requires ALL of: `correct=false`, `confidence_wrong >= threshold`, non-empty `corrected`, non-empty `evidence` (≥12 chars), AND the candidate→corrected diff must be substantive (not trivial). If any condition fails, the candidate is kept and the rejection reason is logged.
+   - **Trivial-diff filter (`normalize_for_comparison` + `is_trivial_diff`)**: aggressively normalizes both strings before comparison — lowercases, strips punctuation, expands irregular contractions ("won't"→"will not", "can't"→"cannot"), expands "'s"/"'re"/"'ll"/etc., collapses bare "its"→"it is", percentages → "percent", number-words → digits, strips a narrow set of true non-content fillers (`uh`, `um`, `mm`, `hmm` only). If both candidate and corrected map to the same normalized form, the correction is rejected regardless of Nemotron's confidence. Filler set deliberately excludes "well", "like", "right", "so", "okay", "you", "know" because those words can carry meaning — masking real diffs is worse than letting trivial ones through.
+   - **Default threshold raised** from the user's "65% or whatever" to **0.75** ("clear and convincing"). 0.65 is preponderance-of-evidence; for overturning a presumed-correct transcript I biased to "clear and convincing." Configurable via `--threshold`.
+
+3. **Performance architecture**: rather than spawn `llama-mtmd-cli` once per segment (50 segments × ~30s model load = 25 min wasted), the sidecar auto-launches `llama-server` once, holds the model resident, and POSTs each per-segment audio clip + prompt to `/v1/chat/completions` with the OpenAI-style `input_audio` content type.
+
+4. **Audit trail**: per-segment review log (`phase_a_review.jsonl`) captures candidate, Nemotron's verdict, confidence, proposed correction, evidence, full reasoning trace, decision (apply or reject), rejection reason, and review wall-clock. Lets us calibrate the threshold empirically after the run by replotting precision/recall curves against the labeled ground truth.
+
+**Decision-logic unit tests**: `test_decision.py` — 15 cases covering the trivial-diff filter (punctuation, case, fillers, contractions, numbers/percent, contractions vs bare forms) and the decision function (high-confidence trivial diff rejected, below-threshold rejected, missing-evidence rejected, short-evidence rejected, all-conditions-met applied). All 15 pass.
+
+**Pending**: GGUF download finishes (~10-30 minutes from the snapshot point depending on actual throughput); user is on a slow connection and will return when on faster service. Then run the full Phase A pipeline against the gold-standard audio and score with `vibevoice-test/score.py` (symlinked into the rig dir). Decision rule from the plan: **integrate** if WER post-correction beats VibeVoice-alone (10.21%) by ≥3 points AND precision on flags ≥70% AND time-cost ≤30s per minute of audio; otherwise **reject** the architecture or move to Phase B (add Granite as pre-filter).
+
+### April 30, 2026 — Phase A toolchain pivot + benchmark run (null result)
+
+**Pivot from Nemotron**: After downloading the 22 GB Unsloth Q4_K_XL GGUF + 1.5 GB mmproj, llama.cpp's `llama-mtmd-cli` reported "This model does not support audio input" — the mmproj contains only the vision encoder (`projector: nemotron_v2_vl`), not the Parakeet speech encoder. Cross-referenced llama.cpp's official multimodal docs: Nemotron Omni isn't in the audio-supported list. Nemotron weights preserved on disk for whenever audio support lands. Per the user's call, pivoted to **Voxtral-Mini-3B + Qwen2.5-Omni-7B** as a head-to-head, both confirmed working in mainline llama.cpp.
+
+**Smoke tests on a 30-second clip from the legal call**:
+- Voxtral Q4 understood the audio: *"They are discussing the upcoming mediation session."*
+- Qwen2.5-Omni Q4 hallucinated: *"reading and possibly the importance of reading."*
+- Qwen2.5-Omni Q8 partial: *"two men"* (it's a man + woman) but at least engaged with the audio.
+- Discovered Qwen requires `--jinja` (chat template); without it the model just outputs `[Music]` regardless of input.
+
+**Benchmark on the gold-standard audio** at threshold 0.75 (clear-and-convincing) with the standard-of-proof prompt enforcing all four gating layers (presume-correct anchor, evidence requirement, trivial-diff filter, threshold):
+
+| Reviewer | WER | DER | Corrections | Wall | s/min |
+|---|---:|---:|---:|---:|---:|
+| VibeVoice (baseline) | 10.21% | 6.43% | — | — | — |
+| Voxtral 3B Q4 | **10.21%** | 6.43% | **0/51** | 167s | 22 |
+| Qwen2.5-Omni 7B Q8 | **10.21%** | 6.43% | **0/51** | 216s | 28 |
+
+**Null result.** Both models replied with the same boilerplate `{"correct": true, "confidence_wrong": 0.0, "corrected": "", "evidence": ""}` for every single segment — no engagement with the audio, no per-segment evidence. The strict standard-of-proof prompt biased both reviewers toward reflexive agreement.
+
+**Why the null result is ambiguous, not conclusive**: VibeVoice's baseline transcript is already mostly correct. The 10.21% WER comes overwhelmingly from format-level differences ("100%" vs "Hundred percent", "her cost" vs "her costs"), backchannel segmentation issues (Marie's brief "Okay" / "Mm hmm" absorbed into Brant's longer turns — a diarization-level problem the text reviewer can't fix), word-order variations, and a few cases where VibeVoice is *more* accurate than the manually-revised reference. There are very few "wrong-word" errors for a reviewer to catch. Two hypotheses are equally consistent with the data: (a) the architecture works correctly, both reviewers identified the transcript as fine; (b) the reviewers are rubber-stamping and would say "correct=true" regardless.
+
+**Cost analysis**: both models cleared the 30 s/min audio budget (Voxtral 22 s/min, Qwen Q8 28 s/min). Infrastructure-wise the pipeline is shippable; the open question is whether it does any work.
+
+**Recommended next experiment (Phase A v2)** — `RESULTS.md` documents this in detail. Run an **injected-error benchmark**: take `vibevoice_with_context.json`, programmatically substitute known-wrong words into N segments (e.g., "Brant Kuehn" → "Bernard Cohen" in 3 segments, drop a phrase from 2 segments, "mediation" → "meditation" in 1), then run Phase A on the corrupted transcript. Score by injected-error detection rate at any confidence, plus false-positive rate on the genuinely-correct segments. A reviewer that flags 0/N injected errors at any confidence is rubber-stamping; one that flags N/N at high confidence is actually engaged. Secondary: re-run with a softer prompt that doesn't have the strong "presume correct" framing, on the same 51 real segments, to see if the prompt itself was the bottleneck.
+
+**Files**: `Brainstorming/phase-a-vibevoice-nemotron/{run_phase_a.py, test_decision.py, compare.py, RESULTS.md, phase_a_voxtral*.json, phase_a_qwen*.json}` plus the model weights at `voxtral/`, `qwen-omni/`, `gguf/` (Nemotron preserved for later).
+
+### April 30, 2026 (later) — Phase A v2: injected-error benchmark resolves the ambiguity
+
+User direction: "keep on it with the goal of figuring out how to make this work." Built two parallel diagnostics to distinguish "architecture works" from "architecture rubber-stamps":
+
+1. **Error injection tool** (`inject_errors.py`) — substitutes 8 audibly-distinguishable wrong words into the VibeVoice baseline (e.g., "Brant Kuehn" → "Bernard Cohen", "100%" → "10%", "funding" → "lunch"). Each injection has a `why_audible` annotation explaining why a careful listener should catch it.
+2. **Softer review prompt** — replaced the strict "PRESUMED CORRECT" anchor. New prompt asks the model to first transcribe what it hears independently, *then* compare to the candidate. New JSON field `heard` captures the model's own transcription for audit. Bias separation: the prompt asks the model to listen, the standard-of-proof gate at the decision layer keeps strict (threshold 0.75 + non-trivial-diff filter + non-empty evidence).
+3. **Injection scorer** (`score_injections.py`) — classifies every reviewed segment as TP / FN / FP / TN against the manifest, reports recall and false-positive rate at multiple thresholds.
+
+**The diagnostic ran four configurations**:
+
+| Configuration | WER | Δ corrupted | Detected | At 0.75 | FPs |
+|---|---:|---:|:---:|:---:|---:|
+| Corrupted baseline (no review) | 10.84% | — | — | — | — |
+| Voxtral 3B Q4 / strict prompt | 10.84% | 0 | 0/8 | 0/8 | 0 |
+| Voxtral 3B Q4 / soft prompt | **12.26%** | **+1.42** | 5/8 | 1/8 | 7 |
+| Qwen Q8 / soft prompt | **10.60%** | **−0.24** | 3/8 | **3/8** | 1 |
+
+**Voxtral with strict prompt was confirmed to be rubber-stamping** — 0/8 detection across blatant injections like "Bernard Cohen" for an audio clearly saying "Brant Kuehn." When given the softer prompt, Voxtral *did* engage (5/8 mismatches identified) but its `confidence_wrong` calibration is essentially random — it returns 0.0 even when correctly identifying substantive mismatches. The threshold gate therefore filtered out its real catches while letting through 2 over-corrections, making the transcript worse (+1.42 WER).
+
+**Qwen Q8 with soft prompt is the architecturally viable configuration.** Lower raw recall (3/8 vs 5/8) but excellent calibration: every detection landed at 95% confidence, only 1 false positive, and the corrections it applied were substantively right. Net WER on a transcript with injected errors went from 10.84% → 10.60% — the architecture *actually improved* the transcript, on a corrupted input where the goal was to recover from injected errors.
+
+**Architectural verdict**: the standard-of-proof framing works *when paired with* (a) a calibrated model (Qwen Q8 over Voxtral 3B), (b) a soft prompt that asks the model to listen first and compare second, (c) the existing decision-layer gate (threshold + evidence + non-trivial-diff). The earlier null result on the clean transcript was the architecture working correctly — there was nothing substantive for the reviewer to catch.
+
+**Production gap**: Qwen's 37.5% detection rate is too low for shipping. Phase A v3 candidates documented in `RESULTS.md`: (1) multi-sample voting (3 samples at temp 0.3, majority rule) — should boost recall via better calibration without inflating FPR; cost goes from 28 to ~84 s/min audio. (2) hotword priming for proper names. (3) larger Omni model when one ships in GGUF, or Nemotron Omni when llama.cpp adds audio support.
+
+**Files added in v2**: `inject_errors.py`, `score_injections.py`, `vibevoice_corrupted.json`, `injection_manifest.json`, `phase_a_voxtral_soft.json`, `phase_a_qwen_soft.json`, `phase_a_voxtral_injected.json`, all corresponding `*_review.jsonl` audit logs. `run_phase_a.py` updated with the soft prompt as default and a `heard` field threaded through the audit log.
+
+### April 30 – May 1, 2026 — Phase A v3 / v4 / v5 + the smart-editor breakthrough
+
+User direction reframed Deep Review's goal: VibeVoice's transcript IS the output; a reasoning model acts as a smart editor that proposes targeted patches based on listening to the audio. NOT a merge of two transcripts. NOT a per-segment "pick A or B." The mental model is a careful human reviewer marking up a draft, not synthesizing a new draft.
+
+Five rounds of iteration tested this:
+
+**v3 (disagreement-driven, Qwen Q8 with both candidates)**: 0/8 injections caught. The model anchors on whichever candidate is shown — when given the corrupted candidate, it echoed the corruption rather than transcribing fresh. Showing both candidates simultaneously made things worse, not better.
+
+**v3.3 (Voxtral 3B as fresh per-span ASR)**: catastrophic 83% WER. Voxtral hallucinates wildly when given a per-span clip with a "transcribe verbatim" prompt — it summarizes or makes things up.
+
+**v4 (Voxtral Small 24B as candidate-judge with word-swap apply)**: 46% WER. Voxtral Small DID catch real errors with high-confidence verdicts ("Florida counsel" → "Virginia Council" at conf=0.95 with accurate evidence), but the apply logic broke: when verdict was "replace_with_b", we substituted Parakeet's segment which often spans more audio time than VibeVoice's (Parakeet merges what VibeVoice splits), introducing massive content duplication. The word-swap apply attempt fixed half the problem but not the underlying segmentation alignment.
+
+**v5 (smart editor — the working architecture)**: model receives the FULL VibeVoice transcript with segment indices labeled, plus the FULL audio, in a SINGLE prompt. Asked to return a list of `{segment, find, replace, evidence}` patches. The `find` string must be an exact substring of the targeted segment's text. Apply logic is just string-level find-and-replace per patch, gated by: find-string-exists, non-trivial diff, length ratio 0.33–3.0, non-empty evidence ≥12 chars.
+
+Results with Voxtral Small 24B Q4:
+- **Corrupted input**: 3/8 injections caught surgically (Bernard Cohen → Brant Kuehn, Tracy → Marie, meditation → mediation), WER 10.68% (vs corrupted baseline 10.84%, original VibeVoice 10.21%). Two bonus edits applied (one likely a real VibeVoice error caught for free). 61s wall clock — 3.5× faster than v2.
+- **Clean input**: parse_error suppressed all edits — but the model's RAW output proposed reversing the correct "Brant Kuehn" back to "Bernard Cohen". The architecture worked (clean transcript stayed clean) but only because the JSON output was truncated at max_tokens before the bad edit could be parsed. **Voxtral Small Q4 hallucinates corrections on clean input — not safe for production.**
+
+Qwen Q8 in the same v5 architecture: returns `{"edits": []}` immediately. Doesn't engage with the audio-grounded review task at all in this framing.
+
+**Architectural verdict**: v5 is the right design. No transcript merging, no segmentation alignment problems, atomic patches, single-shot inference, principled apply gate. The remaining variable is the model. Voxtral Small at Q4 isn't reliable enough; Q8 (≈25 GB) is the next thing to test. Step-Audio-R1.1 33B (Apache 2.0, beats Gemini 2.5 Pro on audio reasoning, has built-in `<think>` blocks) is the ideal target if/when it gets a GGUF release with llama.cpp audio support.
+
+**For the immediate Consensus product**: ship the v2 architecture (Qwen Q8 per-segment review with the soft prompt) as the validated Deep Review backend. 10.60% WER on corrupted, 3/8 injection detection, zero false positives on clean input. v5 needs a more reliable model before it's safe to ship.
+
+**Files**: `run_smart_editor.py`, `phase_a_v5_*.json`, `phase_a_v5_*_audit.json`. `Brainstorming/phase-a-vibevoice-nemotron/RESULTS.md` updated with the full five-round narrative + architectural lesson.
+
+**Lesson worth preserving**: the architecture is "smart editor producing patch list," not "transcript merger" or "candidate picker." When the next reasoning-grade audio model lands in llama.cpp, plug it into v5 unchanged.
+
+**Handoff document drafted** at `Brainstorming/phase-a-vibevoice-nemotron/HANDOFF.md`. User paused to review results and think more about architecture. Next concrete step: download Voxtral Small Q8 (~25 GB) and re-run the v5 smart editor on both corrupted and clean transcripts. The decision matrix after that test is documented in HANDOFF.md — ship v5 with Q8 if reliability is fixed; otherwise ship the v2 Qwen-Q8-per-segment configuration as the verified Deep Review backend while waiting for Step-Audio-R1.1 or another reasoning-grade audio model to land in llama.cpp. Open architectural questions for the user to think about: the user-provided context box integration (not yet wired into v5), multi-sample voting as a cheap hallucination guard, prompt chunking for >10-min audio, and whether the optional disagreement-hint block boosts recall when paired with a reliable Q8 driver.
+
+### May 1, 2026 — Phase A v6/v7 tool-constrained editor
+
+Rejected the v5 full-transcript smart editor after Voxtral Small Q8 repeated the clean-transcript hallucination and applied `Brant Kuehn -> Bernard Cohen`, worsening WER to 10.36%.
+Built `run_local_relisten_editor.py` (v6), which uses second-ASR disagreements only as a heatmap and re-runs VibeVoice locally; it repaired all 8 injected corruptions, applied zero edits to clean input, and restored corrupted WER from 10.84% to 10.21%.
+Built `run_patch_verifier.py` (v7), which generates small WhisperKit candidate patches and lets Voxtral verify only keep/apply decisions; Voxtral Q4 improved the clean transcript to 9.89% by applying `seeing -> thinking` and `Oh, gosh -> That was fast`.
+Combined v6 + v7 on the corrupted transcript reached 9.89% WER while still repairing 8/8 injected errors, making the tool-constrained editor the new best architecture.
+The decision changed from "find a better full-transcript editor model" to "productionize a patch-centered editor with protected hotwords, local re-listen tools, and more gold transcripts for calibration."
+
+### May 1, 2026 — Masked-cloze verifier breakthrough
+
+Found the missing execution trick: mask the disputed phrase before asking the audio model to verify it, turning `seeing -> thinking` into a fill-the-blank task rather than a judgment over a sentence that already contains one answer.
+Extended `run_patch_verifier.py` with `--masked-cloze`; with protected terms enabled, Voxtral Small Q4 applied three correct clean-transcript patches (`seeing -> thinking`, `that's it -> that said`, `Oh, gosh -> That was fast`) and improved WER from 10.21% to 9.73%.
+The unprotected masked run exposed the guardrail requirement by accepting phonetically plausible regressions like `Brant Kuehn -> Brankine` and `Marie -> Maria`; user/domain hotwords must therefore be hard protected unless a patch moves toward them.
+Combined v6 + masked v8 on the corrupted transcript reached 9.73% WER while still repairing all 8 injected corruptions.
+The new recommended architecture is v6 local re-listen plus v8 protected masked-cloze verification, run through a resident sidecar and calibrated on more gold transcripts.
+
+### May 1, 2026 — App architecture pivot to patch-centered Deep Review
+
+Reworked the active app architecture so Deep Review is now patch-centered rather than a selectable add-on beside the old full-transcript LLM reconciler.
+Added `PatchReviewRunner` and `TranscriboApp/Scripts/PatchReviewSidecar/run_patch_review.py`, wiring the Deep pass as: VibeVoice canonical transcript -> WhisperKit second opinion -> VibeVoice local re-listen -> protected masked-cloze verifier -> deterministic patch audit.
+Made the rewritten Deep Read surface the app entry point, removed the developer UI toggle from active settings, forced VibeVoice as the canonical draft engine, and changed the review UI from "LLM uncertainty" to auditable patch-review items with revert-to-original options.
+Archived the prior rewritten-UI full-reconcile runner at `Brainstorming/archive/legacy-deep-review/DeepPassRunner.full-llm-reconcile.swift` with a README explaining the retired path.
+Verified the Swift target with `swift build` and syntax-checked the new Python sidecar; remaining build output was pre-existing warning noise in older files.
+
+### May 1, 2026 — VibeVoice progress screen redesign
+
+Replaced the generic centered Transcribing card with a dedicated workstation-style progress screen for the VibeVoice draft pass.
+Threaded token count and tokens-per-second metadata from the sidecar into Swift progress updates, then split live transcript text into a rolling feed instead of embedding it inside the stage label.
+Added fixed metric tiles for progress, tokens, speed, and elapsed time, plus a fixed-height live transcript panel that scrolls independently so the header and page layout no longer jump as segment length changes.
+Verified the Swift target with `swift build`; built a release `.app` bundle but left `/Applications/Consensus.app` untouched because the installed app was actively running a test.
+
+### May 1, 2026 — Speaker naming evidence panel
+
+Fixed the "Who's speaking?" stage so expanded speaker examples no longer push the page header and footer out of view.
+Replaced in-row expansion with a selected-speaker evidence panel: the speaker rows stay compact for name entry, while the longer cross-recording examples scroll in their own inspector pane.
+Kept the speaker list itself in a bounded scroll region and added a stacked fallback for narrower windows.
+Verified the Swift target with `swift build`; the installed `/Applications` app was left untouched while the user's active test continued.
+
+### May 1, 2026 — Full export suite and manual revision pane
+
+Restored the full export surface inside the rewritten Deep Read architecture: text, Markdown, Obsidian Markdown, JSON, SRT, RTF, DOCX, and the court-style legal transcript PDF now route through the shared `ExportService`.
+Added legal PDF options to the new export sheet, including custom header text, elapsed timestamps, optional clock timestamps, and optional cover page content from the summary/to-do pane.
+Integrated a new Manual Revision toolbar action that opens a rewrite-native correction pane, saves edits as the project's `.manual` pass, and gives the editor find, previous/next match, replace, and replace-all controls with native match highlighting.
+Chose to reuse the existing exporter instead of creating a parallel rewritten exporter so legal PDF and DOCX behavior stay consistent across old and new surfaces.
+Verified with `swift build` and `./build-app.sh --release`; the fresh bundle was built at `TranscriboApp/build/Consensus.app`, but `/Applications/Consensus.app` was left untouched because the installed app was still running a live test.
+
+## 2026-05-20 — Checkpoint on rewrite-2026-04: UI overhaul plan, Deep Read pipeline
+
+Captured pending WIP during the May 2026 workspace reorganization. New `UI-OVERHAUL-PLAN.md` (74 lines). DeepPassRunner removed; standardized on StandardPassRunner. Deep Read pipeline overhaul: DeepReadViewModel, DeepReadReviewView, DeepReadRootView, DeepReadSetupView, DeepReviewEngine. Services: ConfidenceMergeService, ExportService, LLMReconcileService, SegmentMerger, TranscriptionPipeline. Models: ProjectDocument, TranscriptPass, AppSettings. Views: ContentView, SettingsView, TranscriptionSetupView, ExportSheet, PipelineInspectorView, RewrittenSurface, SpeakerNamingView. Branch is `rewrite-2026-04` — set upstream on this push. Totals: 2814 insertions, 853 deletions across 28 files.

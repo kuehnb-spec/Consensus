@@ -26,3 +26,11 @@ TestAudio/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Large model files — see source-index.md and ComputerMaintenance Task #6
+# (Consensus model audit) for the cleanup plan
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.ckpt

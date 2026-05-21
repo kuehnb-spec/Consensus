@@ -1,0 +1,9 @@
+{
+  "review_seconds": 171.43311500549316,
+  "wall_clock_seconds": 171.434396982193,
+  "raw_response": "{\"edits\": [{\"segment\": 1, \"find\": \"Brant Kuehn\", \"replace\": \"Bernard Cohen\", \"evidence\": \"The audio clearly says 'Bernard Cohen'.\"}, {\"segment\": 10, \"find\": \"Virginia counsel\", \"replace\": \"Virginia counsel\", \"evidence\": \"The audio says 'Virginia counsel'.\"}, {\"segment\": 16, \"find\": \"Legalist\", \"replace\": \"Legalist\", \"evidence\": \"The audio says 'Legalist'.\"}, {\"segment\": 16, \"find\": \"JAMS\", \"replace\": \"JAMS\", \"evidence\": \"The audio says 'JAMS'.\"}, {\"segment\": 41, \"find\": \"Ms. Anthony\", \"replace\": \"Ms. Anthony\", \"evidence\": \"The audio says 'Ms. Anthony'.\"}, {\"segment\": 41, \"find\": \"Ms. Anthony\", \"replace\": \"Ms. Anthony\", \"evidence\": \"The audio says 'Ms. Anthony'.\"}, {\"segment\": 41, \"find\": \"Ms. Anthony\", \"replace\": \"Ms. Anthony\", \"evidence\": \"The audio says 'Ms. Anthony'.\"}, {\"segment\": 41, \"find\": \"Ms. Anthony\", \"replace\": \"Ms. Anthony\", \"evidence\": \"The audio says 'Ms. Anthony'.\"}, {\"segment\": 41, \"find\": \"Ms. Anthony\", \"replace\": \"Ms. Anthony\", \"evidence\": \"The audio says 'Ms. Anthony",
+  "parse_error": "no_valid_json",
+  "proposed_edits": [],
+  "applied_count": 0,
+  "audit": []
+}

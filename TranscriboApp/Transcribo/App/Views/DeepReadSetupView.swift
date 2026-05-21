@@ -17,6 +17,9 @@ struct DeepReadSetupView: View {
                     audioSummaryCard(project: project)
                         .frame(maxWidth: 560)
 
+                    modeChipRow(current: viewModel.mode)
+                        .frame(maxWidth: 560)
+
                     setupCard(project: project)
                         .frame(maxWidth: 560)
                 } else {
@@ -27,6 +30,61 @@ struct DeepReadSetupView: View {
             .padding(ConsensusTheme.Spacing.xxl)
             .frame(maxWidth: .infinity)
         }
+    }
+
+    // MARK: - Mode picker (always visible in setup, so users who opened a
+    // recent project can still switch surface tier before transcribing)
+
+    private func modeChipRow(current: ModeState) -> some View {
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
+            sectionHeader("Mode")
+            HStack(spacing: ConsensusTheme.Spacing.sm) {
+                ForEach(ModeState.allCases) { mode in
+                    modeChip(mode: mode, selected: mode == current)
+                }
+            }
+        }
+        .padding(ConsensusTheme.Spacing.lg)
+        .background(cardBackground)
+    }
+
+    private func modeChip(mode: ModeState, selected: Bool) -> some View {
+        Button {
+            viewModel.setMode(mode)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: ConsensusTheme.Spacing.xs) {
+                    Image(systemName: mode.iconSystemName)
+                        .font(.system(size: 12, weight: .medium))
+                    Text(mode.displayName)
+                        .font(ConsensusType.displayBody.weight(selected ? .semibold : .medium))
+                }
+                Text(mode.tagline)
+                    .font(ConsensusType.displayCaption)
+                    .foregroundStyle(selected ? ConsensusTheme.Colors.textSecondary : ConsensusTheme.Colors.textTertiary)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, ConsensusTheme.Spacing.md)
+            .padding(.vertical, ConsensusTheme.Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                    .fill(selected ? ConsensusTheme.Colors.accentSubtle : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                            .stroke(
+                                selected ? ConsensusTheme.Colors.accent : ConsensusTheme.Colors.border,
+                                lineWidth: selected ? 1.5 : 1
+                            )
+                    )
+            )
+            .foregroundStyle(
+                selected ? ConsensusTheme.Colors.accent : ConsensusTheme.Colors.textPrimary
+            )
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: selected)
     }
 
     // MARK: - Audio summary (what we just imported)
@@ -81,6 +139,19 @@ struct DeepReadSetupView: View {
                         .foregroundStyle(ConsensusTheme.Colors.textSecondary)
                         .animation(.easeInOut(duration: 0.15), value: project.settings.speed)
                 }
+            }
+
+            divider
+
+            // Canonical engine. Patch Review is calibrated around VibeVoice
+            // as the draft transcript, so the active app no longer exposes
+            // the older primary-engine swapper.
+            VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
+                sectionHeader("Canonical Engine")
+                enginePicker(current: project.settings.engine)
+                Text("VibeVoice drafts the transcript and diarization. Deep Review then uses second opinions and local audio checks only to apply exact patches.")
+                    .font(ConsensusType.displayCaption)
+                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
             }
 
             divider
@@ -210,6 +281,44 @@ struct DeepReadSetupView: View {
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.12), value: selected)
+    }
+
+    private func enginePicker(current: RewrittenEngineChoice) -> some View {
+        HStack(spacing: ConsensusTheme.Spacing.sm) {
+            ForEach([RewrittenEngineChoice.vibevoice]) { choice in
+                engineChip(choice: choice, selected: true)
+            }
+        }
+    }
+
+    private func engineChip(choice: RewrittenEngineChoice, selected: Bool) -> some View {
+        Button {
+            viewModel.setEngine(choice)
+        } label: {
+            Text(choice.displayName)
+                .font(ConsensusType.displayBody.weight(selected ? .semibold : .regular))
+                .padding(.horizontal, ConsensusTheme.Spacing.md)
+                .padding(.vertical, ConsensusTheme.Spacing.sm)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                        .fill(selected ? ConsensusTheme.Colors.accentSubtle : Color.clear)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                                .stroke(
+                                    selected ? ConsensusTheme.Colors.accent : ConsensusTheme.Colors.border,
+                                    lineWidth: selected ? 1.5 : 1
+                                )
+                        )
+                )
+                .foregroundStyle(
+                    selected
+                    ? ConsensusTheme.Colors.accent
+                    : ConsensusTheme.Colors.textPrimary
+                )
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: selected)
     }
 
     private func speedChip(tier: SpeedTier, selected: Bool) -> some View {

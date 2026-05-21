@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 final class TranscriptionViewModel {
     // Primary transcription engine
     enum PrimaryEngine: String, CaseIterable, Identifiable {
+        case vibevoice = "VibeVoice"
         case parakeetV3 = "Parakeet v3"
         case whisper = "WhisperKit"
 
@@ -14,7 +15,8 @@ final class TranscriptionViewModel {
 
         var description: String {
             switch self {
-            case .parakeetV3: return "Recommended. CTC-native timestamps, best diarization accuracy."
+            case .vibevoice: return "Recommended. Joint ASR + diarization with hotword-biased proper names."
+            case .parakeetV3: return "CTC-native timestamps, strong diarization accuracy."
             case .whisper: return "Multiple model sizes. Cleaner text formatting."
             }
         }
@@ -24,7 +26,7 @@ final class TranscriptionViewModel {
     var audioFileURL: URL?
     var audioDuration: TimeInterval = 0
     var audioFileName: String = ""
-    var primaryEngine: PrimaryEngine = .parakeetV3
+    var primaryEngine: PrimaryEngine = .vibevoice
     var selectedModel: WhisperModel
     var deepReviewEngine: DeepReviewEngineChoice
     var deepReviewModel: WhisperModel
@@ -591,12 +593,25 @@ final class TranscriptionViewModel {
         processLog.clear()
         let engine: TranscriptionEngineDescriptor
         switch primaryEngine {
+        case .vibevoice:
+            engine = .vibevoice(.fourBitMLX, context: vibeVoiceHotwords())
         case .parakeetV3:
             engine = .fluidAsr(.parakeetV3)
         case .whisper:
             engine = .whisper(selectedModel)
         }
         await runPipelinePass(kind: .standard, engine: engine, resetSpeakerMapping: true)
+    }
+
+    /// Build a hotword string for VibeVoice's `context=` parameter using any
+    /// speaker names already known on this project. Returns nil when there are no
+    /// useful hints. Comma-separated to match Microsoft's format example.
+    private func vibeVoiceHotwords() -> String? {
+        let speakerNames = Array(speakerMapping.names.values)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard !speakerNames.isEmpty else { return nil }
+        return speakerNames.joined(separator: ", ")
     }
 
     /// Toggle process log visibility.
@@ -709,6 +724,14 @@ final class TranscriptionViewModel {
             // Dispatch to the async entry point; UI shows progress via cleanupProgress.
             Task { [weak self] in
                 await self?.runLLMReconciliation(
+                    referencePass: referencePass,
+                    candidatePass: candidatePass
+                )
+            }
+
+        case .llmJudgment:
+            Task { [weak self] in
+                await self?.runLLMJudgment(
                     referencePass: referencePass,
                     candidatePass: candidatePass
                 )
@@ -841,6 +864,262 @@ final class TranscriptionViewModel {
                 applyConfidenceMerge: false
             )
             mergedTranscript = fallback
+        }
+    }
+
+    /// Run the dispute-only LLM judgment path. Unlike `.llmReconcile`, which
+    /// asks the LLM to rewrite the entire transcript, this mode starts from a
+    /// clean Engine A pass-through and only consults the LLM on the specific
+    /// windows where Engine A and Engine B substantively disagree. It is the
+    /// default mode as of 2026-04-23 because it preserves Engine A's (validated)
+    /// speaker structure and runs an order of magnitude less LLM compute than
+    /// full reconciliation.
+    private func runLLMJudgment(
+        referencePass: TranscriptionPass,
+        candidatePass: TranscriptionPass
+    ) async {
+        // Start from the Engine A pass-through merge. If the LLM fails or
+        // returns nothing actionable, this remains the final transcript.
+        var merged = ConfidenceMergeService.buildMergedTranscript(
+            referencePass: referencePass,
+            candidatePass: candidatePass,
+            applyConfidenceMerge: false
+        )
+
+        let disputes = LLMReconcileService.findDisputes(
+            referencePass: referencePass,
+            candidatePass: candidatePass
+        )
+
+        if disputes.isEmpty {
+            mergedTranscript = merged
+            reconciliationStatusMessage = "Engines agree on the full transcript — no LLM review needed."
+            processLog.log("LLM judgment: engines agree, no disputes to judge.", level: .success)
+            return
+        }
+
+        let reconciler = LLMReconcileService()
+        processLog.isVisible = true
+        processLog.log(
+            "LLM judgment: \(disputes.count) dispute window(s) found. Loading \(selectedCleanupModel.displayName)...",
+            level: .aiThinking
+        )
+        cleanupProgress = "Loading judgment model..."
+        isCleanupRunning = true
+        defer { isCleanupRunning = false; cleanupProgress = "" }
+
+        do {
+            try await reconciler.loadModel(selectedCleanupModel) { [weak self] progress in
+                Task { @MainActor in
+                    if progress < 1.0 {
+                        self?.cleanupProgress = "Loading model... \(Int(progress * 100))%"
+                    }
+                }
+            }
+
+            cleanupProgress = "Judging \(disputes.count) dispute(s)..."
+            processLog.setOutputLabel("LLM Judgment")
+            processLog.clearOutput()
+
+            let knownNames = Array(speakerMapping.names.values).filter { !$0.isEmpty }
+            let options = LLMReconcileService.ReconcileOptions(
+                domainHint: nil,
+                knownSpeakerNames: knownNames,
+                maxTokens: 4_000
+            )
+
+            let resolutions = try await reconciler.judgeDisputes(
+                disputes,
+                options: options,
+                tokenCallback: { [weak self] chunk in
+                    Task { @MainActor in self?.processLog.appendOutput(chunk) }
+                }
+            )
+
+            merged = Self.applyJudgmentResolutions(to: merged, resolutions: resolutions)
+            mergedTranscript = merged
+
+            let applied = resolutions.reduce(into: (b: 0, suggested: 0, uncertain: 0, a: 0)) { acc, r in
+                switch r.choice {
+                case .preferA: acc.a += 1
+                case .preferB: acc.b += 1
+                case .suggest: acc.suggested += 1
+                case .uncertain: acc.uncertain += 1
+                }
+            }
+            processLog.log(
+                "LLM judgment complete: \(applied.a) kept A, \(applied.b) switched to B, \(applied.suggested) LLM-corrected, \(applied.uncertain) flagged uncertain.",
+                level: .success
+            )
+
+            let changedCount = applied.b + applied.suggested
+            if applied.uncertain > 0 && changedCount > 0 {
+                reconciliationStatusMessage = "LLM corrected \(changedCount) region(s); \(applied.uncertain) still need review."
+            } else if applied.uncertain > 0 {
+                reconciliationStatusMessage = "\(applied.uncertain) region(s) flagged uncertain — review in the editor."
+            } else if changedCount > 0 {
+                reconciliationStatusMessage = "LLM resolved \(changedCount) dispute(s) without uncertainty."
+            } else {
+                reconciliationStatusMessage = "LLM reviewed \(disputes.count) dispute(s); Engine A was correct in all cases."
+            }
+
+            if settings.enableForcedAlignment {
+                Task { [weak self] in await self?.rebuildWordTimeline() }
+            }
+        } catch {
+            processLog.log(
+                "LLM judgment failed: \(error.localizedDescription). Using Engine A unchanged.",
+                level: .error
+            )
+            mergedTranscript = merged
+            reconciliationStatusMessage = "LLM judgment unavailable; Engine A output used as-is."
+        }
+    }
+
+    /// Apply LLM dispute resolutions to a pass-through merged transcript.
+    /// For each resolution: `.preferA` is a no-op; `.preferB` and `.suggest`
+    /// substitute the segment's words with tokenized new text (linearly-timed)
+    /// and append a resolved flag; `.uncertain` appends an unresolved flag so
+    /// the user can see the disagreement and optionally trigger a targeted
+    /// re-transcription of just that audio slice.
+    private static func applyJudgmentResolutions(
+        to merged: MergedTranscript,
+        resolutions: [LLMReconcileService.DisputeResolution]
+    ) -> MergedTranscript {
+        var segments = merged.segments
+        var flags = merged.flags
+
+        for resolution in resolutions {
+            let window = resolution.window
+            guard window.segmentIndex < segments.count else { continue }
+            let seg = segments[window.segmentIndex]
+            let refText = window.engineAText
+            let candText = window.engineBText
+
+            switch resolution.choice {
+            case .preferA:
+                continue
+
+            case .preferB:
+                guard !candText.isEmpty else { continue }
+                segments[window.segmentIndex].words = retimeTokens(
+                    candText,
+                    start: seg.start,
+                    end: seg.end,
+                    speakerID: seg.speakerID,
+                    confidence: 0.85
+                )
+                let flagIndex = flags.count
+                flags.append(MergeFlag(
+                    kind: .ambiguousText,
+                    segmentIndex: window.segmentIndex,
+                    wordRange: 0..<segments[window.segmentIndex].words.count,
+                    start: window.timeStart,
+                    end: window.timeEnd,
+                    mergedText: candText,
+                    referenceText: refText,
+                    candidateText: candText,
+                    referenceSpeakerID: seg.speakerID,
+                    candidateSpeakerID: seg.speakerID,
+                    referenceConfidence: 0.5,
+                    candidateConfidence: 0.85,
+                    isResolved: true,
+                    resolution: .useCandidate
+                ))
+                segments[window.segmentIndex].flagIndices.append(flagIndex)
+
+            case .suggest(let text):
+                let suggestedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !suggestedText.isEmpty else { continue }
+                segments[window.segmentIndex].words = retimeTokens(
+                    suggestedText,
+                    start: seg.start,
+                    end: seg.end,
+                    speakerID: seg.speakerID,
+                    confidence: 0.8
+                )
+                let flagIndex = flags.count
+                flags.append(MergeFlag(
+                    kind: .ambiguousText,
+                    segmentIndex: window.segmentIndex,
+                    wordRange: 0..<segments[window.segmentIndex].words.count,
+                    start: window.timeStart,
+                    end: window.timeEnd,
+                    mergedText: suggestedText,
+                    referenceText: refText,
+                    candidateText: candText,
+                    referenceSpeakerID: seg.speakerID,
+                    candidateSpeakerID: seg.speakerID,
+                    referenceConfidence: 0.5,
+                    candidateConfidence: 0.5,
+                    isResolved: true,
+                    resolution: .manual(text: suggestedText)
+                ))
+                segments[window.segmentIndex].flagIndices.append(flagIndex)
+
+            case .uncertain:
+                let flagIndex = flags.count
+                flags.append(MergeFlag(
+                    kind: .ambiguousText,
+                    segmentIndex: window.segmentIndex,
+                    wordRange: 0..<seg.words.count,
+                    start: window.timeStart,
+                    end: window.timeEnd,
+                    mergedText: refText,
+                    referenceText: refText,
+                    candidateText: candText,
+                    referenceSpeakerID: seg.speakerID,
+                    candidateSpeakerID: seg.speakerID,
+                    referenceConfidence: 0.5,
+                    candidateConfidence: 0.5,
+                    isResolved: false,
+                    resolution: .merged
+                ))
+                segments[window.segmentIndex].flagIndices.append(flagIndex)
+            }
+        }
+
+        return MergedTranscript(
+            referencePassID: merged.referencePassID,
+            candidatePassID: merged.candidatePassID,
+            referenceLabel: merged.referenceLabel,
+            candidateLabel: merged.candidateLabel,
+            segments: segments,
+            flags: flags,
+            updatedAt: Date(),
+            wordTimingsRefined: merged.wordTimingsRefined,
+            wordTimingsAlignerLabel: merged.wordTimingsAlignerLabel
+        )
+    }
+
+    /// Split `text` into whitespace-separated tokens and distribute timings
+    /// linearly across `[start, end]`. Used when an LLM-suggested correction
+    /// replaces a segment's words — we don't have real per-word timings from
+    /// the LLM, so we interpolate. Forced alignment can refine these later if
+    /// the user turns it on.
+    private static func retimeTokens(
+        _ text: String,
+        start: TimeInterval,
+        end: TimeInterval,
+        speakerID: String,
+        confidence: Float
+    ) -> [MergedWord] {
+        let tokens = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !tokens.isEmpty else { return [] }
+        let duration = max(0.1, end - start)
+        let perWord = duration / Double(tokens.count)
+        return tokens.enumerated().map { (i, tok) in
+            MergedWord(
+                word: tok,
+                start: Float(start + Double(i) * perWord),
+                end: Float(start + Double(i + 1) * perWord),
+                confidence: confidence,
+                source: .agreed(
+                    referenceWord: tok, candidateWord: tok,
+                    referenceConfidence: confidence, candidateConfidence: confidence
+                ),
+                speakerID: speakerID
+            )
         }
     }
 
@@ -994,33 +1273,14 @@ final class TranscriptionViewModel {
                 alignerLabel: service.displayName
             )
 
-            // Re-attribute speakers and re-group segments using the refined timings.
-            // This is what actually makes FA fix cross-speaker sentences: the original
-            // attribution was computed using pre-FA noisy timestamps. Words whose
-            // refined timestamps now fall on the other side of a speaker-turn
-            // boundary need to be pulled into the correct segment.
-            let finalMerged: MergedTranscript
-            if let referencePass = reconciliationReferencePass {
-                wordAlignmentProgress = "Re-attributing speakers to refined timings..."
-                let reattributed = ConfidenceMergeService.reattributeAfterRetiming(
-                    updated,
-                    referenceSegments: referencePass.result.segments
-                )
-                let moved = Self.countWordsThatMovedSpeaker(before: updated, after: reattributed)
-                if moved > 0 {
-                    processLog.log(
-                        "Re-attribution after FA: \(moved) word(s) moved to a different speaker based on refined timings",
-                        level: .info
-                    )
-                }
-                finalMerged = reattributed
-            } else {
-                // Fallback: no reference pass available (shouldn't happen in Deep Review
-                // where FA runs, but guard against it). Use updated without re-attribution.
-                finalMerged = updated
-            }
-
-            mergedTranscript = finalMerged
+            // Keep the updated timings but preserve per-segment word order. The
+            // earlier re-attribution step (ConfidenceMergeService.reattributeAfterRetiming)
+            // flattened all words, globally sorted by start time, then re-grouped
+            // into speaker turns — which on real phone audio interleaved words
+            // from different points in the conversation because Qwen3-ForcedAligner
+            // produces non-monotonic timings on 15-26% of words. Removed 2026-04-23
+            // after A/B testing confirmed preserving source order reads cleanly.
+            mergedTranscript = updated
             lastWordAlignmentDelta = delta
             processLog.log("Forced alignment complete: \(delta.summaryLine)", level: .success)
         } catch ForcedAlignmentError.disabled {
@@ -3059,29 +3319,6 @@ final class TranscriptionViewModel {
     private func presentError(_ error: Error) {
         errorMessage = error.localizedDescription
         showError = true
-    }
-
-    /// Count how many words ended up with a different speakerID after re-attribution.
-    /// Uses word UUIDs to match words across the before/after merged transcripts.
-    private static func countWordsThatMovedSpeaker(
-        before: MergedTranscript,
-        after: MergedTranscript
-    ) -> Int {
-        var beforeSpeaker: [UUID: String] = [:]
-        for segment in before.segments {
-            for word in segment.words {
-                beforeSpeaker[word.id] = word.speakerID
-            }
-        }
-        var moved = 0
-        for segment in after.segments {
-            for word in segment.words {
-                if let prior = beforeSpeaker[word.id], prior != word.speakerID {
-                    moved += 1
-                }
-            }
-        }
-        return moved
     }
 
     private static func recordingStartTime(

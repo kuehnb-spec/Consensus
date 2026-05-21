@@ -1,8 +1,11 @@
 import SwiftUI
 
-/// Root wrapper for the rewritten UI. Owns the per-launch `DeepReadViewModel`
-/// and the stores it depends on, then routes to `DeepReadRootView`. Shown
-/// from `ContentView` when `AppSettings.useRewrittenUI` is true.
+extension Notification.Name {
+    static let consensusOpenAudioFile = Notification.Name("ConsensusOpenAudioFile")
+}
+
+/// Root wrapper for the app UI. Owns the per-launch `DeepReadViewModel` and
+/// the stores it depends on, then routes to `DeepReadRootView`.
 ///
 /// The VM is built lazily (on first appearance) so the legacy path pays no
 /// cost when the flag is off. If either store fails to initialise, a simple
@@ -22,6 +25,9 @@ struct RewrittenSurface: View {
                 Color.clear
                     .task { setup() }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .consensusOpenAudioFile)) { _ in
+            viewModel?.showFilePicker = true
         }
     }
 

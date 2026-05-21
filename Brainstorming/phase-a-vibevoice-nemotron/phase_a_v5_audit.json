@@ -1,0 +1,135 @@
+{
+  "review_seconds": 61.580811977386475,
+  "wall_clock_seconds": 61.5818829536438,
+  "raw_response": "{\"edits\": [{\"segment\": 1, \"find\": \"Bernard Cohen\", \"replace\": \"Brant Kuehn\", \"evidence\": \"The audio clearly says 'Brant Kuehn'.\"}, {\"segment\": 2, \"find\": \"Tracy\", \"replace\": \"Marie\", \"evidence\": \"The audio clearly says 'Marie'.\"}, {\"segment\": 5, \"find\": \"meditation\", \"replace\": \"mediation\", \"evidence\": \"The audio clearly says 'mediation'.\"}, {\"segment\": 16, \"find\": \"call\", \"replace\": \"hearing\", \"evidence\": \"The audio clearly says 'hearing'.\"}, {\"segment\": 27, \"find\": \"Legalist\", \"replace\": \"AAA\", \"evidence\": \"The audio clearly says 'AAA'.\"}, {\"segment\": 40, \"find\": \"Ms. Anthony\", \"replace\": \"Ms. Love\", \"evidence\": \"The audio clearly says 'Ms. Love'.\"}, {\"segment\": 49, \"find\": \"Ms. Anthony\", \"replace\": \"Ms. Love\", \"evidence\": \"The audio clearly says 'Ms. Love'.\"}]}",
+  "parse_error": null,
+  "proposed_edits": [
+    {
+      "segment": 1,
+      "find": "Bernard Cohen",
+      "replace": "Brant Kuehn",
+      "evidence": "The audio clearly says 'Brant Kuehn'."
+    },
+    {
+      "segment": 2,
+      "find": "Tracy",
+      "replace": "Marie",
+      "evidence": "The audio clearly says 'Marie'."
+    },
+    {
+      "segment": 5,
+      "find": "meditation",
+      "replace": "mediation",
+      "evidence": "The audio clearly says 'mediation'."
+    },
+    {
+      "segment": 16,
+      "find": "call",
+      "replace": "hearing",
+      "evidence": "The audio clearly says 'hearing'."
+    },
+    {
+      "segment": 27,
+      "find": "Legalist",
+      "replace": "AAA",
+      "evidence": "The audio clearly says 'AAA'."
+    },
+    {
+      "segment": 40,
+      "find": "Ms. Anthony",
+      "replace": "Ms. Love",
+      "evidence": "The audio clearly says 'Ms. Love'."
+    },
+    {
+      "segment": 49,
+      "find": "Ms. Anthony",
+      "replace": "Ms. Love",
+      "evidence": "The audio clearly says 'Ms. Love'."
+    }
+  ],
+  "applied_count": 5,
+  "audit": [
+    {
+      "edit": {
+        "segment": 1,
+        "find": "Bernard Cohen",
+        "replace": "Brant Kuehn",
+        "evidence": "The audio clearly says 'Brant Kuehn'."
+      },
+      "applied": true,
+      "segment_index": 1,
+      "before": "Hello, this is Bernard Cohen.",
+      "after": "Hello, this is Brant Kuehn."
+    },
+    {
+      "edit": {
+        "segment": 2,
+        "find": "Tracy",
+        "replace": "Marie",
+        "evidence": "The audio clearly says 'Marie'."
+      },
+      "applied": true,
+      "segment_index": 2,
+      "before": "Yes, hi, it's Tracy.",
+      "after": "Yes, hi, it's Marie."
+    },
+    {
+      "edit": {
+        "segment": 5,
+        "find": "meditation",
+        "replace": "mediation",
+        "evidence": "The audio clearly says 'mediation'."
+      },
+      "applied": true,
+      "segment_index": 5,
+      "before": "So, uh, yeah, what's, what's going on? You guys have meditation next week?",
+      "after": "So, uh, yeah, what's, what's going on? You guys have mediation next week?"
+    },
+    {
+      "edit": {
+        "segment": 16,
+        "find": "call",
+        "replace": "hearing",
+        "evidence": "The audio clearly says 'hearing'."
+      },
+      "applied": true,
+      "segment_index": 16,
+      "before": "Yeah, look, I think there's a few things to talk about. Uh, one is the idea of asking the arbitrator to push our call, our initial call, back until after that mediation. Um, I think that was your idea, which I think is actually a pretty decent idea.",
+      "after": "Yeah, look, I think there's a few things to talk about. Uh, one is the idea of asking the arbitrator to push our hearing, our initial call, back until after that mediation. Um, I think that was your idea, which I think is actually a pretty decent idea."
+    },
+    {
+      "edit": {
+        "segment": 27,
+        "find": "Legalist",
+        "replace": "AAA",
+        "evidence": "The audio clearly says 'AAA'."
+      },
+      "applied": false,
+      "rejection_reason": "find_string_not_in_segment",
+      "segment_text": "Um, oh, you know what? It looks like maybe this is, um, for an actual arbitration hearing."
+    },
+    {
+      "edit": {
+        "segment": 40,
+        "find": "Ms. Anthony",
+        "replace": "Ms. Love",
+        "evidence": "The audio clearly says 'Ms. Love'."
+      },
+      "applied": true,
+      "segment_index": 40,
+      "before": "So then I guess that brings us to, uh, is there anything else that we should talk about regarding resolving the case? And I, I note that we haven't, Legalist has not received a request for any additional funding. And I don't know, um, if that indicates that Ms. Anthony has found another source of funds, or I, I don't remember what the, what the, what the timing is of her needs.",
+      "after": "So then I guess that brings us to, uh, is there anything else that we should talk about regarding resolving the case? And I, I note that we haven't, Legalist has not received a request for any additional funding. And I don't know, um, if that indicates that Ms. Love has found another source of funds, or I, I don't remember what the, what the, what the timing is of her needs."
+    },
+    {
+      "edit": {
+        "segment": 49,
+        "find": "Ms. Anthony",
+        "replace": "Ms. Love",
+        "evidence": "The audio clearly says 'Ms. Love'."
+      },
+      "applied": false,
+      "rejection_reason": "find_string_not_in_segment",
+      "segment_text": "Uh, look, I think that we would definitely, I'm sure the client would still be interested in something that is similar t"
+    }
+  ]
+}

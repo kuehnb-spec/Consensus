@@ -1,0 +1,1253 @@
+{
+  "model_load_seconds": 1.3161938190460205,
+  "total_generate_seconds": 128.56932163238525,
+  "candidate_segments": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50
+  ],
+  "applied_count": 0,
+  "audit": [
+    {
+      "segment_index": 1,
+      "start": 2.78,
+      "end": 5.26,
+      "before": "Hello, this is Brant Kuehn.",
+      "relisten_text": "Hello, this is Brant Kuehn.",
+      "patches": [],
+      "after": "Hello, this is Brant Kuehn.",
+      "applied": false,
+      "generate_seconds": 2.168210029602051,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 3.12,
+          "speaker_id": null,
+          "text": "Hello, this is Brant Kuehn."
+        },
+        {
+          "start": 3.12,
+          "end": 4.08,
+          "speaker_id": 1,
+          "text": "Yeah."
+        }
+      ]
+    },
+    {
+      "segment_index": 2,
+      "start": 5.26,
+      "end": 6.87,
+      "before": "Yes, hi, it's Marie.",
+      "relisten_text": "Thank you. Yes, hi, it's Marie. Hey, I'm Marie.",
+      "patches": [],
+      "after": "Yes, hi, it's Marie.",
+      "applied": false,
+      "generate_seconds": 1.2750279903411865,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 3.21,
+          "speaker_id": null,
+          "text": "Thank you. Yes, hi, it's Marie. Hey, I'm Marie."
+        }
+      ]
+    },
+    {
+      "segment_index": 3,
+      "start": 6.87,
+      "end": 8.86,
+      "before": "Hey, Marie, thanks for calling.",
+      "relisten_text": "Hey, Marie. Thanks for calling.",
+      "patches": [],
+      "after": "Hey, Marie, thanks for calling.",
+      "applied": false,
+      "generate_seconds": 2.328402042388916,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.75,
+          "speaker_id": null,
+          "text": "Hi, it's Marie."
+        },
+        {
+          "start": 0.75,
+          "end": 2.8,
+          "speaker_id": 1,
+          "text": "Hey, Marie. Thanks for calling."
+        },
+        {
+          "start": 2.8,
+          "end": 3.59,
+          "speaker_id": null,
+          "text": "Yep."
+        }
+      ]
+    },
+    {
+      "segment_index": 4,
+      "start": 8.86,
+      "end": 10.07,
+      "before": "Yep.",
+      "relisten_text": "Thanks for calling. Yep. So.",
+      "patches": [],
+      "after": "Yep.",
+      "applied": false,
+      "generate_seconds": 1.265455961227417,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 2.81,
+          "speaker_id": null,
+          "text": "Thanks for calling. Yep. So."
+        }
+      ]
+    },
+    {
+      "segment_index": 5,
+      "start": 10.07,
+      "end": 16.04,
+      "before": "So, uh, yeah, what's, what's going on? You guys have mediation next week?",
+      "relisten_text": "So, uh, yeah, what's, what's going on? You guys have mediation next week?",
+      "patches": [],
+      "after": "So, uh, yeah, what's, what's going on? You guys have mediation next week?",
+      "applied": false,
+      "generate_seconds": 2.1749680042266846,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.72,
+          "speaker_id": null,
+          "text": "Yep."
+        },
+        {
+          "start": 0.72,
+          "end": 7.57,
+          "speaker_id": 1,
+          "text": "So, uh, yeah, what's, what's going on? You guys have mediation next week?"
+        }
+      ]
+    },
+    {
+      "segment_index": 6,
+      "start": 16.04,
+      "end": 18.32,
+      "before": "Uh, yes.",
+      "relisten_text": "This week? Uh, yes.",
+      "patches": [],
+      "after": "Uh, yes.",
+      "applied": false,
+      "generate_seconds": 1.1796622276306152,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 3.88,
+          "speaker_id": null,
+          "text": "This week? Uh, yes."
+        }
+      ]
+    },
+    {
+      "segment_index": 7,
+      "start": 18.32,
+      "end": 23.2,
+      "before": "And I take it that you are not leading it, right? It's the...",
+      "relisten_text": "And I take it that you are not leading it, right? It's the...",
+      "patches": [],
+      "after": "And I take it that you are not leading it, right? It's the...",
+      "applied": false,
+      "generate_seconds": 3.0706260204315186,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.79,
+          "speaker_id": null,
+          "text": "Yes."
+        },
+        {
+          "start": 0.79,
+          "end": 5.62,
+          "speaker_id": 1,
+          "text": "And I take it that you are not leading it, right? It's the..."
+        },
+        {
+          "start": 5.62,
+          "end": 6.02,
+          "speaker_id": null,
+          "text": "No."
+        },
+        {
+          "start": 6.02,
+          "end": 6.48,
+          "speaker_id": 1,
+          "text": "There, there."
+        }
+      ]
+    },
+    {
+      "segment_index": 8,
+      "start": 23.2,
+      "end": 26.84,
+      "before": "No, no, she's got, uh, Virginia counsel on that.",
+      "relisten_text": "No, no, she's got, uh, Virginia counsel on that. Are you?",
+      "patches": [],
+      "after": "No, no, she's got, uh, Virginia counsel on that.",
+      "applied": false,
+      "generate_seconds": 1.5826022624969482,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 5.24,
+          "speaker_id": null,
+          "text": "No, no, she's got, uh, Virginia counsel on that. Are you?"
+        }
+      ]
+    },
+    {
+      "segment_index": 9,
+      "start": 26.84,
+      "end": 31.09,
+      "before": "Are you involved? Are you helping out? Or is it just sort of separate work streams?",
+      "relisten_text": "Are you involved? Are you helping out? Or is it just sort of separate work streams?",
+      "patches": [],
+      "after": "Are you involved? Are you helping out? Or is it just sort of separate work streams?",
+      "applied": false,
+      "generate_seconds": 2.5336849689483643,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.72,
+          "speaker_id": null,
+          "text": "On that."
+        },
+        {
+          "start": 0.72,
+          "end": 5.0,
+          "speaker_id": 1,
+          "text": "Are you involved? Are you helping out? Or is it just sort of separate work streams?"
+        },
+        {
+          "start": 5.0,
+          "end": 5.85,
+          "speaker_id": null,
+          "text": "No."
+        }
+      ]
+    },
+    {
+      "segment_index": 10,
+      "start": 31.09,
+      "end": 43.85,
+      "before": "No, no, that's, that's separate. I mean, I get, you know, I got a little bit of update at one point of, of, you know, strategy for how they were going to approach it or how she, you know, what she's seeing about the numbers, but, um.",
+      "relisten_text": "No, no, that's, that's separate. I mean, I get, you know, I got a little bit of update at one point of, of, you know, strategy for how they were going to approach it or how she, you know, what she's seeing about the numbers, but, um.",
+      "patches": [],
+      "after": "No, no, that's, that's separate. I mean, I get, you know, I got a little bit of update at one point of, of, you know, strategy for how they were going to approach it or how she, you know, what she's seeing about the numbers, but, um.",
+      "applied": false,
+      "generate_seconds": 4.12426233291626,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.77,
+          "speaker_id": null,
+          "text": "Or war dreams."
+        },
+        {
+          "start": 0.77,
+          "end": 13.52,
+          "speaker_id": 1,
+          "text": "No, no, that's, that's separate. I mean, I get, you know, I got a little bit of update at one point of, of, you know, strategy for how they were going to approach it or how she, you know, what she's seeing about the numbers, but, um."
+        },
+        {
+          "start": 13.52,
+          "end": 14.36,
+          "speaker_id": null,
+          "text": "Got it."
+        }
+      ]
+    },
+    {
+      "segment_index": 11,
+      "start": 43.85,
+      "end": 44.55,
+      "before": "Got it.",
+      "relisten_text": "Um, no, I'm, I'm not.",
+      "patches": [],
+      "after": "Got it.",
+      "applied": false,
+      "generate_seconds": 1.2285029888153076,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 2.3,
+          "speaker_id": null,
+          "text": "Um, no, I'm, I'm not."
+        }
+      ]
+    },
+    {
+      "segment_index": 12,
+      "start": 44.55,
+      "end": 47.13,
+      "before": "No, I'm, I'm not involved in merits on anything.",
+      "relisten_text": "No, I'm, I'm not involved in merits on anything.",
+      "patches": [],
+      "after": "No, I'm, I'm not involved in merits on anything.",
+      "applied": false,
+      "generate_seconds": 2.3575329780578613,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.8,
+          "speaker_id": null,
+          "text": "Got it."
+        },
+        {
+          "start": 0.8,
+          "end": 3.39,
+          "speaker_id": 1,
+          "text": "No, I'm, I'm not involved in merits on anything."
+        },
+        {
+          "start": 3.39,
+          "end": 4.18,
+          "speaker_id": null,
+          "text": "So you're not gonna."
+        }
+      ]
+    },
+    {
+      "segment_index": 13,
+      "start": 47.13,
+      "end": 51.75,
+      "before": "So you're not going to be there attending or dialing in or whatever next week?",
+      "relisten_text": "So you're not going to be there attending or dialing in or whatever next week?",
+      "patches": [],
+      "after": "So you're not going to be there attending or dialing in or whatever next week?",
+      "applied": false,
+      "generate_seconds": 2.5739009380340576,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.78,
+          "speaker_id": null,
+          "text": "It's not anything."
+        },
+        {
+          "start": 0.78,
+          "end": 5.34,
+          "speaker_id": 1,
+          "text": "So you're not going to be there attending or dialing in or whatever next week?"
+        },
+        {
+          "start": 5.34,
+          "end": 6.22,
+          "speaker_id": null,
+          "text": "No."
+        }
+      ]
+    },
+    {
+      "segment_index": 14,
+      "start": 51.75,
+      "end": 52.54,
+      "before": "No.",
+      "relisten_text": "Next week. No. Got it.",
+      "patches": [],
+      "after": "No.",
+      "applied": false,
+      "generate_seconds": 1.152238130569458,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 2.39,
+          "speaker_id": null,
+          "text": "Next week. No. Got it."
+        }
+      ]
+    },
+    {
+      "segment_index": 15,
+      "start": 52.54,
+      "end": 55.03,
+      "before": "Got it. Um.",
+      "relisten_text": "Got it. Um, yeah.",
+      "patches": [],
+      "after": "Got it. Um.",
+      "applied": false,
+      "generate_seconds": 2.066218852996826,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.74,
+          "speaker_id": null,
+          "text": "No."
+        },
+        {
+          "start": 0.74,
+          "end": 1.77,
+          "speaker_id": 1,
+          "text": "Got it."
+        },
+        {
+          "start": 1.99,
+          "end": 4.09,
+          "speaker_id": null,
+          "text": "Um, yeah."
+        }
+      ]
+    },
+    {
+      "segment_index": 16,
+      "start": 55.03,
+      "end": 74.2,
+      "before": "Yeah, look, I think there's a few things to talk about. Uh, one is the idea of asking the arbitrator to push our call, our initial call, back until after that mediation. Um, I think that was your idea, which I think is actually a pretty decent idea.",
+      "relisten_text": "Um, yeah, look, I think there's a few things to talk about. Uh, one is the idea of asking the arbitrator to push our call, our initial call, back until after that mediation. Um, I think that was your idea, which I think is actually a pretty decent idea.",
+      "patches": [],
+      "after": "Yeah, look, I think there's a few things to talk about. Uh, one is the idea of asking the arbitrator to push our call, our initial call, back until after that mediation. Um, I think that was your idea, which I think is actually a pretty decent idea.",
+      "applied": false,
+      "generate_seconds": 3.6459603309631348,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 19.92,
+          "speaker_id": null,
+          "text": "Um, yeah, look, I think there's a few things to talk about. Uh, one is the idea of asking the arbitrator to push our call, our initial call, back until after that mediation. Um, I think that was your idea, which I think is actually a pretty decent idea."
+        },
+        {
+          "start": 19.92,
+          "end": 20.77,
+          "speaker_id": 1,
+          "text": "Okay."
+        }
+      ]
+    },
+    {
+      "segment_index": 17,
+      "start": 74.2,
+      "end": 75.07,
+      "before": "Okay.",
+      "relisten_text": "Okay. Um.",
+      "patches": [],
+      "after": "Okay.",
+      "applied": false,
+      "generate_seconds": 1.049105167388916,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 2.47,
+          "speaker_id": null,
+          "text": "Okay. Um."
+        }
+      ]
+    },
+    {
+      "segment_index": 18,
+      "start": 75.07,
+      "end": 78.24,
+      "before": "Um, I think I'd probably be in favor of that.",
+      "relisten_text": "Um, I think I'd probably be in favor of that.",
+      "patches": [],
+      "after": "Um, I think I'd probably be in favor of that.",
+      "applied": false,
+      "generate_seconds": 2.2830159664154053,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.79,
+          "speaker_id": null,
+          "text": "Okay."
+        },
+        {
+          "start": 0.79,
+          "end": 3.97,
+          "speaker_id": 1,
+          "text": "Um, I think I'd probably be in favor of that."
+        },
+        {
+          "start": 3.97,
+          "end": 4.77,
+          "speaker_id": null,
+          "text": "Uh-huh."
+        }
+      ]
+    },
+    {
+      "segment_index": 20,
+      "start": 79.02,
+      "end": 91.85,
+      "before": "Uh, and I'm pretty sure that if I recommend it to the client, they'll be okay with it, too. Um, is that, was that suggestion something that you'd like to do, or were you just brainstorming? I don't want to, like, you know.",
+      "relisten_text": "Uh, and I'm pretty sure that if I recommend it to the client, they'll be okay with it, too. Um, is that, was that suggestion something that you'd like to do, or were you just brainstorming? I don't want to, like, you know.",
+      "patches": [],
+      "after": "Uh, and I'm pretty sure that if I recommend it to the client, they'll be okay with it, too. Um, is that, was that suggestion something that you'd like to do, or were you just brainstorming? I don't want to, like, you know.",
+      "applied": false,
+      "generate_seconds": 3.8308799266815186,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.8,
+          "speaker_id": null,
+          "text": "Mm-hmm."
+        },
+        {
+          "start": 0.8,
+          "end": 13.62,
+          "speaker_id": 1,
+          "text": "Uh, and I'm pretty sure that if I recommend it to the client, they'll be okay with it, too. Um, is that, was that suggestion something that you'd like to do, or were you just brainstorming? I don't want to, like, you know."
+        },
+        {
+          "start": 13.62,
+          "end": 14.43,
+          "speaker_id": null,
+          "text": "Yeah."
+        }
+      ]
+    },
+    {
+      "segment_index": 21,
+      "start": 91.85,
+      "end": 124.37,
+      "before": "Yeah, no, I mean, if you're amenable to that, I would definitely recommend that as well. Um, you know, I just think if we, you know, it's a one-day ADR, so hopefully by the end of Tuesday, we'll have a lot more information about where things stand, and if there's a pay down, you know, a full pay down, a partial pay down, you know, that's, that's obviously going to put us all in, in a really different position, um, than we will be on Monday. So, um, you know, I, I certainly don't want to waste anyone's time or, you know, incur the cost of Ms. Love if we don't need to.",
+      "relisten_text": "Yeah, no, I mean, if you're amenable to that, I would definitely recommend that as well. Um, you know, I just think if we, you know, it's a one-day ADR, so hopefully by the end of Tuesday, we'll have a lot more information about where things stand, and if there's a pay down, you know, a full pay down, a partial pay down, you know, that's, that's obviously going to put us all in, in a really different position, um, than we will be on Monday. So, um, you know, I, I certainly don't want to waste anyone's time or, you know, incur the cost of mislove if we don't need to.",
+      "patches": [],
+      "after": "Yeah, no, I mean, if you're amenable to that, I would definitely recommend that as well. Um, you know, I just think if we, you know, it's a one-day ADR, so hopefully by the end of Tuesday, we'll have a lot more information about where things stand, and if there's a pay down, you know, a full pay down, a partial pay down, you know, that's, that's obviously going to put us all in, in a really different position, um, than we will be on Monday. So, um, you know, I, I certainly don't want to waste anyone's time or, you know, incur the cost of Ms. Love if we don't need to.",
+      "applied": false,
+      "generate_seconds": 6.855391025543213,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.78,
+          "speaker_id": null,
+          "text": "You know."
+        },
+        {
+          "start": 0.78,
+          "end": 33.22,
+          "speaker_id": 1,
+          "text": "Yeah, no, I mean, if you're amenable to that, I would definitely recommend that as well. Um, you know, I just think if we, you know, it's a one-day ADR, so hopefully by the end of Tuesday, we'll have a lot more information about where things stand, and if there's a pay down, you know, a full pay down, a partial pay down, you know, that's, that's obviously going to put us all in, in a really different position, um, than we will be on Monday. So, um, you know, I, I certainly don't want to waste anyone's time or, you know, incur the cost of mislove if we don't need to."
+        },
+        {
+          "start": 33.22,
+          "end": 34.12,
+          "speaker_id": null,
+          "text": "Hundred percent."
+        }
+      ]
+    },
+    {
+      "segment_index": 22,
+      "start": 124.37,
+      "end": 144.25,
+      "before": "100%. I also don't want to incur her costs. I, I think you can pretty much assume if you'll give me, like, 20 minutes after we finish our call, uh, just to confirm, uh, but I think you can pretty much assume that, uh, I'll have client okay to write to the arbitrator, uh, and ask that.",
+      "relisten_text": "Hundred percent. I also don't want to incur her costs. I, I think you can pretty much assume, if you'll give me, like, 20 minutes after we finish our call, uh, just to confirm, uh, but I think you can pretty much assume that, uh, I'll have client okay to write to the arbitrator, uh, and ask that.",
+      "patches": [],
+      "after": "100%. I also don't want to incur her costs. I, I think you can pretty much assume if you'll give me, like, 20 minutes after we finish our call, uh, just to confirm, uh, but I think you can pretty much assume that, uh, I'll have client okay to write to the arbitrator, uh, and ask that.",
+      "applied": false,
+      "generate_seconds": 4.6252782344818115,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.7,
+          "speaker_id": null,
+          "text": "We don't need to."
+        },
+        {
+          "start": 0.7,
+          "end": 20.64,
+          "speaker_id": 1,
+          "text": "Hundred percent. I also don't want to incur her costs. I, I think you can pretty much assume, if you'll give me, like, 20 minutes after we finish our call, uh, just to confirm, uh, but I think you can pretty much assume that, uh, I'll have client okay to write to the arbitrator, uh, and ask that."
+        },
+        {
+          "start": 20.64,
+          "end": 21.48,
+          "speaker_id": null,
+          "text": "Okay."
+        }
+      ]
+    },
+    {
+      "segment_index": 23,
+      "start": 144.25,
+      "end": 157.16,
+      "before": "Okay, because I did look yesterday at, they have some sort of cancellation policy. I think it was one business day is fine. Um, so we should definitely at least, you know, reach out by tomorrow.",
+      "relisten_text": "Okay, 'cause I did look yesterday at, they have some sort of cancellation policy. I think it was one business day is fine. Um, so we should definitely at least, you know, reach out by tomorrow.",
+      "patches": [],
+      "after": "Okay, because I did look yesterday at, they have some sort of cancellation policy. I think it was one business day is fine. Um, so we should definitely at least, you know, reach out by tomorrow.",
+      "applied": false,
+      "generate_seconds": 3.5321390628814697,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.84,
+          "speaker_id": null,
+          "text": "Ask that."
+        },
+        {
+          "start": 0.84,
+          "end": 13.7,
+          "speaker_id": 1,
+          "text": "Okay, 'cause I did look yesterday at, they have some sort of cancellation policy. I think it was one business day is fine. Um, so we should definitely at least, you know, reach out by tomorrow."
+        },
+        {
+          "start": 13.7,
+          "end": 14.51,
+          "speaker_id": null,
+          "text": "Tell you what."
+        }
+      ]
+    },
+    {
+      "segment_index": 24,
+      "start": 157.16,
+      "end": 160.76,
+      "before": "Tell you what, here's what I'm going to do. I'm going to email my client right now. Give me one second.",
+      "relisten_text": "Tell you what, here's what I'm going to do. I'm going to email my client right now. Give me one second.",
+      "patches": [],
+      "after": "Tell you what, here's what I'm going to do. I'm going to email my client right now. Give me one second.",
+      "applied": false,
+      "generate_seconds": 2.628610134124756,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.77,
+          "speaker_id": null,
+          "text": "I'll be back tomorrow."
+        },
+        {
+          "start": 0.77,
+          "end": 4.42,
+          "speaker_id": 1,
+          "text": "Tell you what, here's what I'm going to do. I'm going to email my client right now. Give me one second."
+        },
+        {
+          "start": 4.42,
+          "end": 5.2,
+          "speaker_id": null,
+          "text": "Okay."
+        }
+      ]
+    },
+    {
+      "segment_index": 25,
+      "start": 160.76,
+      "end": 161.9,
+      "before": "Okay.",
+      "relisten_text": "Give me one second. Okay.",
+      "patches": [],
+      "after": "Okay.",
+      "applied": false,
+      "generate_seconds": 1.1152541637420654,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 2.74,
+          "speaker_id": null,
+          "text": "Give me one second. Okay."
+        }
+      ]
+    },
+    {
+      "segment_index": 26,
+      "start": 162.84,
+      "end": 179.88,
+      "before": "Um, and if he writes back while we're on the call, you have, you know, you can go ahead and just, uh, you know, email or call the, uh, case manager or whatever and tell them that you have my, my consent to suggest we move it back.",
+      "relisten_text": "Um, and if he writes back while we're on the call, you have, you know, you can go ahead and just, uh, you know, email or call the, uh, case manager or whatever and tell them that you have my, my consent to suggest we move it back.",
+      "patches": [],
+      "after": "Um, and if he writes back while we're on the call, you have, you know, you can go ahead and just, uh, you know, email or call the, uh, case manager or whatever and tell them that you have my, my consent to suggest we move it back.",
+      "applied": false,
+      "generate_seconds": 3.474824905395508,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 17.78,
+          "speaker_id": null,
+          "text": "Um, and if he writes back while we're on the call, you have, you know, you can go ahead and just, uh, you know, email or call the, uh, case manager or whatever and tell them that you have my, my consent to suggest we move it back."
+        },
+        {
+          "start": 17.78,
+          "end": 18.64,
+          "speaker_id": null,
+          "text": "Okay."
+        }
+      ]
+    },
+    {
+      "segment_index": 27,
+      "start": 179.88,
+      "end": 187.78,
+      "before": "Um, oh, you know what? It looks like maybe this is, um, for an actual arbitration hearing.",
+      "relisten_text": "Um, you know what, it looks like maybe this is, um, for an actual arbitration hearing.",
+      "patches": [],
+      "after": "Um, oh, you know what? It looks like maybe this is, um, for an actual arbitration hearing.",
+      "applied": false,
+      "generate_seconds": 1.698584794998169,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 9.5,
+          "speaker_id": null,
+          "text": "Um, you know what, it looks like maybe this is, um, for an actual arbitration hearing."
+        }
+      ]
+    },
+    {
+      "segment_index": 28,
+      "start": 189.36,
+      "end": 202.34,
+      "before": "I had, for what it's worth, I had another one of these for Legalist, for JAMS, and we moved one of the calls and there was no issue with, there was no issue with that. Um, but that's it.",
+      "relisten_text": "I had, for what it's worth, I had another one of these for Legalist, for JAMS, and we moved one of the calls, and there was no issue with, there was no issue with that. Um, but that's it. It's also different.",
+      "patches": [],
+      "after": "I had, for what it's worth, I had another one of these for Legalist, for JAMS, and we moved one of the calls and there was no issue with, there was no issue with that. Um, but that's it.",
+      "applied": false,
+      "generate_seconds": 2.6888880729675293,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 14.58,
+          "speaker_id": null,
+          "text": "I had, for what it's worth, I had another one of these for Legalist, for JAMS, and we moved one of the calls, and there was no issue with, there was no issue with that. Um, but that's it. It's also different."
+        }
+      ]
+    },
+    {
+      "segment_index": 29,
+      "start": 202.34,
+      "end": 207.78,
+      "before": "It's also a different arbitrator. They may have different, different policies individually.",
+      "relisten_text": "But that's it. It's also a different arbitrator. They may have different, different policies individually.",
+      "patches": [],
+      "after": "It's also a different arbitrator. They may have different, different policies individually.",
+      "applied": false,
+      "generate_seconds": 1.5858879089355469,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 7.04,
+          "speaker_id": null,
+          "text": "But that's it. It's also a different arbitrator. They may have different, different policies individually."
+        }
+      ]
+    },
+    {
+      "segment_index": 30,
+      "start": 208.1,
+      "end": 209.42,
+      "before": "Right.",
+      "relisten_text": "Right.",
+      "patches": [],
+      "after": "Right.",
+      "applied": false,
+      "generate_seconds": 0.9881107807159424,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 2.92,
+          "speaker_id": null,
+          "text": "Right."
+        }
+      ]
+    },
+    {
+      "segment_index": 31,
+      "start": 210.06,
+      "end": 214.36,
+      "before": "Uh, well, he wrote back, so, uh, if you want to go ahead and send an email.",
+      "relisten_text": "Uh, well, he wrote back, so, uh, if you want to go ahead and send an email. Oh, wow.",
+      "patches": [],
+      "after": "Uh, well, he wrote back, so, uh, if you want to go ahead and send an email.",
+      "applied": false,
+      "generate_seconds": 1.6183857917785645,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 5.9,
+          "speaker_id": null,
+          "text": "Uh, well, he wrote back, so, uh, if you want to go ahead and send an email. Oh, wow."
+        }
+      ]
+    },
+    {
+      "segment_index": 32,
+      "start": 214.36,
+      "end": 215.2,
+      "before": "Oh, wow.",
+      "relisten_text": "Send an email. Oh, wow, that was fast.",
+      "patches": [],
+      "after": "Oh, wow.",
+      "applied": false,
+      "generate_seconds": 1.174103021621704,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 2.44,
+          "speaker_id": null,
+          "text": "Send an email. Oh, wow, that was fast."
+        }
+      ]
+    },
+    {
+      "segment_index": 33,
+      "start": 215.2,
+      "end": 220.44,
+      "before": "Oh, gosh. Well, I told him, I told him we were having a call. Okay, yeah.",
+      "relisten_text": "Oh, wow. Oh, gosh. Well, I told him, I told him we were having a call. Okay. So, yeah.",
+      "patches": [],
+      "after": "Oh, gosh. Well, I told him, I told him we were having a call. Okay, yeah.",
+      "applied": false,
+      "generate_seconds": 2.2123279571533203,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 1.72,
+          "speaker_id": null,
+          "text": "Oh, wow. Oh, gosh."
+        },
+        {
+          "start": 1.72,
+          "end": 6.84,
+          "speaker_id": 1,
+          "text": "Well, I told him, I told him we were having a call. Okay. So, yeah."
+        }
+      ]
+    },
+    {
+      "segment_index": 34,
+      "start": 221.32,
+      "end": 234.63,
+      "before": "Okay, so, uh, yeah, I'll write to them after we get off. Um, is there, I mean, do you want to do it for the next week, or, you know, are you trying to, or I guess we'll just let her, have her let us know what her availability is?",
+      "relisten_text": "Okay, so I'll, yeah, I'll write to them after we get off. Um, is there, I mean, do you want to do it for the next week, or, you know, are you trying to, or I guess we'll just let her, have her let us know what her availability is.",
+      "patches": [],
+      "after": "Okay, so, uh, yeah, I'll write to them after we get off. Um, is there, I mean, do you want to do it for the next week, or, you know, are you trying to, or I guess we'll just let her, have her let us know what her availability is?",
+      "applied": false,
+      "generate_seconds": 2.9542288780212402,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 14.91,
+          "speaker_id": null,
+          "text": "Okay, so I'll, yeah, I'll write to them after we get off. Um, is there, I mean, do you want to do it for the next week, or, you know, are you trying to, or I guess we'll just let her, have her let us know what her availability is."
+        }
+      ]
+    },
+    {
+      "segment_index": 35,
+      "start": 234.63,
+      "end": 235.52,
+      "before": "Yeah, I think we do that.",
+      "relisten_text": "Yeah, I think we do that. I think we just let her ask.",
+      "patches": [],
+      "after": "Yeah, I think we do that.",
+      "applied": false,
+      "generate_seconds": 1.2899932861328125,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 2.49,
+          "speaker_id": null,
+          "text": "Yeah, I think we do that. I think we just let her ask."
+        }
+      ]
+    },
+    {
+      "segment_index": 36,
+      "start": 235.52,
+      "end": 262.8,
+      "before": "I think we just let her tell us what her availability is. Um, and I don't know if you were gonna let the arbitrator know why we're putting it off. I don't have an opinion about whether we should give a rationale when you email. Um, it might be too complicated and, you know, then she'll wonder, uh, and go back and, you know, read papers and spend time figuring out what's going on. It might be better just to remain silent on it, but I'm okay with that.",
+      "relisten_text": "Yeah, I think we do that. I think we just let her tell us what her availability is. Um, and I don't know if you were gonna let the arbitrator know why we're putting it off. I don't have an opinion about whether we should give a rationale when you email. Um, it might be too complicated and, you know, then she'll wonder, uh, and go back and, you know, read papers and spend time figuring out what's going on. It might be better just to remain silent on it, but I'm okay with that.",
+      "patches": [],
+      "after": "I think we just let her tell us what her availability is. Um, and I don't know if you were gonna let the arbitrator know why we're putting it off. I don't have an opinion about whether we should give a rationale when you email. Um, it might be too complicated and, you know, then she'll wonder, uh, and go back and, you know, read papers and spend time figuring out what's going on. It might be better just to remain silent on it, but I'm okay with that.",
+      "applied": false,
+      "generate_seconds": 4.642991065979004,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 28.88,
+          "speaker_id": null,
+          "text": "Yeah, I think we do that. I think we just let her tell us what her availability is. Um, and I don't know if you were gonna let the arbitrator know why we're putting it off. I don't have an opinion about whether we should give a rationale when you email. Um, it might be too complicated and, you know, then she'll wonder, uh, and go back and, you know, read papers and spend time figuring out what's going on. It might be better just to remain silent on it, but I'm okay with that."
+        }
+      ]
+    },
+    {
+      "segment_index": 37,
+      "start": 262.8,
+      "end": 265.8,
+      "before": "Yeah, as long, as long, I mean, maybe I'll just indicate that it's, you know, mutual.",
+      "relisten_text": "Yeah, as long as long, I mean, maybe I'll just indicate that it's, you know, mutual and...",
+      "patches": [],
+      "after": "Yeah, as long, as long, I mean, maybe I'll just indicate that it's, you know, mutual.",
+      "applied": false,
+      "generate_seconds": 2.0360028743743896,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 4.0,
+          "speaker_id": null,
+          "text": "Yeah, as long as long, I mean, maybe I'll just indicate that it's, you know, mutual and..."
+        },
+        {
+          "start": 4.0,
+          "end": 4.6,
+          "speaker_id": 1,
+          "text": "Mutual, yeah."
+        }
+      ]
+    },
+    {
+      "segment_index": 38,
+      "start": 265.8,
+      "end": 266.6,
+      "before": "Mutual, yeah.",
+      "relisten_text": "You know, mutual and, That should be enough.",
+      "patches": [],
+      "after": "Mutual, yeah.",
+      "applied": false,
+      "generate_seconds": 1.16572904586792,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 2.4,
+          "speaker_id": null,
+          "text": "You know, mutual and, That should be enough."
+        }
+      ]
+    },
+    {
+      "segment_index": 39,
+      "start": 266.6,
+      "end": 268.52,
+      "before": "That should be enough, yeah.",
+      "relisten_text": "Mutual, yeah. That should be enough. Yeah.",
+      "patches": [],
+      "after": "That should be enough, yeah.",
+      "applied": false,
+      "generate_seconds": 1.2095861434936523,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 3.52,
+          "speaker_id": null,
+          "text": "Mutual, yeah. That should be enough. Yeah."
+        }
+      ]
+    },
+    {
+      "segment_index": 40,
+      "start": 269.24,
+      "end": 300.76,
+      "before": "So then I guess that brings us to, uh, is there anything else that we should talk about regarding resolving the case? And I, I note that we haven't, Legalist has not received a request for any additional funding. And I don't know, um, if that indicates that Ms. Anthony has found another source of funds, or I, I don't remember what the, what the, what the timing is of her needs.",
+      "relisten_text": "So then I guess that brings us to, uh, is there anything else that we should talk about regarding resolving the case? And I, I note that we haven't, Legalist has not received a request for any additional funding. And I don't know, um, if that indicates that Ms. Anthony has found another source of funds, or I, I don't remember what the, what the, Yeah. What the timing is of her needs. Basically what I'm.",
+      "patches": [],
+      "after": "So then I guess that brings us to, uh, is there anything else that we should talk about regarding resolving the case? And I, I note that we haven't, Legalist has not received a request for any additional funding. And I don't know, um, if that indicates that Ms. Anthony has found another source of funds, or I, I don't remember what the, what the, what the timing is of her needs.",
+      "applied": false,
+      "generate_seconds": 4.844751834869385,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 28.98,
+          "speaker_id": null,
+          "text": "So then I guess that brings us to, uh, is there anything else that we should talk about regarding resolving the case? And I, I note that we haven't, Legalist has not received a request for any additional funding. And I don't know, um, if that indicates that Ms. Anthony has found another source of funds, or I, I don't remember what the, what the,"
+        },
+        {
+          "start": 28.98,
+          "end": 33.12,
+          "speaker_id": null,
+          "text": "Yeah. What the timing is of her needs. Basically what I'm."
+        }
+      ]
+    },
+    {
+      "segment_index": 41,
+      "start": 300.76,
+      "end": 328.55,
+      "before": "Basically what I'm, basically what I'm getting at is, last time the big issue was that we came down to the wire, and we didn't know anything about how much was requested until, like, a day before. And I would, if there's going to be a need for capital, I'd rather know about it early so that we can figure out whether it's doable or not. So I'm curious if you're able to give me any insight into whether we should put that on our calendar.",
+      "relisten_text": "Basically what I'm, basically what I'm getting at is, last time the big issue was that we came down to the wire and we didn't know anything about how much was requested until like a day before. And I would, if there's going to be a need for capital, I'd rather know about it early so that we can figure out whether it's doable or not. So I'm curious if you're able to give me any insight into whether we should put that on our calendar.",
+      "patches": [],
+      "after": "Basically what I'm, basically what I'm getting at is, last time the big issue was that we came down to the wire, and we didn't know anything about how much was requested until, like, a day before. And I would, if there's going to be a need for capital, I'd rather know about it early so that we can figure out whether it's doable or not. So I'm curious if you're able to give me any insight into whether we should put that on our calendar.",
+      "applied": false,
+      "generate_seconds": 4.914377927780151,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 28.59,
+          "speaker_id": null,
+          "text": "Basically what I'm, basically what I'm getting at is, last time the big issue was that we came down to the wire and we didn't know anything about how much was requested until like a day before. And I would, if there's going to be a need for capital, I'd rather know about it early so that we can figure out whether it's doable or not. So I'm curious if you're able to give me any insight into whether we should put that on our calendar."
+        },
+        {
+          "start": 28.59,
+          "end": 29.39,
+          "speaker_id": 1,
+          "text": "Yeah."
+        }
+      ]
+    },
+    {
+      "segment_index": 42,
+      "start": 328.55,
+      "end": 339.58,
+      "before": "Yeah, I haven't talked about payroll with her recently, but I believe that, uh, it's probably tomorrow.",
+      "relisten_text": "Yeah, I haven't talked about payroll with her recently, but I believe that, uh, it's probably tomorrow.",
+      "patches": [],
+      "after": "Yeah, I haven't talked about payroll with her recently, but I believe that, uh, it's probably tomorrow.",
+      "applied": false,
+      "generate_seconds": 1.927511215209961,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 12.63,
+          "speaker_id": null,
+          "text": "Yeah, I haven't talked about payroll with her recently, but I believe that, uh, it's probably tomorrow."
+        }
+      ]
+    },
+    {
+      "segment_index": 43,
+      "start": 339.7,
+      "end": 357.5,
+      "before": "Um, so obviously I, I wasn't going to approach you because I had, you know, you know, and I, listen, I apologize that that came down to the wire and it was like a little bit of a bait and switch and then opening it up again on Monday. You know, that wasn't my intention.",
+      "relisten_text": "Um, so, obviously, I, I wasn't gonna approach you because I had, you know, I, you know, and I, listen, I apologize that that came down to the wire and it was like a little bit of a bait and switch and then opening it up again on Monday, you know, that wasn't my intention.",
+      "patches": [],
+      "after": "Um, so obviously I, I wasn't going to approach you because I had, you know, you know, and I, listen, I apologize that that came down to the wire and it was like a little bit of a bait and switch and then opening it up again on Monday. You know, that wasn't my intention.",
+      "applied": false,
+      "generate_seconds": 3.735041856765747,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 18.62,
+          "speaker_id": null,
+          "text": "Um, so, obviously, I, I wasn't gonna approach you because I had, you know, I, you know, and I, listen, I apologize that that came down to the wire and it was like a little bit of a bait and switch and then opening it up again on Monday, you know, that wasn't my intention."
+        },
+        {
+          "start": 18.62,
+          "end": 19.4,
+          "speaker_id": 1,
+          "text": "I know."
+        }
+      ]
+    },
+    {
+      "segment_index": 44,
+      "start": 357.5,
+      "end": 360.63,
+      "before": "I know. We all have clients. I know.",
+      "relisten_text": "I know. We all have clients. I, I know.",
+      "patches": [],
+      "after": "I know. We all have clients. I know.",
+      "applied": false,
+      "generate_seconds": 2.20810604095459,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.8,
+          "speaker_id": null,
+          "text": "My intention."
+        },
+        {
+          "start": 0.8,
+          "end": 3.9,
+          "speaker_id": 1,
+          "text": "I know. We all have clients. I, I know."
+        },
+        {
+          "start": 3.9,
+          "end": 4.73,
+          "speaker_id": null,
+          "text": "Yeah."
+        }
+      ]
+    },
+    {
+      "segment_index": 45,
+      "start": 360.63,
+      "end": 379.4,
+      "before": "Yeah. Um, you know, I certainly didn't want to be dealing with it on a Friday night either. Um, but, yeah, there was, you know, continued interest in, in trying to settle it that next week, which I think I conveyed to you. And, you know, never really heard back from, from you guys. So, I thought that was a dead end at this point.",
+      "relisten_text": "Yeah. Um, you know, I certainly didn't want to be dealing with it on a Friday night either. Um, but, yeah, there was, you know, continued interest in, in trying to settle it that next week, which I think I conveyed to you and, you know, never really heard back from, from you guys. So, I thought that was a dead end at this point.",
+      "patches": [],
+      "after": "Yeah. Um, you know, I certainly didn't want to be dealing with it on a Friday night either. Um, but, yeah, there was, you know, continued interest in, in trying to settle it that next week, which I think I conveyed to you. And, you know, never really heard back from, from you guys. So, I thought that was a dead end at this point.",
+      "applied": false,
+      "generate_seconds": 4.697658061981201,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.82,
+          "speaker_id": null,
+          "text": "I, I know."
+        },
+        {
+          "start": 0.82,
+          "end": 19.59,
+          "speaker_id": 1,
+          "text": "Yeah. Um, you know, I certainly didn't want to be dealing with it on a Friday night either. Um, but, yeah, there was, you know, continued interest in, in trying to settle it that next week, which I think I conveyed to you and, you know, never really heard back from, from you guys. So, I thought that was a dead end at this point."
+        },
+        {
+          "start": 19.59,
+          "end": 20.37,
+          "speaker_id": null,
+          "text": "Ah, okay."
+        }
+      ]
+    },
+    {
+      "segment_index": 46,
+      "start": 379.4,
+      "end": 380.98,
+      "before": "Ah, okay. Okay.",
+      "relisten_text": "Ah, okay. Okay.",
+      "patches": [],
+      "after": "Ah, okay. Okay.",
+      "applied": false,
+      "generate_seconds": 2.175739288330078,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.88,
+          "speaker_id": null,
+          "text": "At this point."
+        },
+        {
+          "start": 0.88,
+          "end": 2.3,
+          "speaker_id": 1,
+          "text": "Ah, okay. Okay."
+        },
+        {
+          "start": 2.3,
+          "end": 3.18,
+          "speaker_id": null,
+          "text": "Um, you know."
+        }
+      ]
+    },
+    {
+      "segment_index": 47,
+      "start": 380.98,
+      "end": 406.4,
+      "before": "Um, you know, I was not planning on bothering you about funding this week. Um, my understanding was that Legalist isn't open to that, short of, you know, revisiting that potential settlement agreement. Um, but again, you know, I kind of figured, you, you had said, you know, if I get authorization, I'll let you know. And, uh, it sounded to me like you hadn't, so, um, I was dropping it.",
+      "relisten_text": "Um, you know, I was not planning on bothering you about funding this week. Um, my understanding was that Legalist isn't open to that, short of, you know, revisiting that potential settlement agreement. Um, but again, you know, I kind of figured you, you had said, you know, if I get authorization, I'll let you know. And, uh, it sounded to me like you hadn't, so, um, I was dropping it.",
+      "patches": [],
+      "after": "Um, you know, I was not planning on bothering you about funding this week. Um, my understanding was that Legalist isn't open to that, short of, you know, revisiting that potential settlement agreement. Um, but again, you know, I kind of figured, you, you had said, you know, if I get authorization, I'll let you know. And, uh, it sounded to me like you hadn't, so, um, I was dropping it.",
+      "applied": false,
+      "generate_seconds": 5.347078800201416,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 0.82,
+          "speaker_id": null,
+          "text": "Okay."
+        },
+        {
+          "start": 0.82,
+          "end": 26.25,
+          "speaker_id": 1,
+          "text": "Um, you know, I was not planning on bothering you about funding this week. Um, my understanding was that Legalist isn't open to that, short of, you know, revisiting that potential settlement agreement. Um, but again, you know, I kind of figured you, you had said, you know, if I get authorization, I'll let you know. And, uh, it sounded to me like you hadn't, so, um, I was dropping it."
+        },
+        {
+          "start": 26.25,
+          "end": 27.02,
+          "speaker_id": null,
+          "text": "Okay, all right."
+        }
+      ]
+    },
+    {
+      "segment_index": 48,
+      "start": 406.4,
+      "end": 407.66,
+      "before": "Okay, alright, alright.",
+      "relisten_text": "I'm dropping it. Okay, alright, alright, uh, look.",
+      "patches": [],
+      "after": "Okay, alright, alright.",
+      "applied": false,
+      "generate_seconds": 1.333554983139038,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 2.86,
+          "speaker_id": null,
+          "text": "I'm dropping it. Okay, alright, alright, uh, look."
+        }
+      ]
+    },
+    {
+      "segment_index": 49,
+      "start": 407.66,
+      "end": 425.8,
+      "before": "Uh, look, I think that we would definitely, I'm sure the client would still be interested in something that is similar to what we had proposed, uh, or at least similar to what we had come down to, I thought, through negotiation up until that Friday. Right.",
+      "relisten_text": "All right, all right. Uh, look, I think that we would definitely, I'm sure the client would still be interested in something that is similar to what we had proposed, uh, or at least similar to what we had come down to, I thought, through negotiation up until that Friday. And that.",
+      "patches": [],
+      "after": "Uh, look, I think that we would definitely, I'm sure the client would still be interested in something that is similar to what we had proposed, uh, or at least similar to what we had come down to, I thought, through negotiation up until that Friday. Right.",
+      "applied": false,
+      "generate_seconds": 3.1344830989837646,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 19.74,
+          "speaker_id": null,
+          "text": "All right, all right. Uh, look, I think that we would definitely, I'm sure the client would still be interested in something that is similar to what we had proposed, uh, or at least similar to what we had come down to, I thought, through negotiation up until that Friday. And that."
+        }
+      ]
+    },
+    {
+      "segment_index": 50,
+      "start": 425.8,
+      "end": 456.64,
+      "before": "And then my recollection was on Monday, uh, and I don't mean to, like, mischaracterize, so if I, if I am doing that, don't take it as a, something sneaky, or, um, it's just my memory might be off, but I seem to recall that the structure of what Ms. Anthony, or the amounts of what Ms. Anthony was asking for on Monday was different than where I thought we had left on Friday. Um, so, if, if what we were talking about on Friday is,",
+      "relisten_text": "And then, my recollection was, on Monday, uh, and I don't mean to, like, mischaracterize, so if I, if I am doing that, don't take it as a, something sneaky, or, um, it's just my memory might be off, but I seem to recall that the structure of what Miss Anthony, or the amounts of what Miss Anthony was asking for on Monday, was different than where I thought we had left on Friday. Um, so, if, if, what we were talking about on Friday is...",
+      "patches": [],
+      "after": "And then my recollection was on Monday, uh, and I don't mean to, like, mischaracterize, so if I, if I am doing that, don't take it as a, something sneaky, or, um, it's just my memory might be off, but I seem to recall that the structure of what Ms. Anthony, or the amounts of what Ms. Anthony was asking for on Monday was different than where I thought we had left on Friday. Um, so, if, if what we were talking about on Friday is,",
+      "applied": false,
+      "generate_seconds": 4.864444255828857,
+      "local_segments": [
+        {
+          "start": 0.0,
+          "end": 31.64,
+          "speaker_id": null,
+          "text": "And then, my recollection was, on Monday, uh, and I don't mean to, like, mischaracterize, so if I, if I am doing that, don't take it as a, something sneaky, or, um, it's just my memory might be off, but I seem to recall that the structure of what Miss Anthony, or the amounts of what Miss Anthony was asking for on Monday, was different than where I thought we had left on Friday. Um, so, if, if, what we were talking about on Friday is..."
+        }
+      ]
+    }
+  ]
+}

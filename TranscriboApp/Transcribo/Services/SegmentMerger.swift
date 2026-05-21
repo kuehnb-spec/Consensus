@@ -419,7 +419,13 @@ enum SegmentMerger {
             }
         }
 
-        return positionedWords.sorted { $0.timing.start < $1.timing.start }
+        // Preserve source order. A global start-time sort here was the root
+        // cause of the "scrambled sentences" regression on phone-call audio:
+        // when forced alignment produced zero-duration or non-monotonic word
+        // timings (15-26% of words on real recordings), sorting interleaved
+        // words from different points in the conversation. The caller depends
+        // on per-source-segment ordering, not global time order.
+        return positionedWords
     }
 
     private static func estimateWordTimings(

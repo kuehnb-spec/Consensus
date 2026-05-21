@@ -272,13 +272,18 @@ enum SmokeRunner {
         }
     }
 
+    private enum SmokeEngineChoice {
+        case deepReview(DeepReviewEngineChoice)
+        case vibevoice(context: String?)
+    }
+
     private static func parse(arguments: [String]) -> LaunchMode {
         guard arguments.count > 1 else { return .none }
 
         var index = 1
         var smokePath: String?
         var model: WhisperModel = .tiny
-        var engine: DeepReviewEngineChoice = .whisper
+        var engine: SmokeEngineChoice = .deepReview(.whisper)
         var language = "en"
         var minSpeakers: Int?
         var maxSpeakers: Int?
@@ -286,6 +291,7 @@ enum SmokeRunner {
         var diarizationEngine: DiarizationEngine = .speakerKit
         var refineSpeakers = false
         var didRequestSmoke = false
+        var vibevoiceContext: String?
 
         while index < arguments.count {
             let argument = arguments[index]
@@ -314,13 +320,24 @@ enum SmokeRunner {
                 }
                 switch arguments[index] {
                 case "whisper":
-                    engine = .whisper
+                    engine = .deepReview(.whisper)
                 case "parakeet-v3":
-                    engine = .parakeetV3
+                    engine = .deepReview(.parakeetV3)
                 case "parakeet-v2":
-                    engine = .parakeetV2
+                    engine = .deepReview(.parakeetV2)
+                case "vibevoice":
+                    engine = .vibevoice(context: vibevoiceContext)
                 default:
                     return .error(usageText("Unsupported engine '\(arguments[index])'."))
+                }
+            case "--context":
+                index += 1
+                guard index < arguments.count else {
+                    return .error(usageText("Missing context string after --context."))
+                }
+                vibevoiceContext = arguments[index]
+                if case .vibevoice = engine {
+                    engine = .vibevoice(context: vibevoiceContext)
                 }
             case "--language":
                 index += 1
@@ -384,12 +401,14 @@ enum SmokeRunner {
 
         let resolvedEngine: TranscriptionEngineDescriptor
         switch engine {
-        case .whisper:
+        case .deepReview(.whisper):
             resolvedEngine = .whisper(model)
-        case .parakeetV3:
+        case .deepReview(.parakeetV3):
             resolvedEngine = .fluidAsr(.parakeetV3)
-        case .parakeetV2:
+        case .deepReview(.parakeetV2):
             resolvedEngine = .fluidAsr(.parakeetV2)
+        case .vibevoice(let context):
+            resolvedEngine = .vibevoice(.fourBitMLX, context: context)
         }
 
         return .configuration(

@@ -7,36 +7,73 @@ import Foundation
 /// the progress bar in `DeepReadRootView` doesn't have to know about the
 /// individual stages.
 ///
-/// Phase 1b implements the Standard-tier path (Engine A only). Phase 1c
-/// will layer Engine B + `LLMReconcileService` on top for the Deep tier,
-/// reusing this runner's output as the reference pass.
+/// The Standard pass is now the canonical draft for Deep Review. The Deep
+/// tier layers second-opinion ASR and patch-centered audio verification on
+/// top of this output rather than asking an LLM to rewrite the transcript.
 final class StandardPassRunner {
     private let asr = FluidAsrTranscriptionService()
     private let diarizer = SpeakerKitDiarizationService()
+    private let vibevoice = VibeVoiceTranscriptionService()
 
     struct Progress: Sendable {
         /// Aggregated fraction across all stages. `0` → `1`.
         let fraction: Double
         /// Short user-facing label ("Loading Parakeet…", "Transcribing 3:12 of 8:00", …).
         let label: String
+        /// Machine/status detail suitable for a fixed-width status strip.
+        let status: String?
+        /// Incremental live transcript text emitted by VibeVoice.
+        let recentText: String?
+        /// Total generated tokens reported by VibeVoice.
+        let tokenCount: Int?
+        /// Current VibeVoice streaming speed.
+        let tokensPerSecond: Double?
+
+        init(
+            fraction: Double,
+            label: String,
+            status: String? = nil,
+            recentText: String? = nil,
+            tokenCount: Int? = nil,
+            tokensPerSecond: Double? = nil
+        ) {
+            self.fraction = fraction
+            self.label = label
+            self.status = status
+            self.recentText = recentText
+            self.tokenCount = tokenCount
+            self.tokensPerSecond = tokensPerSecond
+        }
     }
 
     struct Options: Sendable {
+        /// Which Standard-pass engine to run. Default is VibeVoice (April 28
+        /// benchmark winner; runs joint ASR + diarization in a single pass
+        /// and skips the separate SpeakerKit step).
+        var engine: RewrittenEngineChoice = .vibevoice
         var variant: FluidAsrModelVariant = .parakeetV3
         var language: String = "en"
         var requestedSpeakerCount: Int? = nil
         var audioDurationSeconds: Double = 0
+        /// Optional hotwords forwarded to VibeVoice's `context=` parameter.
+        /// Comma-separated, e.g. "Brant Kuehn, Marie Larsen, JAMS". Ignored
+        /// for engines other than VibeVoice.
+        var vibeVoiceContext: String? = nil
 
         init(
+            engine: RewrittenEngineChoice = .vibevoice,
             variant: FluidAsrModelVariant = .parakeetV3,
             language: String = "en",
             requestedSpeakerCount: Int? = nil,
-            audioDurationSeconds: Double = 0
+            audioDurationSeconds: Double = 0,
+            vibeVoiceContext: String? = nil
         ) {
+            self.engine = engine
             self.variant = variant
             self.language = language
             self.requestedSpeakerCount = requestedSpeakerCount
             self.audioDurationSeconds = audioDurationSeconds
+            self.vibeVoiceContext = vibeVoiceContext
         }
     }
 
@@ -53,6 +90,83 @@ final class StandardPassRunner {
     /// actor/task — wrap in `Task { @MainActor in … }` if you're updating
     /// SwiftUI state from it.
     func run(
+        audioURL: URL,
+        options: Options,
+        progress: @escaping @Sendable (Progress) -> Void
+    ) async throws -> TranscriptPass {
+        switch options.engine {
+        case .vibevoice:
+            return try await runVibeVoice(audioURL: audioURL, options: options, progress: progress)
+        case .parakeet:
+            return try await runParakeet(audioURL: audioURL, options: options, progress: progress)
+        }
+    }
+
+    // MARK: - VibeVoice path (joint ASR + diarization)
+
+    private func runVibeVoice(
+        audioURL: URL,
+        options: Options,
+        progress: @escaping @Sendable (Progress) -> Void
+    ) async throws -> TranscriptPass {
+        let start = Date()
+        var stageTimings: [String: Double] = [:]
+
+        if let issue = VibeVoiceTranscriptionService.availabilityError() {
+            throw ConsensusError.modelDownloadFailed(issue)
+        }
+
+        progress(Progress(fraction: 0, label: "Preparing VibeVoice…"))
+
+        let transcribeStart = Date()
+
+        // VibeVoice does ASR + diarization in one pass — single weighted
+        // stage that covers everything except the final "merge" no-op.
+        let asrAndDiarWeight = Weights.modelPrep + Weights.transcribe + Weights.diarize
+        let segments = try await vibevoice.transcribe(
+            audioURL: audioURL,
+            context: options.vibeVoiceContext,
+            audioDuration: options.audioDurationSeconds,
+            progressCallback: { fraction, status, recentText, tokenCount, tokensPerSecond in
+                let statusLine = (status?.isEmpty == false ? status! : "Transcribing with VibeVoice")
+                progress(Progress(
+                    fraction: max(0.05, fraction * asrAndDiarWeight),
+                    label: statusLine,
+                    status: statusLine,
+                    recentText: recentText,
+                    tokenCount: tokenCount,
+                    tokensPerSecond: tokensPerSecond
+                ))
+            }
+        )
+        stageTimings["vibevoice"] = Date().timeIntervalSince(transcribeStart)
+
+        progress(Progress(fraction: asrAndDiarWeight, label: "Finalizing…"))
+        stageTimings["total"] = Date().timeIntervalSince(start)
+
+        progress(Progress(fraction: 1.0, label: "Done"))
+
+        return TranscriptPass(
+            kind: .standard,
+            segments: segments,
+            engineAttribution: EngineAttribution(
+                primaryEngine: "VibeVoice ASR (MLX 4-bit)",
+                supportingEngines: [],
+                diarizer: "VibeVoice (built-in)",
+                language: options.language
+            ),
+            styles: nil,
+            quality: QualitySummary(
+                diarizationConfidence: 0.95,
+                uncertainSegmentCount: 0,
+                stageTimings: stageTimings
+            )
+        )
+    }
+
+    // MARK: - Parakeet path (FluidAudio + SpeakerKit, original implementation)
+
+    private func runParakeet(
         audioURL: URL,
         options: Options,
         progress: @escaping @Sendable (Progress) -> Void

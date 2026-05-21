@@ -12,28 +12,41 @@ struct ExportSheet: View {
     @Bindable var viewModel: DeepReadViewModel
     @Environment(\.dismiss) private var dismiss
 
-    @State private var format: DeepReadViewModel.ExportFormat = .markdown
+    @State private var format: ExportFormat = .legalPDF
     @State private var includeSummary: Bool = true
+    @State private var legalHeader: String = "TRANSCRIPT"
+    @State private var showElapsedTime: Bool = true
+    @State private var showClockTime: Bool = false
+    @State private var includeCoverPage: Bool = false
     @State private var lastAction: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.lg) {
             header
 
-            formatSection
-
-            includeSection
+            ScrollView {
+                VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.lg) {
+                    formatSection
+                    includeSection
+                    if format == .legalPDF {
+                        legalPDFSection
+                    }
+                }
+            }
+            .scrollIndicators(.visible)
 
             Spacer(minLength: ConsensusTheme.Spacing.md)
 
             footer
         }
         .padding(ConsensusTheme.Spacing.xxl)
-        .frame(width: 520)
+        .frame(width: 620, height: 720)
         .background(ConsensusTheme.Colors.background)
         .onAppear {
             includeSummary = !viewModel.summary.summary.isEmpty ||
                              !viewModel.summary.todos.isEmpty
+            legalHeader = viewModel.defaultLegalPDFHeader()
+            includeCoverPage = includeSummary
         }
     }
 
@@ -61,28 +74,33 @@ struct ExportSheet: View {
                 .foregroundStyle(ConsensusTheme.Colors.textTertiary)
                 .tracking(1.0)
 
-            VStack(spacing: ConsensusTheme.Spacing.xs) {
-                ForEach(DeepReadViewModel.ExportFormat.allCases) { candidate in
+            LazyVGrid(
+                columns: [
+                    GridItem(.adaptive(minimum: 250), spacing: ConsensusTheme.Spacing.sm)
+                ],
+                spacing: ConsensusTheme.Spacing.sm
+            ) {
+                ForEach(ExportFormat.allCases) { candidate in
                     formatRow(candidate: candidate)
                 }
             }
         }
     }
 
-    private func formatRow(candidate: DeepReadViewModel.ExportFormat) -> some View {
+    private func formatRow(candidate: ExportFormat) -> some View {
         let isSelected = format == candidate
         return Button {
             format = candidate
         } label: {
             HStack(spacing: ConsensusTheme.Spacing.md) {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .font(.system(size: 16))
+                Image(systemName: candidate.icon)
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(
                         isSelected ? ConsensusTheme.Colors.accent : ConsensusTheme.Colors.textTertiary
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(candidate.displayName)
+                    Text("\(candidate.displayName) (.\(candidate.fileExtension))")
                         .font(ConsensusType.displayBody.weight(isSelected ? .semibold : .regular))
                         .foregroundStyle(ConsensusTheme.Colors.textPrimary)
                     Text(Self.description(for: candidate))
@@ -94,6 +112,7 @@ struct ExportSheet: View {
             }
             .padding(.horizontal, ConsensusTheme.Spacing.md)
             .padding(.vertical, ConsensusTheme.Spacing.sm)
+            .frame(minHeight: 66)
             .background(
                 RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
                     .fill(
@@ -114,11 +133,16 @@ struct ExportSheet: View {
         .animation(.easeInOut(duration: 0.12), value: isSelected)
     }
 
-    private static func description(for format: DeepReadViewModel.ExportFormat) -> String {
+    private static func description(for format: ExportFormat) -> String {
         switch format {
-        case .plainText:        return "Unstyled text, one paragraph per turn."
-        case .markdown:         return "Headers, bold speakers, inline timestamps."
-        case .obsidianMarkdown: return "Markdown with YAML frontmatter for Obsidian."
+        case .txt:              return "Plain transcript text."
+        case .md:               return "Readable Markdown transcript."
+        case .obsidianMarkdown: return "Markdown with YAML frontmatter."
+        case .json:             return "Structured data for testing."
+        case .srt:              return "Subtitle/caption file."
+        case .rtf:              return "Rich text document."
+        case .docx:             return "Microsoft Word document."
+        case .legalPDF:         return "Court-style legal transcript PDF."
         }
     }
 
@@ -145,6 +169,55 @@ struct ExportSheet: View {
             .tint(ConsensusTheme.Colors.accent)
             .disabled(!hasSummaryContent)
             .opacity(hasSummaryContent ? 1 : 0.6)
+        }
+    }
+
+    private var legalPDFSection: some View {
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
+            Text("LEGAL PDF")
+                .font(ConsensusType.displayEyebrow)
+                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                .tracking(1.0)
+
+            VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
+                VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
+                    Text("Header")
+                        .font(ConsensusType.displayCaption)
+                        .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                    TextEditor(text: $legalHeader)
+                        .font(ConsensusType.monoLog)
+                        .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                        .scrollContentBackground(.hidden)
+                        .frame(height: 70)
+                        .padding(ConsensusTheme.Spacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm, style: .continuous)
+                                .fill(ConsensusTheme.Colors.surfacePrimary.opacity(0.7))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: ConsensusTheme.Radius.sm, style: .continuous)
+                                        .stroke(ConsensusTheme.Colors.borderSubtle, lineWidth: 1)
+                                )
+                        )
+                }
+
+                Toggle("Elapsed timestamps", isOn: $showElapsedTime)
+                Toggle("Clock timestamps", isOn: $showClockTime)
+                Toggle("Cover page with summary & to-dos", isOn: $includeCoverPage)
+                    .disabled(!hasSummaryContent)
+                    .opacity(hasSummaryContent ? 1 : 0.6)
+            }
+            .font(ConsensusType.displayBody)
+            .toggleStyle(.switch)
+            .tint(ConsensusTheme.Colors.accent)
+            .padding(ConsensusTheme.Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                    .fill(ConsensusTheme.Colors.surfaceSecondary.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                            .stroke(ConsensusTheme.Colors.borderSubtle, lineWidth: 1)
+                    )
+            )
         }
     }
 
@@ -185,6 +258,7 @@ struct ExportSheet: View {
             }
             .buttonStyle(.bordered)
             .keyboardShortcut("c", modifiers: [.command])
+            .disabled(!viewModel.canCopyExport(format: format))
 
             Button {
                 saveAction()
@@ -202,6 +276,7 @@ struct ExportSheet: View {
 
     private func copyAction() {
         // Render with the include-summary choice, push to pasteboard.
+        guard viewModel.canCopyExport(format: format) else { return }
         let rendered = viewModel.renderExport(format: format, includeSummary: includeSummary)
         guard let text = rendered else { return }
         NSPasteboard.general.clearContents()
@@ -216,7 +291,18 @@ struct ExportSheet: View {
     }
 
     private func saveAction() {
-        let url = viewModel.exportToFile(format: format, includeSummary: includeSummary)
+        let options = viewModel.defaultLegalPDFOptions(
+            includeSummary: includeSummary,
+            headerText: legalHeader,
+            showElapsedTime: showElapsedTime,
+            showClockTime: showClockTime,
+            includeCoverPage: includeCoverPage
+        )
+        let url = viewModel.exportToFile(
+            format: format,
+            includeSummary: includeSummary,
+            legalPDFOptions: options
+        )
         if url != nil {
             dismiss()
         }

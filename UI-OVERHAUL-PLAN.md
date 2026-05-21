@@ -4,6 +4,80 @@ BDK Transcribo is being renamed to **Consensus** and receiving a comprehensive U
 
 ---
 
+## May 1, 2026 Addendum: Transcribing Progress Screen
+
+**Status:** COMPLETE (May 1, 2026)
+
+The VibeVoice transcription stage now uses a dedicated workstation-style progress screen instead of the generic centered progress card. The title, status strip, progress rail, and metric tiles have fixed regions so the page no longer jumps when streaming transcript text changes length.
+
+Completed work:
+- Threaded VibeVoice sidecar token count and tokens-per-second metadata into Swift progress updates.
+- Split live transcript output out of `StageProgress.label` and into a bounded rolling feed owned by `DeepReadViewModel`.
+- Added separate metric tiles for progress, total tokens, speed, and elapsed time.
+- Added a fixed-height live transcript panel that scrolls independently as VibeVoice emits text.
+
+---
+
+## May 1, 2026 Addendum: Speaker Naming Evidence Panel
+
+**Status:** COMPLETE (May 1, 2026)
+
+The "Who's speaking?" stage no longer expands long dialogue examples inside the speaker row. Rows stay compact for name entry, and the larger cross-recording sample set opens in an inspector-style evidence panel with its own scroll view.
+
+Completed work:
+- Replaced row expansion state with a selected speaker evidence pane.
+- Kept the speaker list in a bounded scroll region so the header and footer remain reachable.
+- Added a right-side evidence panel on wider windows, with a stacked fallback on narrow windows.
+- Kept preview samples compact and moved long dialogue review into independently scrolling sample cards.
+
+---
+
+## May 1, 2026 Addendum: Export Suite + Manual Revision Recovery
+
+**Status:** COMPLETE (May 1, 2026)
+
+The rewritten Deep Read surface now restores the full export surface from the legacy app instead of limiting the user to three text formats. The manual editor is also integrated into the new review toolbar, with a dedicated correction pane and native find/replace controls.
+
+Completed work:
+- Promoted export handling back to the shared `ExportFormat` / `ExportService` path so Deep Read can save text, Markdown, Obsidian Markdown, JSON, SRT, RTF, DOCX, and legal transcript PDF.
+- Added Legal PDF controls to the new export sheet: header text, elapsed timestamps, optional clock timestamps, and optional cover page content from the summary/to-do pane.
+- Added quick toolbar export paths for Legal PDF, Markdown, Obsidian Markdown, and plain text while keeping the full "Export with options" sheet.
+- Added a "Manual Revision" review-toolbar action that opens a rewrite-native editor and saves corrections as the project's `.manual` pass, so every export format uses the revised transcript.
+- Added find, previous/next match, replace, and replace-all controls backed by a native text view that highlights and scrolls to the active match.
+
+Decision note:
+- A separate rewritten exporter would have moved faster in the short term, but it would have duplicated the court-style PDF and DOCX logic. Reusing the shared export service keeps legal PDF behavior consistent across old and new surfaces and makes future export fixes land once.
+
+---
+
+## Future Studio Concept: Observability Dashboard
+
+**Status:** BACKLOG IDEA (May 1, 2026)
+
+Studio mode should eventually include a "work in progress" observability cockpit for hobbyist/power users who enjoy watching the local AI pipeline operate. This should feel like a native workstation dashboard, not a generic debug log.
+
+Candidate metrics:
+- **Run health:** current stage, elapsed time, real-time factor, stage timings, patch counts, accepted/rejected edit counts.
+- **Engine throughput:** VibeVoice tokens/sec, WhisperKit seconds processed/sec, patch verifier calls/minute, context/token counts where available.
+- **Process health:** app RSS, sidecar RSS, available memory/headroom, memory-pressure warnings, active child process IDs.
+- **Thermal health:** use official `ProcessInfo.thermalState` as the shippable baseline; investigate whether direct CPU/GPU temperature can be exposed safely as a developer-only adapter.
+- **Compute estimates:** prefer honest tokens/sec, audio real-time factor, and model/runtime stats over pretending to know true hardware FLOPs; FLOP estimates can be derived/labeled if useful.
+- **Review trace:** show the patch-review chain as it happens: candidate patch, audio window, second-opinion source, local re-listen text, masked-cloze options, model choice, confidence, public rationale, guardrail result, and final apply/reject reason. Do not expose raw hidden chain-of-thought; summarize the model's reasoning as auditable evidence and decision notes.
+
+Design direction:
+- Surface this as a Studio-only dashboard, likely adjacent to or replacing the current Pipeline Inspector.
+- Use compact metric tiles, small time-series strips, a process/event log, and a patch-review timeline with expandable evidence cards.
+- Keep it read-only and nonessential: it should deepen trust and enjoyment without making Quick Take or Deep Read feel technical.
+- Name the reasoning surface something like "Review Trace" or "Patch Audit" rather than "chain of thought," so it is clear the app is showing a product-safe explanation/audit trail rather than private model internals.
+
+Open implementation questions:
+- Which telemetry can be gathered without private APIs or elevated privileges?
+- Should deeper metrics come from Swift directly, sidecar JSON progress events, or a separate local telemetry sampler?
+- Can we sample frequently enough to feel alive without adding measurable overhead during ML inference?
+- How much of the raw model response should be retained for Studio auditability, and when should the app store only a short public rationale to avoid misleading users with uncalibrated hidden reasoning text?
+
+---
+
 ## Phase 0: Rename (Low Complexity)
 
 **Goal:** Replace all user-visible references to "BDK Transcribo" with "Consensus." Update internal identifiers where appropriate.

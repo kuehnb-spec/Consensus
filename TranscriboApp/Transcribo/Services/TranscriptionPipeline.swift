@@ -28,6 +28,7 @@ final class TranscriptionPipeline {
 
     private let transcriptionService = TranscriptionService()
     private let fluidAsrService = FluidAsrTranscriptionService()
+    private let vibevoiceService = VibeVoiceTranscriptionService()
     private let diarizationService = DiarizationService()
 
     /// Optional process log for detailed status updates.
@@ -153,6 +154,11 @@ final class TranscriptionPipeline {
                         }
                     }
                 )
+            case .vibevoice:
+                if let issue = VibeVoiceTranscriptionService.availabilityError() {
+                    throw ConsensusError.modelDownloadFailed(issue)
+                }
+                state = .downloadingModel(progress: 1.0)
             }
             log("Model ready", level: .success)
         } catch is CancellationError {
@@ -199,6 +205,28 @@ final class TranscriptionPipeline {
                         }
                     }
                 )
+            case .vibevoice(_, let context):
+                segments = try await vibevoiceService.transcribe(
+                    audioURL: audioURL,
+                    context: context,
+                    audioDuration: audioInfo.duration,
+                    progressCallback: { [weak self] progress, status, recentText, tokenCount, tokensPerSecond in
+                        Task { @MainActor in
+                            // Show the rolling transcript snippet in the
+                            // pipeline state so the legacy progress card
+                            // surfaces the same live text the rewritten UI
+                            // does. Status (token count, tps) is logged
+                            // separately via processLog.
+                            self?.state = .transcribing(progress: progress, currentText: recentText)
+                            if let recentText, !recentText.isEmpty {
+                                self?.processLog?.setOutput(recentText)
+                            }
+                            _ = status
+                            _ = tokenCount
+                            _ = tokensPerSecond
+                        }
+                    }
+                )
             }
             log("Transcription complete: \(segments.count) segments", level: .success)
         } catch is CancellationError {
@@ -212,11 +240,15 @@ final class TranscriptionPipeline {
 
         try Task.checkCancellation()
 
-        // Step 4: Speaker diarization (skipped for text-only comparison passes)
+        // Step 4: Speaker diarization (skipped for text-only comparison passes
+        // AND for engines that emit their own speaker labels — VibeVoice in particular).
         let finalSegments: [TranscriptionSegment]
 
         if skipDiarization {
             log("Skipping diarization (text-only comparison pass)", level: .info)
+            finalSegments = segments
+        } else if engine.providesOwnDiarization {
+            log("Using engine-provided diarization (\(engine.engineName))", level: .info)
             finalSegments = segments
         } else {
             state = .diarizing

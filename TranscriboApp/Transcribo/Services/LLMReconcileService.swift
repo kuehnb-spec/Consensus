@@ -309,4 +309,300 @@ actor LLMReconcileService {
             )
         }
     }
+
+    // MARK: - Judgment-only mode (dispute windows)
+
+    /// A localized window of disagreement between two engines for the same audio
+    /// span. Produced by `findDisputes` and fed to `judgeDisputes`. Kept small
+    /// (one Engine A segment worth of text) so the LLM can reason about it in
+    /// isolation instead of holding the full transcript in attention.
+    struct DisputeWindow: Sendable, Identifiable {
+        let id: Int  // stable index used to match the LLM's JSON response
+        let segmentIndex: Int  // index into the reference pass's segments
+        let timeStart: TimeInterval
+        let timeEnd: TimeInterval
+        let speakerID: String
+        let engineAText: String
+        let engineBText: String
+    }
+
+    /// The LLM's verdict for a single dispute window.
+    enum DisputeChoice: Sendable, Equatable {
+        /// Engine A's version is correct — no change needed.
+        case preferA
+        /// Engine B's version is correct — substitute B's text into the merged
+        /// transcript.
+        case preferB
+        /// Neither engine got it right; use the LLM's suggested text.
+        case suggest(String)
+        /// The disagreement is meaningful but the LLM can't tell which is right
+        /// without hearing the audio. The window is surfaced as an unresolved
+        /// flag so the user can review (or trigger a targeted re-transcription).
+        case uncertain(reason: String)
+    }
+
+    struct DisputeResolution: Sendable, Identifiable {
+        var id: Int { window.id }
+        let window: DisputeWindow
+        let choice: DisputeChoice
+    }
+
+    /// Default filler tokens stripped during dispute detection. Only removed for
+    /// the "is this a substantive disagreement?" check — the original text is
+    /// preserved when building the merged transcript.
+    private static let fillerTokens: Set<String> = [
+        "um", "uh", "uhh", "ah", "ahh", "mm", "mmm", "hmm", "hmmm",
+        "er", "erm", "oh",
+    ]
+
+    /// Find windows where Engine A and Engine B substantively disagree. A
+    /// "window" is one Engine A segment (a speaker turn) paired with whatever
+    /// Engine B text overlaps the same time range. The comparison normalizes
+    /// case, punctuation, and filler words before deciding whether to surface
+    /// a window — so "um yes, I did" vs "Yes I did." is NOT a dispute, but
+    /// "yes I did" vs "no I didn't" IS.
+    static func findDisputes(
+        referencePass: TranscriptionPass,
+        candidatePass: TranscriptionPass
+    ) -> [DisputeWindow] {
+        let refSegments = referencePass.result.segments
+        let candSegments = candidatePass.result.segments
+        guard !refSegments.isEmpty, !candSegments.isEmpty else { return [] }
+
+        var disputes: [DisputeWindow] = []
+        var nextID = 0
+
+        for (segIndex, refSeg) in refSegments.enumerated() {
+            let refText = refSeg.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !refText.isEmpty else { continue }
+
+            // Gather all candidate segments that overlap the reference window
+            // by at least 30% of the reference duration (loose — we want any
+            // meaningful overlap, not a perfect match).
+            let refDuration = max(0.1, refSeg.end - refSeg.start)
+            let overlapping = candSegments.filter { cand in
+                let overlapStart = max(cand.start, refSeg.start)
+                let overlapEnd = min(cand.end, refSeg.end)
+                let overlap = overlapEnd - overlapStart
+                return overlap / refDuration >= 0.3
+            }
+            guard !overlapping.isEmpty else {
+                // Engine B has nothing here — that's itself a dispute (missing
+                // phrase vs extra phrase). Surface it only if Engine A's text
+                // is longer than a few words (otherwise noise).
+                if refText.split(whereSeparator: \.isWhitespace).count >= 4 {
+                    disputes.append(DisputeWindow(
+                        id: nextID,
+                        segmentIndex: segIndex,
+                        timeStart: refSeg.start,
+                        timeEnd: refSeg.end,
+                        speakerID: refSeg.speakerID,
+                        engineAText: refText,
+                        engineBText: ""
+                    ))
+                    nextID += 1
+                }
+                continue
+            }
+
+            let candText = overlapping
+                .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .joined(separator: " ")
+
+            if normalizeForDisputeCheck(refText) == normalizeForDisputeCheck(candText) {
+                continue  // trivial diff — skip
+            }
+
+            disputes.append(DisputeWindow(
+                id: nextID,
+                segmentIndex: segIndex,
+                timeStart: refSeg.start,
+                timeEnd: refSeg.end,
+                speakerID: refSeg.speakerID,
+                engineAText: refText,
+                engineBText: candText
+            ))
+            nextID += 1
+        }
+
+        return disputes
+    }
+
+    /// Normalize for the "is this diff substantive?" check: lowercase, strip
+    /// punctuation, drop filler tokens, collapse whitespace. Does NOT modify
+    /// the text that ends up in the transcript.
+    private static func normalizeForDisputeCheck(_ text: String) -> String {
+        let lower = text.lowercased()
+        let stripped = lower.unicodeScalars.map { scalar -> Character in
+            if CharacterSet.punctuationCharacters.contains(scalar) { return " " }
+            if CharacterSet.symbols.contains(scalar) { return " " }
+            return Character(scalar)
+        }
+        let collapsed = String(stripped)
+        let tokens = collapsed.split(whereSeparator: \.isWhitespace).map(String.init)
+        let kept = tokens.filter { !fillerTokens.contains($0) }
+        return kept.joined(separator: " ")
+    }
+
+    /// Ask the LLM to judge each dispute window. Batches windows so no single
+    /// prompt overruns the context — the LLM sees a short list of localized
+    /// disagreements instead of two full transcripts, which both saves tokens
+    /// and keeps its attention focused on the parts that actually matter.
+    func judgeDisputes(
+        _ windows: [DisputeWindow],
+        options: ReconcileOptions = ReconcileOptions(),
+        tokenCallback: (@Sendable (String) -> Void)? = nil
+    ) async throws -> [DisputeResolution] {
+        guard let container = modelContainer else {
+            throw ConsensusError.transcriptionFailed("No reconcile model loaded.")
+        }
+        guard !windows.isEmpty else { return [] }
+
+        let batchSize = 25  // keeps prompts under ~2K tokens
+        var resolutions: [DisputeResolution] = []
+        resolutions.reserveCapacity(windows.count)
+
+        for batchStart in stride(from: 0, to: windows.count, by: batchSize) {
+            let batch = Array(windows[batchStart ..< min(batchStart + batchSize, windows.count)])
+            let prompt = Self.buildJudgmentPrompt(windows: batch, options: options)
+            let isQwen = loadedModelID?.lowercased().contains("qwen") ?? false
+            let effectivePrompt = isQwen ? "/no_think\n\(prompt.user)" : prompt.user
+
+            let session = ChatSession(
+                container,
+                instructions: prompt.system,
+                generateParameters: GenerateParameters(
+                    maxTokens: options.maxTokens,
+                    temperature: 0.1,
+                    topP: 0.9
+                )
+            )
+
+            let response: String
+            if let tokenCallback {
+                var full = ""
+                for try await chunk in session.streamResponse(to: effectivePrompt) {
+                    full += chunk
+                    tokenCallback(chunk)
+                }
+                response = full
+            } else {
+                response = try await session.respond(to: effectivePrompt)
+            }
+
+            let batchResolutions = Self.parseJudgmentResponse(response, windows: batch)
+            resolutions.append(contentsOf: batchResolutions)
+        }
+
+        return resolutions
+    }
+
+    private static func buildJudgmentPrompt(
+        windows: [DisputeWindow],
+        options: ReconcileOptions
+    ) -> Prompt {
+        var domain = options.domainHint ?? "general conversation"
+        if !options.knownSpeakerNames.isEmpty {
+            domain += ". Known speaker names: \(options.knownSpeakerNames.joined(separator: ", "))"
+        }
+
+        let system = """
+        You are a transcription judge. For each numbered window, two speech \
+        recognition engines produced different text for the same audio. Your \
+        job is to decide which version is correct. Use context and world \
+        knowledge — do not invent words that neither engine produced unless \
+        both are clearly garbled and the correct phrase is obvious from context.
+
+        For every window, return one of these choices:
+          "A" — Engine A's text is correct.
+          "B" — Engine B's text is correct.
+          "SUGGEST" — neither is right; provide the corrected text in "text".
+          "UNCERTAIN" — the disagreement is meaningful but you genuinely cannot \
+            tell which is right. Provide a one-sentence "reason".
+
+        Output STRICTLY valid JSON: an array of objects, one per window, keyed \
+        by "window" (integer), "choice" (string), and optionally "text" (for \
+        SUGGEST) or "reason" (for UNCERTAIN). No markdown, no commentary.
+
+        Context: this is a \(domain).
+        """
+
+        var lines: [String] = []
+        lines.append("WINDOWS:")
+        lines.append("")
+        for w in windows {
+            lines.append("[\(w.id)] \(String(format: "%.1f", w.timeStart))s-\(String(format: "%.1f", w.timeEnd))s speaker=\(w.speakerID)")
+            lines.append("  Engine A: \(w.engineAText)")
+            if w.engineBText.isEmpty {
+                lines.append("  Engine B: (silence / nothing transcribed)")
+            } else {
+                lines.append("  Engine B: \(w.engineBText)")
+            }
+            lines.append("")
+        }
+        lines.append("Return the JSON array now. Every window id from the list above must appear exactly once in your response.")
+
+        return Prompt(system: system, user: lines.joined(separator: "\n"))
+    }
+
+    private static func parseJudgmentResponse(
+        _ response: String,
+        windows: [DisputeWindow]
+    ) -> [DisputeResolution] {
+        var trimmed = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("```") {
+            if let first = trimmed.range(of: "\n") {
+                trimmed = String(trimmed[first.upperBound...])
+            }
+        }
+        if trimmed.hasSuffix("```") {
+            trimmed = String(trimmed.dropLast(3))
+        }
+        trimmed = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let windowByID = Dictionary(uniqueKeysWithValues: windows.map { ($0.id, $0) })
+
+        guard let data = trimmed.data(using: .utf8),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else {
+            // Parser failed — conservatively mark every window as preferA so the
+            // user still sees Engine A text and nothing is silently corrupted.
+            return windows.map {
+                DisputeResolution(window: $0, choice: .preferA)
+            }
+        }
+
+        var resolutions: [DisputeResolution] = []
+        var seenIDs: Set<Int> = []
+        for obj in raw {
+            guard let id = obj["window"] as? Int,
+                  let window = windowByID[id]
+            else { continue }
+            if seenIDs.contains(id) { continue }
+            seenIDs.insert(id)
+
+            let rawChoice = (obj["choice"] as? String)?.uppercased().trimmingCharacters(in: .whitespacesAndNewlines) ?? "A"
+            let choice: DisputeChoice
+            switch rawChoice {
+            case "A": choice = .preferA
+            case "B": choice = .preferB
+            case "SUGGEST":
+                let text = (obj["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                choice = text.isEmpty ? .preferA : .suggest(text)
+            case "UNCERTAIN":
+                let reason = (obj["reason"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "LLM flagged as ambiguous"
+                choice = .uncertain(reason: reason)
+            default:
+                choice = .preferA
+            }
+            resolutions.append(DisputeResolution(window: window, choice: choice))
+        }
+
+        // Any window the LLM skipped is conservatively left as Engine A.
+        for window in windows where !seenIDs.contains(window.id) {
+            resolutions.append(DisputeResolution(window: window, choice: .preferA))
+        }
+
+        return resolutions.sorted { $0.window.id < $1.window.id }
+    }
 }

@@ -491,7 +491,12 @@ enum ConfidenceMergeService {
     ) -> MergedTranscript {
         guard !merged.segments.isEmpty, !referenceSegments.isEmpty else { return merged }
 
-        let flatWords = merged.segments.flatMap(\.words).sorted { $0.start < $1.start }
+        // Preserve per-segment word order. Sorting globally by start time was
+        // the root cause of the scrambled-sentences regression on phone audio
+        // (forced alignment produced non-monotonic timings on 15-26% of words).
+        // This function is no longer called from the main pipeline as of
+        // 2026-04-23, but the defensive change is kept in case it's reused.
+        let flatWords = merged.segments.flatMap(\.words)
         guard !flatWords.isEmpty else { return merged }
 
         var newSegments = groupIntoReferenceSegments(
@@ -583,10 +588,12 @@ enum ConfidenceMergeService {
             }
         }
 
-        // Assign each merged word to a speaker turn by time overlap
+        // Assign each merged word to a speaker turn by time overlap.
+        // Preserve input order (see reattributeAfterRetiming comment above for
+        // why a global start-time sort is unsafe when FA timings are present).
         var segments: [MergedSegment] = []
         var wordIndex = 0
-        let sortedWords = words.sorted { $0.start < $1.start }
+        let sortedWords = words
 
         for turn in speakerTurns {
             var turnWords: [MergedWord] = []

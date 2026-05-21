@@ -23,6 +23,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Ensure the main window is key whenever the app activates
         NSApp.windows.first?.makeKeyAndOrderFront(nil)
     }
+
+    /// Kill any active VibeVoice sidecar before the app exits. Without this,
+    /// the Python child gets reparented to launchd and keeps the 5 GB MLX
+    /// model resident — that's the orphan path that contributed to the
+    /// April 28 thermal-shutdown chain. Runs synchronously so the AppKit
+    /// shutdown sequence waits for our cleanup to finish.
+    func applicationWillTerminate(_ notification: Notification) {
+        VibeVoiceTranscriptionService.terminateAllActiveSidecars()
+    }
 }
 
 @main
@@ -46,7 +55,7 @@ struct ConsensusApp: App {
                     .environment(viewModel)
                     .environmentObject(settings)
                     .frame(minWidth: 900, minHeight: 600)
-                    .preferredColorScheme(settings.isSimpleMode ? .light : .dark)
+                    .preferredColorScheme(.dark)
                     .tint(ConsensusTheme.Colors.accent)
                 } else {
                     EmptyView()
@@ -63,16 +72,9 @@ struct ConsensusApp: App {
             CommandGroup(replacing: .newItem) {
                 if case .none = SmokeRunner.launchMode {
                     Button("Open Audio File...") {
-                        viewModel.showFilePicker = true
+                        NotificationCenter.default.post(name: .consensusOpenAudioFile, object: nil)
                     }
                     .keyboardShortcut("o")
-
-                    Button("Open Demo Project") {
-                        Task {
-                            await viewModel.loadDemoProject()
-                        }
-                    }
-                    .keyboardShortcut("d", modifiers: [.command, .shift])
                 }
             }
 
@@ -88,12 +90,6 @@ struct ConsensusApp: App {
                     }
 
                     Divider()
-
-                    Button("Open Demo Project") {
-                        Task {
-                            await viewModel.loadDemoProject()
-                        }
-                    }
                 }
             }
         }

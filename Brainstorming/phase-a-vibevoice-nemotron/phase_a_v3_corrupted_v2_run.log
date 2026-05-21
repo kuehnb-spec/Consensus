@@ -1,0 +1,31 @@
+[v3] reviewing 23 disagreement spans at threshold=0.75
+[v3] 1/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (5.2s; total 5s; eta 114s)
+[v3] 2/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (5.2s; total 10s; eta 109s)
+[v3] 3/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.2s; total 17s; eta 111s)
+[v3] 4/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.7s; total 23s; eta 111s)
+[v3] 5/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.2s; total 30s; eta 106s)
+[v3] 6/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (7.7s; total 37s; eta 106s)
+[v3] 7/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (7.7s; total 45s; eta 103s)
+[v3] 8/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.2s; total 51s; eta 96s)
+[v3] 9/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.7s; total 58s; eta 90s)
+[v3] 10/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (9.2s; total 67s; eta 87s)
+[v3] 11/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (7.2s; total 74s; eta 81s)
+[v3] 12/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.7s; total 81s; eta 74s)
+[v3] 13/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.2s; total 87s; eta 67s)
+[v3] 14/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (5.7s; total 93s; eta 60s)
+[v3] 15/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (8.2s; total 101s; eta 54s)
+[v3] 16/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (7.2s; total 108s; eta 47s)
+[v3] 17/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (9.2s; total 118s; eta 42s)
+[v3] 18/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.2s; total 124s; eta 34s)
+[v3] 19/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (12.3s; total 136s; eta 29s)
+[v3] 20/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (9.2s; total 146s; eta 22s)
+[v3] 21/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (6.2s; total 152s; eta 14s)
+[v3] 22/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (9.7s; total 161s; eta 7s)
+[v3] 23/23 [keep:qwen_says_keep_a] verdict=keep_a conf=0.00 (10.2s; total 172s; eta 0s)
+
+[v3] done.
+  spans reviewed:        23
+  applied corrections:   0
+  rejection breakdown:   {'qwen_says_keep_a': 23}
+  total review time:     171s
+  wall clock:            172s

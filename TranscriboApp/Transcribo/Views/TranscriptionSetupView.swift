@@ -81,6 +81,25 @@ struct TranscriptionSetupView: View {
                 .frame(width: 200)
             }
 
+            // VibeVoice hotword hint (only when VibeVoice is selected)
+            if viewModel.primaryEngine == .vibevoice {
+                HStack(alignment: .top, spacing: ConsensusTheme.Spacing.sm) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(ConsensusTheme.Colors.accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Speaker names become hotwords")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                        Text("Any speaker names already on this project are passed to VibeVoice as transcription bias for the next pass — proper names come back correctly.")
+                            .font(ConsensusTheme.Fonts.caption)
+                            .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.leading, ConsensusTheme.Spacing.lg)
+            }
+
             // Whisper model size (only shown when WhisperKit is selected)
             if viewModel.primaryEngine == .whisper {
                 HStack {
@@ -112,32 +131,34 @@ struct TranscriptionSetupView: View {
             Divider()
                 .overlay(ConsensusTheme.Colors.border)
 
-            // Diarization engine
-            HStack {
-                VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
-                    Text("Diarization Engine")
-                        .font(.headline)
-                        .foregroundStyle(ConsensusTheme.Colors.textPrimary)
-                    Text(viewModel.diarizationEngine == .speakerKit
-                        ? "Newer pyannote v4 models, best accuracy"
-                        : "Original engine, good for comparison"
-                    )
-                        .font(ConsensusTheme.Fonts.caption)
-                        .foregroundStyle(ConsensusTheme.Colors.textSecondary)
-                }
-                Spacer()
-                Picker("", selection: $vm.diarizationEngine) {
-                    ForEach(DiarizationEngine.allCases) { engine in
-                        Text(engine.displayName)
-                            .tag(engine)
+            // Diarization engine — hidden for VibeVoice (engine emits its own speaker labels).
+            if viewModel.primaryEngine != .vibevoice {
+                HStack {
+                    VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
+                        Text("Diarization Engine")
+                            .font(.headline)
+                            .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                        Text(viewModel.diarizationEngine == .speakerKit
+                            ? "Newer pyannote v4 models, best accuracy"
+                            : "Original engine, good for comparison"
+                        )
+                            .font(ConsensusTheme.Fonts.caption)
+                            .foregroundStyle(ConsensusTheme.Colors.textSecondary)
                     }
+                    Spacer()
+                    Picker("", selection: $vm.diarizationEngine) {
+                        ForEach(DiarizationEngine.allCases) { engine in
+                            Text(engine.displayName)
+                                .tag(engine)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 240)
                 }
-                .pickerStyle(.menu)
-                .frame(width: 240)
-            }
 
-            Divider()
-                .overlay(ConsensusTheme.Colors.border)
+                Divider()
+                    .overlay(ConsensusTheme.Colors.border)
+            }
 
             // Speaker count
             HStack(spacing: ConsensusTheme.Spacing.xl) {

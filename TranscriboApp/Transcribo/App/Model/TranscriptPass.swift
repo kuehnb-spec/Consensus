@@ -4,7 +4,7 @@ import Foundation
 /// `<project>/passes/<kind>.json`. There's at most one file per `PassKind`.
 ///
 /// Reuses the legacy `TranscriptionSegment` type so the pipeline services
-/// (FluidAsr, SpeakerKit, SegmentMerger, LLMReconcile, and the Manual
+/// (FluidAsr, SpeakerKit, SegmentMerger, Patch Review, and the Manual
 /// Editor codec) can feed and read this without any conversion.
 ///
 /// This is the new-UI equivalent of the legacy `TranscriptionPass`, kept
@@ -21,27 +21,31 @@ struct TranscriptPass: Codable, Sendable {
     /// Segments in time order.
     var segments: [TranscriptionSegment]
 
-    /// Indices into `segments` that the LLM flagged as genuinely uncertain
-    /// during reconciliation. Surfaces in the review view as highlighted
-    /// turns with an explanatory popover. Empty for passes the LLM didn't
-    /// run on (e.g. `.standard`). Stored as indices rather than segment IDs
-    /// so the set survives transcript edits that preserve positions.
+    /// Indices into `segments` that need user attention in the review view.
+    /// In the current patch-centered Deep Review architecture, these are
+    /// applied patch segments worth inspecting or reverting. Older archived
+    /// LLM-reconcile passes used this for uncertainty flags.
     var uncertainSegmentIndices: Set<Int>
 
     /// Alternative text sources per uncertain segment, keyed by index into
     /// `segments`. The Phase 1d.3 review popover renders these as
-    /// click-to-apply options so the user can swap in Engine A's or
-    /// Engine B's text if the LLM's reconciliation read the audio wrong.
-    /// Empty for passes without multi-engine reconciliation.
+    /// click-to-apply options so the user can revert a patch or compare
+    /// exact alternatives. Empty for passes without review items.
     var alternativesByIndex: [Int: [TurnAlternative]]
 
-    /// Which engines ran. Empty for `.standard` (single-engine); non-empty
-    /// for `.deep` / `.verified` (multi-engine reconciliation).
+    /// Patch-review audit notes keyed by index into `segments`. In the
+    /// patch-centered Deep Review architecture, a "review" item means the
+    /// tool-constrained editor changed this turn and the user may inspect
+    /// or revert it. Older LLM-reconcile passes leave this empty.
+    var patchReviewNotesByIndex: [Int: [PatchReviewNote]]
+
+    /// Which engines/tools ran. Empty for `.standard` (single-engine);
+    /// non-empty for `.deep` / `.verified` (patch-centered review).
     var engineAttribution: EngineAttribution
 
-    /// Paired verbatim/clean outputs from a single LLM reconciliation pass.
-    /// `nil` on passes that didn't involve the LLM (e.g. `.standard`); the
-    /// UI renders `segments` as-is in that case.
+    /// Paired canonical/patched outputs. `nil` on passes that did not produce
+    /// an alternate view (e.g. `.standard`); the UI renders `segments` as-is
+    /// in that case.
     var styles: StylePair?
 
     /// Quality metrics computed at the end of the pass.
@@ -53,6 +57,7 @@ struct TranscriptPass: Codable, Sendable {
         segments: [TranscriptionSegment],
         uncertainSegmentIndices: Set<Int> = [],
         alternativesByIndex: [Int: [TurnAlternative]] = [:],
+        patchReviewNotesByIndex: [Int: [PatchReviewNote]] = [:],
         engineAttribution: EngineAttribution = EngineAttribution(),
         styles: StylePair? = nil,
         quality: QualitySummary = QualitySummary()
@@ -62,24 +67,72 @@ struct TranscriptPass: Codable, Sendable {
         self.segments = segments
         self.uncertainSegmentIndices = uncertainSegmentIndices
         self.alternativesByIndex = alternativesByIndex
+        self.patchReviewNotesByIndex = patchReviewNotesByIndex
         self.engineAttribution = engineAttribution
         self.styles = styles
         self.quality = quality
     }
+
+    enum CodingKeys: String, CodingKey {
+        case kind
+        case createdAt
+        case segments
+        case uncertainSegmentIndices
+        case alternativesByIndex
+        case patchReviewNotesByIndex
+        case engineAttribution
+        case styles
+        case quality
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try c.decode(PassKind.self, forKey: .kind)
+        self.createdAt = try c.decode(Date.self, forKey: .createdAt)
+        self.segments = try c.decode([TranscriptionSegment].self, forKey: .segments)
+        self.uncertainSegmentIndices = try c.decodeIfPresent(Set<Int>.self, forKey: .uncertainSegmentIndices) ?? []
+        self.alternativesByIndex = try c.decodeIfPresent([Int: [TurnAlternative]].self, forKey: .alternativesByIndex) ?? [:]
+        self.patchReviewNotesByIndex = try c.decodeIfPresent([Int: [PatchReviewNote]].self, forKey: .patchReviewNotesByIndex) ?? [:]
+        self.engineAttribution = try c.decodeIfPresent(EngineAttribution.self, forKey: .engineAttribution) ?? EngineAttribution()
+        self.styles = try c.decodeIfPresent(StylePair.self, forKey: .styles)
+        self.quality = try c.decodeIfPresent(QualitySummary.self, forKey: .quality) ?? QualitySummary()
+    }
 }
 
 /// One click-to-apply option in the uncertainty popover. Phase 1d.3 sources
-/// these from Engine A and Engine B's pre-reconciliation segments for turns
-/// the LLM flagged as uncertain. Later can carry LLM-emitted alternatives
-/// once the prompt supports it.
+/// these from exact patch-review events. Archived LLM-reconcile passes may
+/// still carry Engine A / Engine B alternatives.
 struct TurnAlternative: Codable, Hashable, Sendable {
     /// Where the text came from ("Engine A (Parakeet)", "Engine B
-    /// (Whisper Large v3)", "LLM reconciliation", …). Displayed as a
+    /// (Whisper Large v3)", "Original VibeVoice", …). Displayed as a
     /// small label in the popover.
     let source: String
 
     /// The candidate text the user can accept.
     let text: String
+}
+
+/// One tool-constrained edit that changed a Deep Review pass. These notes are
+/// intentionally patch-shaped rather than transcript-shaped so the UI can show
+/// exactly what was changed and why.
+struct PatchReviewNote: Codable, Hashable, Sendable {
+    /// `v6_local_relisten`, `v8_masked_cloze`, or another future tool stage.
+    let stage: String
+
+    /// Human-readable source label for the tool that made the change.
+    let source: String
+
+    /// Exact phrase found in the prior segment text.
+    let find: String
+
+    /// Exact phrase inserted by the patch editor.
+    let replace: String
+
+    /// Optional verifier confidence. Local re-listen patches may not have one.
+    let confidence: Double?
+
+    /// Short audit reason emitted by the verifier.
+    let reason: String?
 }
 
 // MARK: - Engine attribution
@@ -89,8 +142,8 @@ struct EngineAttribution: Codable, Hashable, Sendable {
     /// (e.g. "Parakeet", "Whisper Large v3").
     var primaryEngine: String
 
-    /// Display names of additional engines whose output fed the LLM
-    /// reconciliation, if any.
+    /// Display names of additional engines/tools whose output fed the review,
+    /// if any.
     var supportingEngines: [String]
 
     /// Diarizer used ("SpeakerKit-pyannote-v4", "FluidAudio Sortformer", …).
@@ -114,10 +167,10 @@ struct EngineAttribution: Codable, Hashable, Sendable {
 
 // MARK: - Verbatim / clean
 
-/// Two versions of each turn, produced by a single LLM reconciliation pass
-/// per the rewrite plan's "simultaneous generation" design. The user
-/// toggles between them in the transcript header; the choice is remembered
-/// per-project (on `ProjectSettings.transcriptStyle`).
+/// Two versions of each turn. In Patch Review, `verbatimText` is the
+/// original canonical transcript and `cleanText` is the patched result. The
+/// user toggles between them in the transcript header; the choice is
+/// remembered per-project (on `ProjectSettings.transcriptStyle`).
 struct StylePair: Codable, Hashable, Sendable {
     /// Stutters, fillers, "um"s, repetitions preserved.
     var verbatimText: [String]
@@ -137,8 +190,8 @@ struct QualitySummary: Codable, Hashable, Sendable {
     /// no diarizer ran or when the diarizer didn't emit a quality score.
     var diarizationConfidence: Double?
 
-    /// Count of LLM-flagged uncertain segments in the pass. Used by the
-    /// review badge counter ("3 to review").
+    /// Count of patch-review segments in the pass. Used by the review badge
+    /// counter.
     var uncertainSegmentCount: Int
 
     /// Stage timings in seconds, keyed by stage name. Helpful for Studio's

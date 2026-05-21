@@ -59,7 +59,7 @@ struct PipelineInspectorView: View {
                     keyValue("Segments", "\(pass.segments.count)")
                     if !pass.uncertainSegmentIndices.isEmpty {
                         keyValue(
-                            "LLM-flagged",
+                            "Patch-review items",
                             "\(pass.uncertainSegmentIndices.count) of \(pass.segments.count)"
                         )
                     }
@@ -86,7 +86,7 @@ struct PipelineInspectorView: View {
                             String(format: "%.1f%%", conf * 100)
                         )
                     }
-                    keyValue("Uncertain segments", "\(pass.quality.uncertainSegmentCount)")
+                    keyValue("Patch-review segments", "\(pass.quality.uncertainSegmentCount)")
                 }
 
                 if !pass.quality.stageTimings.isEmpty {
@@ -158,6 +158,7 @@ struct PipelineInspectorView: View {
         let priority: [String] = [
             "modelPrep", "transcribe", "diarize", "merge",
             "whisperLoad", "whisperRun",
+            "patchReviewSidecar", "patchReviewWork",
             "llmLoad", "llmReconcile",
             "total", "deepTotal",
         ]
@@ -180,6 +181,8 @@ struct PipelineInspectorView: View {
         case "merge":         return "Merge"
         case "whisperLoad":   return "Whisper load"
         case "whisperRun":    return "Whisper run (Engine B)"
+        case "patchReviewSidecar": return "Patch Review sidecar"
+        case "patchReviewWork": return "Patch Review work"
         case "llmLoad":       return "LLM load"
         case "llmReconcile":  return "LLM reconcile"
         case "total":         return "Total (Standard)"

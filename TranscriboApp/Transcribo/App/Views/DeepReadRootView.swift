@@ -1,8 +1,8 @@
+import Foundation
 import SwiftUI
 
-/// The top-level view of the rewritten UI. Routes on `DeepReadViewModel.stage`
-/// to the stage-specific child view. Shown when `AppSettings.useRewrittenUI`
-/// is true; the legacy `ContentView` surface is shown otherwise.
+/// The top-level view of the app. Routes on `DeepReadViewModel.stage` to the
+/// stage-specific child view.
 struct DeepReadRootView: View {
     @Bindable var viewModel: DeepReadViewModel
     @EnvironmentObject private var settings: AppSettings
@@ -12,6 +12,7 @@ struct DeepReadRootView: View {
     @State private var showingLibrary: Bool = false
     @State private var showingVoiceLibrary: Bool = false
     @State private var showingShortcuts: Bool = false
+    @State private var showingManualRevision: Bool = false
 
     var body: some View {
         ZStack {
@@ -58,6 +59,9 @@ struct DeepReadRootView: View {
         }
         .sheet(isPresented: $showingShortcuts) {
             KeyboardShortcutsView()
+        }
+        .sheet(isPresented: $showingManualRevision) {
+            ManualRevisionSheet(viewModel: viewModel)
         }
         .background(libraryShortcutHost)
         .toolbar {
@@ -110,6 +114,14 @@ struct DeepReadRootView: View {
                         .help("Toggle the summary & to-dos pane")
                     }
                     ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showingManualRevision = true
+                        } label: {
+                            Label("Manual Revision", systemImage: "pencil.and.scribble")
+                        }
+                        .help("Open the manual revision pane")
+                    }
+                    ToolbarItem(placement: .primaryAction) {
                         copyMenu
                     }
                     ToolbarItem(placement: .primaryAction) {
@@ -147,10 +159,10 @@ struct DeepReadRootView: View {
             DeepReadSetupView(viewModel: viewModel)
 
         case .transcribing(let progress):
-            StageProgressView(
-                headline: "Transcribing",
-                detail: progress.label.isEmpty ? "Engine A pass in progress…" : progress.label,
-                fraction: progress.fraction
+            TranscriptionProgressView(
+                progress: progress,
+                snippets: viewModel.liveTranscriptionSnippets,
+                projectTitle: viewModel.project?.title
             )
 
         case .namingSpeakers(let suggestions):
@@ -161,8 +173,8 @@ struct DeepReadRootView: View {
 
         case .reconciling(let progress):
             StageProgressView(
-                headline: "Reconciling",
-                detail: progress.label.isEmpty ? "LLM pass in progress…" : progress.label,
+                headline: "Reviewing Patches",
+                detail: progress.label.isEmpty ? "Patch editor in progress..." : progress.label,
                 fraction: progress.fraction
             )
 
@@ -223,11 +235,11 @@ struct DeepReadRootView: View {
     private var copyMenu: some View {
         Menu {
             Button("Copy as Markdown") {
-                viewModel.copyToPasteboard(format: .markdown)
+                viewModel.copyToPasteboard(format: .md)
             }
             .keyboardShortcut("c", modifiers: [.command, .shift])
             Button("Copy as plain text") {
-                viewModel.copyToPasteboard(format: .plainText)
+                viewModel.copyToPasteboard(format: .txt)
             }
             Button("Copy as Obsidian Markdown") {
                 viewModel.copyToPasteboard(format: .obsidianMarkdown)
@@ -250,15 +262,27 @@ struct DeepReadRootView: View {
 
             Divider()
 
+            Button("Save as Legal PDF…") {
+                _ = viewModel.exportToFile(
+                    format: .legalPDF,
+                    includeSummary: viewModel.showSummaryPane,
+                    legalPDFOptions: viewModel.defaultLegalPDFOptions(
+                        includeSummary: viewModel.showSummaryPane,
+                        includeCoverPage: viewModel.showSummaryPane
+                    )
+                )
+            }
+            .keyboardShortcut("p", modifiers: [.command])
+
             Button("Save as Markdown…") {
-                _ = viewModel.exportToFile(format: .markdown)
+                _ = viewModel.exportToFile(format: .md)
             }
             .keyboardShortcut("e", modifiers: [.command])
             Button("Save as Obsidian Markdown…") {
                 _ = viewModel.exportToFile(format: .obsidianMarkdown)
             }
             Button("Save as plain text…") {
-                _ = viewModel.exportToFile(format: .plainText)
+                _ = viewModel.exportToFile(format: .txt)
             }
         } label: {
             Label("Export", systemImage: "square.and.arrow.up")
@@ -302,6 +326,304 @@ struct PlaceholderStageView: View {
         )
         .padding(ConsensusTheme.Spacing.xxl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Transcription progress view
+
+struct TranscriptionProgressView: View {
+    let progress: DeepReadViewModel.StageProgress
+    let snippets: [DeepReadViewModel.LiveTranscriptionSnippet]
+    let projectTitle: String?
+
+    private var clampedFraction: Double {
+        max(0, min(1, progress.fraction))
+    }
+
+    private var statusText: String {
+        if let status = progress.status, !status.isEmpty {
+            return status
+        }
+        if !progress.label.isEmpty {
+            return progress.label
+        }
+        return "Preparing VibeVoice"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xl) {
+            header
+            progressRail
+            metricsGrid
+            liveTranscriptPanel
+        }
+        .padding(.horizontal, ConsensusTheme.Spacing.xxl)
+        .padding(.vertical, ConsensusTheme.Spacing.xl)
+        .frame(maxWidth: 920, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: ConsensusTheme.Spacing.xl) {
+            VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
+                Text("Transcribing")
+                    .font(ConsensusType.display(size: 34, weight: .semibold))
+                    .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                    .lineLimit(1)
+
+                Text(projectTitle ?? "VibeVoice draft pass")
+                    .font(ConsensusType.displayBody)
+                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            Spacer(minLength: ConsensusTheme.Spacing.lg)
+
+            HStack(spacing: ConsensusTheme.Spacing.sm) {
+                Circle()
+                    .fill(ConsensusTheme.Colors.confidenceGreen)
+                    .frame(width: 7, height: 7)
+                Text("VibeVoice active")
+                    .font(ConsensusType.displayCaption.weight(.medium))
+                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+            }
+            .padding(.horizontal, ConsensusTheme.Spacing.md)
+            .frame(height: 30)
+            .background(
+                Capsule()
+                    .fill(ConsensusTheme.Colors.surfaceSecondary.opacity(0.74))
+                    .overlay(
+                        Capsule()
+                            .stroke(ConsensusTheme.Colors.border, lineWidth: 1)
+                    )
+            )
+        }
+    }
+
+    private var progressRail: some View {
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
+            HStack(spacing: ConsensusTheme.Spacing.md) {
+                Image(systemName: "cpu")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(ConsensusTheme.Colors.accent)
+                Text(statusText)
+                    .font(ConsensusType.monoLog)
+                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: ConsensusTheme.Spacing.md)
+                Text("\(Int((clampedFraction * 100).rounded()))%")
+                    .font(ConsensusType.monoMetric.weight(.semibold))
+                    .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                    .monospacedDigit()
+            }
+            .frame(height: 36)
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(ConsensusTheme.Colors.surfaceSecondary)
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    ConsensusTheme.Colors.accent,
+                                    ConsensusTheme.Colors.confidenceGreen
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(8, geometry.size.width * clampedFraction))
+                }
+            }
+            .frame(height: 8)
+            .clipShape(Capsule())
+        }
+    }
+
+    private var metricsGrid: some View {
+        LazyVGrid(
+            columns: [
+                GridItem(.adaptive(minimum: 154, maximum: 220), spacing: ConsensusTheme.Spacing.md)
+            ],
+            spacing: ConsensusTheme.Spacing.md
+        ) {
+            TranscriptionMetricTile(
+                title: "Progress",
+                value: "\(Int((clampedFraction * 100).rounded()))%",
+                icon: "chart.line.uptrend.xyaxis",
+                tint: ConsensusTheme.Colors.accent
+            )
+            TranscriptionMetricTile(
+                title: "Tokens",
+                value: progress.tokenCount.map { $0.formatted(.number) } ?? "--",
+                icon: "number",
+                tint: ConsensusTheme.Colors.confidenceGreen
+            )
+            TranscriptionMetricTile(
+                title: "Speed",
+                value: progress.tokensPerSecond.map { String(format: "%.0f/s", $0) } ?? "--",
+                icon: "speedometer",
+                tint: ConsensusTheme.Colors.confidenceAmber
+            )
+            TranscriptionMetricTile(
+                title: "Elapsed",
+                value: Self.formattedElapsed(progress.elapsedSeconds),
+                icon: "clock",
+                tint: ConsensusTheme.Colors.textSecondary
+            )
+        }
+    }
+
+    private var liveTranscriptPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: ConsensusTheme.Spacing.sm) {
+                Image(systemName: "text.bubble")
+                    .foregroundStyle(ConsensusTheme.Colors.accent)
+                Text("Live transcript")
+                    .font(ConsensusType.displaySubheading)
+                    .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                Spacer()
+                Text("\(snippets.count) updates")
+                    .font(ConsensusType.monoMetric)
+                    .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                    .monospacedDigit()
+            }
+            .frame(height: 44)
+            .padding(.horizontal, ConsensusTheme.Spacing.lg)
+
+            Divider()
+                .overlay(ConsensusTheme.Colors.border)
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
+                        if snippets.isEmpty {
+                            VStack(spacing: ConsensusTheme.Spacing.md) {
+                                Image(systemName: "waveform")
+                                    .font(.system(size: 28, weight: .light))
+                                    .foregroundStyle(ConsensusTheme.Colors.accent.opacity(0.55))
+                                Text("Waiting for VibeVoice output")
+                                    .font(ConsensusType.displayBody)
+                                    .foregroundStyle(ConsensusTheme.Colors.textSecondary)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 210)
+                        } else {
+                            ForEach(Array(snippets.enumerated()), id: \.element.id) { index, snippet in
+                                LiveTranscriptRow(
+                                    index: index + 1,
+                                    snippet: snippet
+                                )
+                                .id(snippet.id)
+                            }
+                        }
+                    }
+                    .padding(ConsensusTheme.Spacing.lg)
+                }
+                .scrollIndicators(.visible)
+                .onAppear {
+                    scrollToBottom(proxy)
+                }
+                .onChange(of: snippets.count) { _, _ in
+                    scrollToBottom(proxy)
+                }
+            }
+        }
+        .frame(height: 310)
+        .background(
+            RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                        .stroke(ConsensusTheme.Colors.border, lineWidth: 1)
+                )
+        )
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        guard let lastID = snippets.last?.id else { return }
+        withAnimation(.easeOut(duration: 0.18)) {
+            proxy.scrollTo(lastID, anchor: .bottom)
+        }
+    }
+
+    private static func formattedElapsed(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        }
+        return String(format: "%02d:%02d", minutes, secs)
+    }
+}
+
+private struct TranscriptionMetricTile: View {
+    let title: String
+    let value: String
+    let icon: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.md) {
+            HStack(spacing: ConsensusTheme.Spacing.sm) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 16)
+                Text(title.uppercased())
+                    .font(ConsensusType.displayEyebrow)
+                    .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                    .lineLimit(1)
+            }
+
+            Text(value)
+                .font(ConsensusType.mono(size: 24, weight: .semibold))
+                .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .padding(ConsensusTheme.Spacing.lg)
+        .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                .fill(ConsensusTheme.Colors.surfaceSecondary.opacity(0.68))
+                .overlay(
+                    RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                        .stroke(ConsensusTheme.Colors.border, lineWidth: 1)
+                )
+        )
+    }
+}
+
+private struct LiveTranscriptRow: View {
+    let index: Int
+    let snippet: DeepReadViewModel.LiveTranscriptionSnippet
+
+    var body: some View {
+        HStack(alignment: .top, spacing: ConsensusTheme.Spacing.md) {
+            Text(String(format: "%02d", index))
+                .font(ConsensusType.monoTimestamp)
+                .foregroundStyle(ConsensusTheme.Colors.textTertiary)
+                .frame(width: 28, alignment: .trailing)
+
+            Text(snippet.text)
+                .font(ConsensusType.transcriptBody)
+                .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                .lineSpacing(3)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, ConsensusTheme.Spacing.sm)
+        .padding(.horizontal, ConsensusTheme.Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: ConsensusTheme.Radius.md, style: .continuous)
+                .fill(ConsensusTheme.Colors.surfacePrimary.opacity(0.56))
+        )
     }
 }
 

@@ -1,0 +1,1 @@
+../vibevoice-test/score.py

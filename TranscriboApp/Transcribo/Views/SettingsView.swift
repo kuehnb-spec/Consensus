@@ -29,10 +29,18 @@ struct SettingsView: View {
             }
 
             Section("Deep Review") {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Patch-centered review")
+                    Text("Consensus now treats the VibeVoice transcript as canonical, uses a second ASR as a heatmap, and applies only audio-verified word patches. The older full-transcript reconciliation path is archived for reference and is no longer an app mode.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 Toggle(isOn: forcedAlignmentToggleBinding) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Rebuild word timings from audio")
-                        Text("After Deep Transcription merges the two engines, forced-align the chosen text against the audio. Improves speaker boundary accuracy and subtitle timing.")
+                        Text("Experimental timing rebuild for patched transcripts. Useful for subtitle timing and speaker-boundary debugging; off by default while the patch editor is being calibrated.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -47,33 +55,12 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Deep Review merge strategy") {
-                VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.sm) {
-                    Picker(selection: Binding<DeepMergeMode>(
-                        get: { settings.deepMergeMode },
-                        set: { settings.deepMergeMode = $0 }
-                    )) {
-                        ForEach(DeepMergeMode.allCases) { mode in
-                            Text(mode.displayName).tag(mode)
-                        }
-                    } label: {
-                        Text("Merge strategy")
-                    }
-                    .pickerStyle(.menu)
-
-                    Text(settings.deepMergeMode.shortDescription)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
             Section("Diagnostics") {
                 Toggle(isOn: $settings.diagnosticModeEnabled) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Diagnostic Mode")
                             .font(.body)
-                        Text("Log every speaker-smoother reassignment, LLM boundary confirmation, and forced-alignment word move. Use \"Save Report\" in the Process Log to capture a full audit. Useful for investigating unexpected transcript output; leave off for normal use.")
+                        Text("Log every speaker-smoother reassignment, patch-review decision, and forced-alignment word move. Use \"Save Report\" in the Process Log to capture a full audit. Useful for investigating unexpected transcript output; leave off for normal use.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -87,23 +74,10 @@ struct SettingsView: View {
                 }
             }
 
-            Section("UI rewrite (developer preview)") {
-                Toggle(isOn: $settings.useRewrittenUI) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Use rewritten UI")
-                            .font(.body)
-                        Text("Flip to the new three-mode surface (Quick Take / Deep Read / Studio). Work in progress — Phase 1a ships the drop screen, setup card, and stubbed later stages. Flip back to this side at any time; pipeline code is the same underneath.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-
             Section("About") {
                 LabeledContent("App", value: "Consensus")
                 LabeledContent("Version", value: "1.0.0")
-                LabeledContent("Engine", value: "WhisperKit (CoreML)")
+                LabeledContent("Engine", value: "VibeVoice + Patch Review")
                 Text("All processing happens locally on your Mac. No data leaves your machine.")
                     .font(.caption)
                     .foregroundStyle(.secondary)

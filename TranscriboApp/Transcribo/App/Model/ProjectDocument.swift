@@ -11,7 +11,7 @@ import Foundation
 /// audio.m4a           – soft link to the user's audio (copy fallback)
 /// passes/
 ///   standard.json     – Engine A alone
-///   deep.json         – LLM reconciled
+///   deep.json         – patch-reviewed transcript
 ///   verified.json     – Studio-tier higher-quality pass (optional)
 ///   manual.json       – user-edited version (optional)
 /// summary.json        – editable summary + todos + user instructions
@@ -55,7 +55,7 @@ struct ProjectDocument: Codable, Identifiable, Hashable, Sendable {
     var lexicon: ProjectLexicon
 
     /// Which pass the user is currently viewing / exporting. `deep` is the
-    /// default produced by LLM reconciliation.
+    /// default produced by Patch Review.
     var activePass: PassKind
 
     /// Export history — grows via `ExportService`.
@@ -147,8 +147,8 @@ enum PassKind: String, Codable, CaseIterable, Hashable, Sendable {
     /// Engine A alone. Fastest. The Quick Take floor.
     case standard
 
-    /// Engine A + Engine B reconciled by a local LLM. Default output of Deep
-    /// Read; the April 21 benchmark ceiling (~11.5% cpWER).
+    /// VibeVoice canonical transcript plus second-opinion heatmap, local
+    /// re-listen, and masked-cloze audio-verified patches.
     case deep
 
     /// Studio-tier higher quality — adds known-names, domain hint, forced
@@ -179,8 +179,8 @@ struct ProjectSettings: Codable, Hashable, Sendable {
     /// "Quick") and `.deep`; Studio exposes all four.
     var speed: SpeedTier
 
-    /// Domain hint fed to the LLM reconciliation prompt. `general` is the
-    /// neutral default; `.custom` carries a free-text override.
+    /// Domain hint fed to VibeVoice context and Patch Review protected terms.
+    /// `general` is the neutral default; `.custom` carries a free-text override.
     var domainHint: DomainHint
 
     /// Whether the user has opted into the summary pane for this project.
@@ -190,22 +190,70 @@ struct ProjectSettings: Codable, Hashable, Sendable {
     var includeTodos: Bool
 
     /// Verbatim (stutter/filler preserved) vs. clean (grammar-smoothed).
-    /// Both versions are generated in one LLM pass; this flag records which
-    /// one the user last viewed.
+    /// Patch Review shows the patched transcript as "clean" and keeps the
+    /// original canonical text available as "verbatim"/revert context.
     var transcriptStyle: TranscriptStyle
+
+    /// Primary ASR engine for the Standard pass. Default is VibeVoice — the
+    /// April 28 benchmark put it at WER parity with WhisperKit Large with
+    /// working built-in diarization and proper-name fixing via hotwords.
+    var engine: RewrittenEngineChoice
 
     init(
         speed: SpeedTier = .deep,
         domainHint: DomainHint = .general,
         includeSummary: Bool = false,
         includeTodos: Bool = false,
-        transcriptStyle: TranscriptStyle = .clean
+        transcriptStyle: TranscriptStyle = .clean,
+        engine: RewrittenEngineChoice = .vibevoice
     ) {
         self.speed = speed
         self.domainHint = domainHint
         self.includeSummary = includeSummary
         self.includeTodos = includeTodos
         self.transcriptStyle = transcriptStyle
+        self.engine = engine
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case speed, domainHint, includeSummary, includeTodos, transcriptStyle, engine
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.speed = try c.decode(SpeedTier.self, forKey: .speed)
+        self.domainHint = try c.decode(DomainHint.self, forKey: .domainHint)
+        self.includeSummary = try c.decode(Bool.self, forKey: .includeSummary)
+        self.includeTodos = try c.decode(Bool.self, forKey: .includeTodos)
+        self.transcriptStyle = try c.decode(TranscriptStyle.self, forKey: .transcriptStyle)
+        self.engine = try c.decodeIfPresent(RewrittenEngineChoice.self, forKey: .engine) ?? .vibevoice
+    }
+}
+
+/// Engine choice surfaced in the rewritten UI's setup card.
+/// Kept distinct from `TranscriptionEngineDescriptor` so the persisted
+/// per-project setting is a stable string ("vibevoice", "parakeet") rather
+/// than the descriptor's associated-value enum.
+enum RewrittenEngineChoice: String, Codable, CaseIterable, Hashable, Sendable, Identifiable {
+    case vibevoice
+    case parakeet
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .vibevoice: return "VibeVoice"
+        case .parakeet:  return "Parakeet v3"
+        }
+    }
+
+    var tagline: String {
+        switch self {
+        case .vibevoice:
+            return "Recommended. Joint ASR + diarization. ~10% WER. Hotwords fix proper names."
+        case .parakeet:
+            return "FluidAudio Parakeet v3 + SpeakerKit. Faster but ~15% WER on real audio."
+        }
     }
 }
 
@@ -216,15 +264,15 @@ enum SpeedTier: String, Codable, CaseIterable, Hashable, Sendable, Identifiable 
     /// April 21 benchmark. Labelled "Quick" inside Deep Read.
     case standard
 
-    /// Two engines + local LLM reconciliation. ~3 min per 10 min audio.
-    /// ~11% cpWER. The production default and Deep Read's "Deep" option.
+    /// VibeVoice canonical transcript + second opinion + patch-centered audio
+    /// review. The production default and Deep Read's "Deep" option.
     case deep
 
     /// Deep + known-names + domain hint + forced alignment. ~3.5 min per
     /// 10 min audio. ~7–8% projected cpWER. Studio-only.
     case verified
 
-    /// Verified + human review on LLM-flagged uncertain regions. Variable
+    /// Verified + human review on patch-review regions. Variable
     /// time. Studio-only; approaches ground-truth quality.
     case perfect
 
@@ -244,7 +292,7 @@ enum SpeedTier: String, Codable, CaseIterable, Hashable, Sendable, Identifiable 
     var studioLabel: String {
         switch self {
         case .standard:  return "Standard (1 engine)"
-        case .deep:      return "Deep (2 engines + LLM)"
+        case .deep:      return "Deep (patch review)"
         case .verified:  return "Verified (+ names, domain, FA)"
         case .perfect:   return "Perfect (+ human review)"
         }
@@ -254,7 +302,7 @@ enum SpeedTier: String, Codable, CaseIterable, Hashable, Sendable, Identifiable 
     var tagline: String {
         switch self {
         case .standard: return "Fastest. Single-engine output."
-        case .deep:     return "Recommended. LLM reconciliation for best accuracy."
+        case .deep:     return "Recommended. Second opinions plus audio-verified patches."
         case .verified: return "Studio-tier. Adds known-names, domain hint, forced alignment."
         case .perfect:  return "Studio-tier. Verified plus targeted human review."
         }
@@ -301,8 +349,8 @@ enum TranscriptStyle: String, Codable, CaseIterable, Hashable, Sendable {
 // MARK: - Lexicon
 
 /// Proper nouns, domain terms, and spellings the user has confirmed during
-/// interactive review. Fed back into the LLM prompt on subsequent passes and
-/// on future projects (via `VoiceLibrary` when the same speaker appears).
+/// interactive review. Fed back into VibeVoice context and Patch Review's
+/// protected-term gate on subsequent passes and future projects.
 struct ProjectLexicon: Codable, Hashable, Sendable {
     /// Preferred spellings, e.g. `["Brant Kuehn", "scienter", "Kirby"]`.
     var terms: [String]

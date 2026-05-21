@@ -8,11 +8,9 @@ import AppKit
 /// nine-stage pipeline: each stage either runs automatically or surfaces an
 /// interactive screen, depending on the active `ModeState`.
 ///
-/// Phase 1a: the idle → importing → setup transition is wired end-to-end.
-/// Later stages are present as cases on `Stage` so views can route against
-/// them, but their work is stubbed — TODO markers point at the services
-/// that will drive each step in Phase 1b (transcription), Phase 1c (speaker
-/// naming + LLM reconciliation), and Phase 1d (interactive review + export).
+/// The current architecture is patch-centered: VibeVoice produces the
+/// canonical transcript, speaker naming confirms protected terms, and Deep
+/// Review applies only small audio-verified patches.
 @Observable
 @MainActor
 final class DeepReadViewModel {
@@ -73,6 +71,14 @@ final class DeepReadViewModel {
     /// Drives the `.fileImporter` on the root view.
     var showFilePicker: Bool = false
 
+    /// Rolling live output shown only during the VibeVoice draft pass. Kept
+    /// separate from `StageProgress.label` so streaming text cannot resize the
+    /// whole progress page.
+    private(set) var liveTranscriptionSnippets: [LiveTranscriptionSnippet] = []
+
+    @ObservationIgnored
+    private var lastLiveTranscriptWindow: String = ""
+
     // MARK: - Dependencies
 
     let library: ProjectLibrary
@@ -107,8 +113,8 @@ final class DeepReadViewModel {
         /// is pre-filled from the "Hi, this is X" scan and voice library.
         case namingSpeakers(suggestions: [SpeakerSuggestion])
 
-        /// LLM reconciliation running — either the single-shot pass or the
-        /// question-loop second pass. Progress reflects streaming tokens.
+        /// Patch Review running — second opinion, local re-listen, and
+        /// masked-cloze audio verification.
         case reconciling(progress: StageProgress)
 
         /// Main transcript view with inline uncertainty popovers and the
@@ -127,8 +133,31 @@ final class DeepReadViewModel {
         var label: String
         /// Seconds since the stage started. Used for ETA interpolation.
         var elapsedSeconds: TimeInterval
+        /// Stable one-line machine status for active processing views.
+        var status: String?
+        /// Total generated tokens when an engine reports token streaming.
+        var tokenCount: Int?
+        /// Current generation speed when an engine reports it.
+        var tokensPerSecond: Double?
 
-        static let zero = StageProgress(fraction: 0, label: "", elapsedSeconds: 0)
+        static let zero = StageProgress(
+            fraction: 0,
+            label: "",
+            elapsedSeconds: 0,
+            status: nil,
+            tokenCount: nil,
+            tokensPerSecond: nil
+        )
+    }
+
+    struct LiveTranscriptionSnippet: Identifiable, Equatable {
+        let id: UUID
+        var text: String
+
+        init(id: UUID = UUID(), text: String) {
+            self.id = id
+            self.text = text
+        }
     }
 
     struct SpeakerSuggestion: Identifiable, Equatable {
@@ -137,6 +166,13 @@ final class DeepReadViewModel {
         var voiceLibraryMatchID: UUID?
         var sampleClipURL: URL?
         var confidence: Double    // 0...1
+        var samples: [UtteranceSample] = []
+
+        struct UtteranceSample: Identifiable, Equatable {
+            let id: UUID
+            let timestamp: TimeInterval
+            let text: String
+        }
     }
 
     // MARK: - Flow
@@ -228,21 +264,23 @@ final class DeepReadViewModel {
     }
 
     /// Speed tier Quick Take should auto-pick from audio length.
-    /// Under 30 minutes gets the LLM reconciliation tier; over 30 minutes
-    /// falls back to Standard so the single-shot LLM prompt doesn't blow
-    /// out its context window.
+    /// Under 30 minutes gets the patch-review tier; over 30 minutes falls
+    /// back to Standard while the sidecar batching/runtime budget is still
+    /// being calibrated.
     static func recommendedQuickTakeSpeed(durationSeconds: Double) -> SpeedTier {
         durationSeconds <= 30 * 60 ? .deep : .standard
     }
 
     /// Called from the setup card when the user presses Transcribe.
     /// Phase 1b: runs the standard (single-engine) pipeline end-to-end —
-    /// Parakeet + SpeakerKit + merge — persists the result, and transitions
-    /// directly to `.reviewing`. Phase 1c will branch on `.deep` speed to
-    /// add Engine B + `LLMReconcileService` + the speaker-naming stage.
+    /// VibeVoice (or the selected Standard engine) — persists the canonical
+    /// pass, then moves to speaker confirmation before the patch-centered
+    /// Deep Review pass.
     func startTranscription() async {
         guard let current = project else { return }
         stage = .transcribing(progress: .zero)
+        liveTranscriptionSnippets = []
+        lastLiveTranscriptWindow = ""
 
         let runStart = Date()
         let runner = StandardPassRunner()
@@ -251,17 +289,29 @@ final class DeepReadViewModel {
             let pass = try await runner.run(
                 audioURL: current.audio.originalURL,
                 options: .init(
+                    // The new Deep Review architecture is calibrated around
+                    // VibeVoice as the canonical transcript. Other engines
+                    // can still serve as second opinions inside Patch Review,
+                    // but the user-facing app no longer starts from them.
+                    engine: .vibevoice,
                     variant: .parakeetV3,
                     language: "en",
                     requestedSpeakerCount: nil,
-                    audioDurationSeconds: current.audio.durationSeconds
+                    audioDurationSeconds: current.audio.durationSeconds,
+                    vibeVoiceContext: Self.vibeVoiceContext(from: current)
                 ),
                 progress: { [weak self] update in
                     Task { @MainActor [weak self] in
+                        if let recentText = update.recentText {
+                            self?.recordLiveTranscriptionSnippet(recentText)
+                        }
                         self?.stage = .transcribing(progress: .init(
                             fraction: update.fraction,
                             label: update.label,
-                            elapsedSeconds: Date().timeIntervalSince(runStart)
+                            elapsedSeconds: Date().timeIntervalSince(runStart),
+                            status: update.status,
+                            tokenCount: update.tokenCount,
+                            tokensPerSecond: update.tokensPerSecond
                         ))
                     }
                 }
@@ -288,6 +338,72 @@ final class DeepReadViewModel {
         }
     }
 
+    private func recordLiveTranscriptionSnippet(_ rawText: String) {
+        let currentWindow = Self.normalizedLiveText(rawText)
+        guard !currentWindow.isEmpty else { return }
+
+        let delta = Self.normalizedLiveText(
+            Self.novelSuffix(current: currentWindow, previous: lastLiveTranscriptWindow)
+        )
+        lastLiveTranscriptWindow = currentWindow
+        guard !delta.isEmpty else { return }
+
+        let clipped = Self.clippedLiveSnippet(delta)
+        if clipped.count < 18, !liveTranscriptionSnippets.isEmpty {
+            let lastIndex = liveTranscriptionSnippets.index(before: liveTranscriptionSnippets.endIndex)
+            let merged = "\(liveTranscriptionSnippets[lastIndex].text) \(clipped)"
+            liveTranscriptionSnippets[lastIndex].text = Self.clippedLiveSnippet(merged, limit: 280)
+        } else if liveTranscriptionSnippets.last?.text != clipped {
+            liveTranscriptionSnippets.append(.init(text: clipped))
+        }
+
+        let maxRows = 48
+        if liveTranscriptionSnippets.count > maxRows {
+            liveTranscriptionSnippets.removeFirst(liveTranscriptionSnippets.count - maxRows)
+        }
+    }
+
+    private static func normalizedLiveText(_ text: String) -> String {
+        var cleaned = text
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\\\"", with: "\"")
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        while cleaned.first == "\u{2026}" {
+            cleaned.removeFirst()
+            cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return cleaned
+    }
+
+    private static func novelSuffix(current: String, previous: String) -> String {
+        guard !previous.isEmpty else { return current }
+        guard current != previous else { return "" }
+
+        if current.hasPrefix(previous) {
+            return String(current.dropFirst(previous.count))
+        }
+        if let previousRange = current.range(of: previous) {
+            return String(current[previousRange.upperBound...])
+        }
+
+        var overlapLength = min(previous.count, current.count)
+        while overlapLength >= 24 {
+            if previous.suffix(overlapLength) == current.prefix(overlapLength) {
+                return String(current.dropFirst(overlapLength))
+            }
+            overlapLength -= 1
+        }
+        return current
+    }
+
+    private static func clippedLiveSnippet(_ text: String, limit: Int = 220) -> String {
+        let cleaned = normalizedLiveText(text)
+        guard cleaned.count > limit else { return cleaned }
+        return "... \(cleaned.suffix(limit))"
+    }
+
     /// Builds the suggestion list the naming screen binds to. Phase 1c.2
     /// enriches the diarizer's default labels with matches from the
     /// `IntroScanner` ("Hi, this is X" / "My name is X" / etc.); voice
@@ -300,6 +416,7 @@ final class DeepReadViewModel {
         let introByID = Dictionary(
             uniqueKeysWithValues: intros.map { ($0.speakerID, $0) }
         )
+        let samplesByID = collectSamples(from: segments)
         return speakers.map { speaker in
             let intro = introByID[speaker.id]
             let usingIntro = intro != nil && !speaker.isConfirmed
@@ -308,9 +425,53 @@ final class DeepReadViewModel {
                 suggestedName: usingIntro ? intro!.proposedName : speaker.displayName,
                 voiceLibraryMatchID: speaker.voiceLibraryID,
                 sampleClipURL: nil,
-                confidence: intro?.confidence ?? (speaker.isConfirmed ? 1.0 : 0.0)
+                confidence: intro?.confidence ?? (speaker.isConfirmed ? 1.0 : 0.0),
+                samples: samplesByID[speaker.id] ?? []
             )
         }
+    }
+
+    /// Picks up to thirty short utterances per speaker, ordered by start time,
+    /// so the naming screen can show three previews and expand to a wider
+    /// temporal sample on demand. Favors substantive lines (≥5 words) and
+    /// truncates anything longer than ~140 chars. The expansion UI in
+    /// `SpeakerNamingView` redistributes the full set across the recording's
+    /// timeline so the user sees voice samples from start, middle, and end —
+    /// useful when two speakers sound similar in the opening minute.
+    private static func collectSamples(
+        from segments: [TranscriptionSegment]
+    ) -> [String: [SpeakerSuggestion.UtteranceSample]] {
+        var byID: [String: [SpeakerSuggestion.UtteranceSample]] = [:]
+        let maxPerSpeaker = 30
+        let maxChars = 140
+        let minWords = 5
+
+        for segment in segments {
+            let current = byID[segment.speakerID] ?? []
+            if current.count >= maxPerSpeaker { continue }
+
+            let trimmed = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let wordCount = trimmed.split(whereSeparator: { $0.isWhitespace }).count
+            guard wordCount >= minWords else { continue }
+
+            let display: String
+            if trimmed.count > maxChars {
+                let cut = trimmed.prefix(maxChars)
+                display = String(cut).trimmingCharacters(in: .whitespacesAndNewlines) + "…"
+            } else {
+                display = trimmed
+            }
+
+            byID[segment.speakerID, default: []].append(
+                SpeakerSuggestion.UtteranceSample(
+                    id: UUID(),
+                    timestamp: segment.start,
+                    text: display
+                )
+            )
+        }
+        return byID
     }
 
     /// Merge a freshly-detected speaker roster with the project's existing
@@ -337,11 +498,9 @@ final class DeepReadViewModel {
     /// - `.standard` (Quick) → advances directly to `.reviewing` with the
     ///    Standard pass that's already on disk.
     /// - `.deep` / `.verified` / `.perfect` → advances to `.reconciling`,
-    ///    runs `DeepPassRunner` (Whisper + LLMReconcileService) with the
-    ///    confirmed names as `knownSpeakerNames`, writes `.deep` pass to
-    ///    disk, swaps it in as the active pass, and advances to `.reviewing`.
-    ///    If the deep run fails, falls back to the Standard pass with an
-    ///    error alert so the user still sees their transcript.
+    ///    runs `PatchReviewRunner` (second ASR + local re-listen + masked
+    ///    cloze verifier), writes the patched `.deep` pass to disk, swaps it
+    ///    in as the active pass, and advances to `.reviewing`.
     func confirmSpeakers(_ mappings: [SpeakerSuggestion]) async {
         guard var current = project else { return }
 
@@ -378,9 +537,10 @@ final class DeepReadViewModel {
         }
     }
 
-    /// Runs the Deep-tier pass (Engine B + LLM reconciliation) on top of
-    /// the already-persisted Standard pass. Keeps the VM live so the
-    /// reconciliation progress updates the UI in real time.
+    /// Runs the Deep-tier patch editor on top of the already-persisted
+    /// Standard pass. The old full-transcript LLM reconciliation path is no
+    /// longer part of the active app architecture; Deep Review now means
+    /// tool-constrained, auditable patches.
     private func runDeepPass() async {
         guard let current = project,
               let standardPass = activePassContent else {
@@ -391,7 +551,7 @@ final class DeepReadViewModel {
         stage = .reconciling(progress: .zero)
 
         let runStart = Date()
-        let runner = DeepPassRunner()
+        let runner = PatchReviewRunner()
 
         do {
             let deepPass = try await runner.run(
@@ -400,10 +560,10 @@ final class DeepReadViewModel {
                 speakers: current.speakers,
                 options: .init(
                     whisperModel: .largeV3,
-                    llmModel: CleanupModel.recommended(),
-                    domainHint: current.settings.domainHint,
                     language: "en",
-                    audioDurationSeconds: current.audio.durationSeconds
+                    audioDurationSeconds: current.audio.durationSeconds,
+                    context: Self.vibeVoiceContext(from: current),
+                    protectedTerms: current.lexicon.terms
                 ),
                 progress: { [weak self] update in
                     Task { @MainActor [weak self] in
@@ -427,7 +587,7 @@ final class DeepReadViewModel {
         } catch {
             // Deep path failed — fall back to the Standard pass we already have.
             // The user still gets a transcript; an alert explains the degrade.
-            errorMessage = "Deep reconciliation failed: \(error.localizedDescription). Showing the Standard-tier transcript instead."
+            errorMessage = "Patch Review failed: \(error.localizedDescription). Showing the Standard-tier transcript instead."
             showError = true
             stage = .reviewing
         }
@@ -439,8 +599,8 @@ final class DeepReadViewModel {
     func resolveUncertainties() async {
         stage = .reviewing
 
-        // TODO (Phase 1d): final LLM pass with user-resolved answers;
-        // update the deep pass on disk; refresh the visible transcript.
+        // TODO: persist patch-review resolution state separately from the
+        // applied transcript so the audit trail survives close/reopen.
     }
 
     /// Open the export sheet. Final state of the flow; user returns to
@@ -466,6 +626,8 @@ final class DeepReadViewModel {
         showSummaryPane = false
         project = nil
         activePassContent = nil
+        liveTranscriptionSnippets = []
+        lastLiveTranscriptWindow = ""
         stage = .idle
     }
 
@@ -600,7 +762,7 @@ final class DeepReadViewModel {
         return pass.uncertainSegmentIndices.subtracting(resolvedUncertaintyIndices).count
     }
 
-    /// True when this segment index is flagged by the LLM AND not yet
+    /// True when this segment index is a patch-review item AND not yet
     /// resolved by the user.
     func isUncertain(index: Int) -> Bool {
         guard let pass = activePassContent else { return false }
@@ -673,7 +835,7 @@ final class DeepReadViewModel {
     /// Apply one of the Engine-A / Engine-B alternatives onto an uncertain
     /// turn. Overwrites `segments[index].text` and the matching
     /// `styles.cleanText[index]`, then persists the pass and marks the
-    /// uncertainty resolved so the badge count drops immediately.
+    /// review item resolved so the badge count drops immediately.
     func applyAlternative(at index: Int, text: String) {
         guard var pass = activePassContent,
               let project,
@@ -697,32 +859,6 @@ final class DeepReadViewModel {
 
     // MARK: - Export
 
-    /// Export formats exposed in the review toolbar. Phase 1e ships text,
-    /// Markdown, and Obsidian Markdown; Legal PDF / DOCX / SRT layer on
-    /// later with their own renderers.
-    enum ExportFormat: String, CaseIterable, Identifiable, Hashable, Sendable {
-        case plainText
-        case markdown
-        case obsidianMarkdown
-
-        var id: String { rawValue }
-
-        var displayName: String {
-            switch self {
-            case .plainText:        return "Plain text (.txt)"
-            case .markdown:         return "Markdown (.md)"
-            case .obsidianMarkdown: return "Obsidian Markdown (.md)"
-            }
-        }
-
-        var fileExtension: String {
-            switch self {
-            case .plainText:        return "txt"
-            case .markdown, .obsidianMarkdown: return "md"
-            }
-        }
-    }
-
     /// Transient flag that flips true for a couple of seconds after a
     /// successful copy-to-clipboard so the toolbar button can show a
     /// checkmark. Read by the review view.
@@ -732,7 +868,7 @@ final class DeepReadViewModel {
     /// the pasteboard. Convenience for "grab the transcript right now"
     /// flows. Summary/to-dos not included by default — the explicit
     /// `exportToFile` flow has the include-summary checkbox.
-    func copyToPasteboard(format: ExportFormat = .markdown) {
+    func copyToPasteboard(format: ExportFormat = .md) {
         guard let rendered = renderActivePass(format: format, includeSummary: false) else { return }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
@@ -750,24 +886,23 @@ final class DeepReadViewModel {
     /// actor — safe to call directly from a SwiftUI action.
     @discardableResult
     func exportToFile(
-        format: ExportFormat = .markdown,
-        includeSummary: Bool = false
+        format: ExportFormat = .md,
+        includeSummary: Bool = false,
+        legalPDFOptions: LegalPDFOptions? = nil
     ) -> URL? {
-        guard let rendered = renderActivePass(format: format, includeSummary: includeSummary),
-              let project else { return nil }
+        guard let project else { return nil }
 
         let panel = NSSavePanel()
         panel.title = "Export transcript"
         panel.nameFieldStringValue = "\(project.title).\(format.fileExtension)"
-        panel.allowedContentTypes = format.fileExtension == "txt"
-            ? [.plainText]
-            : [.plainText] // macOS UTType doesn't have .markdown natively; .plainText covers .md
         panel.canCreateDirectories = true
 
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
 
         do {
-            try rendered.write(to: url, atomically: true, encoding: .utf8)
+            let options = legalPDFOptions ?? defaultLegalPDFOptions(includeSummary: includeSummary)
+            let data = try exportData(format: format, includeSummary: includeSummary, legalPDFOptions: options)
+            try data.write(to: url, options: .atomic)
             return url
         } catch {
             report(error)
@@ -779,6 +914,48 @@ final class DeepReadViewModel {
     /// rendered string without triggering pasteboard or save-panel I/O.
     func renderExport(format: ExportFormat, includeSummary: Bool) -> String? {
         renderActivePass(format: format, includeSummary: includeSummary)
+    }
+
+    func canCopyExport(format: ExportFormat) -> Bool {
+        switch format {
+        case .txt, .md, .obsidianMarkdown, .json, .srt, .rtf:
+            return true
+        case .docx, .legalPDF:
+            return false
+        }
+    }
+
+    func defaultLegalPDFHeader() -> String {
+        guard let project else { return "TRANSCRIPT" }
+        return Self.defaultLegalPDFHeader(title: project.title, recordingStartTime: project.audio.recordingStartTime)
+    }
+
+    func defaultLegalPDFOptions(
+        includeSummary: Bool,
+        headerText: String? = nil,
+        showElapsedTime: Bool = true,
+        showClockTime: Bool = false,
+        includeCoverPage: Bool = false
+    ) -> LegalPDFOptions {
+        guard let project else { return LegalPDFOptions() }
+        let loadedSummary = includeSummary ? (try? library.loadSummary(project.id)) : nil
+        let todoText = loadedSummary?.todos.map { todo in
+            let prefix = todo.isDone ? "[x]" : "[ ]"
+            return "\(prefix) \(todo.text)"
+        }.joined(separator: "\n")
+
+        return LegalPDFOptions(
+            showElapsedTime: showElapsedTime,
+            showClockTime: showClockTime,
+            recordingStartTime: project.audio.recordingStartTime,
+            headerText: headerText ?? defaultLegalPDFHeader(),
+            includeCoverPage: includeCoverPage,
+            coverPageSummary: loadedSummary?.summary,
+            coverPageActionItems: todoText,
+            audioFileName: project.audio.originalURL.lastPathComponent,
+            audioDuration: project.audio.durationSeconds,
+            speakerNames: project.speakers.map(\.displayName).filter { !$0.isEmpty }
+        )
     }
 
     private func renderActivePass(format: ExportFormat, includeSummary: Bool) -> String? {
@@ -795,9 +972,9 @@ final class DeepReadViewModel {
         }
 
         switch format {
-        case .plainText:
+        case .txt:
             return TranscriptExporter.plainText(project: project, pass: styledPass)
-        case .markdown:
+        case .md:
             return TranscriptExporter.markdown(
                 project: project,
                 pass: styledPass,
@@ -811,7 +988,162 @@ final class DeepReadViewModel {
                 summary: summary,
                 includeSummary: includeSummary
             )
+        case .json:
+            guard let result = transcriptionResult(project: project, pass: styledPass),
+                  let data = try? ExportService.formatJSON(result: result)
+            else { return nil }
+            return String(data: data, encoding: .utf8)
+        case .srt:
+            guard let result = transcriptionResult(project: project, pass: styledPass) else { return nil }
+            return ExportService.formatSRT(result: result, speakerMapping: speakerMapping(for: project))
+        case .rtf:
+            guard let result = transcriptionResult(project: project, pass: styledPass) else { return nil }
+            return ExportService.formatRTF(result: result, speakerMapping: speakerMapping(for: project))
+        case .docx, .legalPDF:
+            return nil
         }
+    }
+
+    private func exportData(
+        format: ExportFormat,
+        includeSummary: Bool,
+        legalPDFOptions: LegalPDFOptions
+    ) throws -> Data {
+        guard let project, let pass = activePassContent else {
+            throw ConsensusError.exportFailed("No active transcript is loaded.")
+        }
+        let styledPass = Self.applyStyle(pass: pass, style: project.settings.transcriptStyle)
+
+        if let text = renderActivePass(format: format, includeSummary: includeSummary) {
+            return Data(text.utf8)
+        }
+
+        guard let result = transcriptionResult(project: project, pass: styledPass) else {
+            throw ConsensusError.exportFailed("Could not prepare transcript for export.")
+        }
+        let mapping = speakerMapping(for: project)
+        switch format {
+        case .docx:
+            return try ExportService.buildDOCX(result: result, speakerMapping: mapping)
+        case .legalPDF:
+            return try ExportService.buildLegalPDF(result: result, speakerMapping: mapping, options: legalPDFOptions)
+        case .txt, .md, .obsidianMarkdown, .json, .srt, .rtf:
+            throw ConsensusError.exportFailed("Unexpected export format.")
+        }
+    }
+
+    private func transcriptionResult(project: ProjectDocument, pass: TranscriptPass) -> TranscriptionResult? {
+        TranscriptionResult(
+            audioPath: project.audio.originalURL.path(percentEncoded: false),
+            duration: project.audio.durationSeconds,
+            segments: pass.segments
+        )
+    }
+
+    private func speakerMapping(for project: ProjectDocument) -> SpeakerMapping {
+        var mapping = SpeakerMapping()
+        for speaker in project.speakers {
+            mapping.rename(speaker.id, to: speaker.displayName)
+        }
+        return mapping
+    }
+
+    private static func defaultLegalPDFHeader(
+        title: String,
+        recordingStartTime: Date?
+    ) -> String {
+        var lines = ["TRANSCRIPT", title]
+        if let recordingStartTime {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .short
+            lines.append(formatter.string(from: recordingStartTime))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    // MARK: - Manual revision
+
+    func manualRevisionText() -> String? {
+        guard let project, let pass = activePassContent else { return nil }
+        let styledPass = Self.applyStyle(pass: pass, style: project.settings.transcriptStyle)
+        return TranscriptManualEditorCodec.serialize(
+            segments: styledPass.segments,
+            mapping: speakerMapping(for: project)
+        )
+    }
+
+    @discardableResult
+    func applyManualRevision(text: String) -> Bool {
+        guard let project, let pass = activePassContent else { return false }
+        let styledPass = Self.applyStyle(pass: pass, style: project.settings.transcriptStyle)
+        let turns = TranscriptManualEditorCodec.parse(text)
+        guard !turns.isEmpty else {
+            report(ConsensusError.exportFailed("No valid speaker turns found. Keep headers like [SPEAKER @ 00:00]."))
+            return false
+        }
+
+        let mapping = speakerMapping(for: project)
+        let segments = TranscriptManualEditorCodec.rebuildSegments(
+            from: turns,
+            original: styledPass.segments,
+            mapping: mapping,
+            audioDuration: project.audio.durationSeconds
+        )
+        guard !segments.isEmpty else {
+            report(ConsensusError.exportFailed("Manual revision did not produce any transcript segments."))
+            return false
+        }
+
+        var updatedProject = project
+        updatedProject.speakers = Self.mergeManualSpeakers(existing: updatedProject.speakers, segments: segments)
+        updatedProject.activePass = .manual
+
+        let manualPass = TranscriptPass(
+            kind: .manual,
+            segments: segments,
+            engineAttribution: EngineAttribution(
+                primaryEngine: "Manual Revision",
+                supportingEngines: [pass.engineAttribution.primaryEngine].filter { !$0.isEmpty },
+                diarizer: pass.engineAttribution.diarizer,
+                language: pass.engineAttribution.language
+            ),
+            quality: pass.quality
+        )
+
+        do {
+            try library.savePass(manualPass, for: project.id)
+            self.project = try library.save(updatedProject)
+            activePassContent = manualPass
+            resolvedUncertaintyIndices = []
+            return true
+        } catch {
+            report(error)
+            return false
+        }
+    }
+
+    private static func mergeManualSpeakers(
+        existing: [Speaker],
+        segments: [TranscriptionSegment]
+    ) -> [Speaker] {
+        var speakers = existing
+        var known = Set(existing.map(\.id))
+        for speakerID in segments.map(\.speakerID) where !known.contains(speakerID) {
+            known.insert(speakerID)
+            let displayName = speakerID
+                .replacingOccurrences(of: "MANUAL_", with: "")
+                .replacingOccurrences(of: "_", with: " ")
+                .capitalized
+            speakers.append(Speaker(
+                id: speakerID,
+                displayName: displayName,
+                voiceLibraryID: nil,
+                isConfirmed: true,
+                paletteIndex: speakers.count
+            ))
+        }
+        return speakers
     }
 
     /// Return a copy of `pass` whose `segments[].text` reflects the
@@ -842,6 +1174,41 @@ final class DeepReadViewModel {
     /// close-and-reopen.
     func setSpeed(_ tier: SpeedTier) {
         update { $0.settings.speed = tier }
+    }
+
+    func setEngine(_ engine: RewrittenEngineChoice) {
+        update { $0.settings.engine = engine }
+    }
+
+    func setMode(_ mode: ModeState) {
+        self.mode = mode
+        // Mirror onto the project document so a close-and-reopen keeps it.
+        if project != nil { update { $0.mode = mode } }
+    }
+
+    /// Build VibeVoice's `context=` hotwords from any speaker names already
+    /// confirmed on the project. First-pass projects have no speakers yet,
+    /// so context is nil; re-runs after the speaker-naming stage benefit
+    /// from the names. Domain hint adds a small set of seed terms.
+    private static func vibeVoiceContext(from project: ProjectDocument) -> String? {
+        var pieces: [String] = []
+        let names = project.speakers
+            .filter { $0.isConfirmed }
+            .map { $0.displayName.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !$0.hasPrefix("Speaker ") }
+        pieces.append(contentsOf: names)
+        switch project.settings.domainHint {
+        case .legal:     pieces.append("court, deposition, mediation, arbitrator, counsel")
+        case .medical:   pieces.append("patient, diagnosis, prescription, dosage")
+        case .technical: pieces.append("API, SDK, repository, deployment")
+        case .business:  pieces.append("revenue, quarter, stakeholder, roadmap")
+        case .general, .custom:
+            if case .custom(let text) = project.settings.domainHint, !text.isEmpty {
+                pieces.append(text)
+            }
+        }
+        let merged = pieces.joined(separator: ", ").trimmingCharacters(in: .whitespacesAndNewlines)
+        return merged.isEmpty ? nil : merged
     }
 
     func setIncludeSummary(_ on: Bool) {

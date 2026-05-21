@@ -54,8 +54,14 @@ final class DeepPassRunner {
         // --- Stage 1: load WhisperKit (Engine B) -----------------------
         let whisperLoadStart = Date()
         progress(Progress(fraction: 0, label: "Loading Whisper (\(options.whisperModel.displayName))…"))
+        // Use `whisperKitVariant` (the canonical HuggingFace folder name like
+        // `openai_whisper-large-v3`), not `rawValue` (the human label like
+        // `large-v3`). The whisperkit-coreml repo has 13 folders containing
+        // the substring `large-v3` — only the prefixed canonical name resolves
+        // unambiguously. Mirrors the Standard-pipeline call site in
+        // TranscriptionPipeline.swift.
         try await whisper.loadModel(
-            variant: options.whisperModel.rawValue,
+            variant: options.whisperModel.whisperKitVariant,
             progressCallback: { fraction in
                 let firstRunHint = fraction < 1.0
                     ? "Downloading Whisper \(options.whisperModel.displayName) (\(options.whisperModel.approximateSize))…"
