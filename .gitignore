@@ -17,3 +17,6 @@ DerivedData/
 # Swift Package Manager
 .build/
 .swiftpm/
+
+# local-assets -> ~/ProjectAssets/<project> (NAS-synced bulk files; never in git)
+local-assets
