@@ -1,8 +1,41 @@
 # Consensus UI/UX Overhaul — Implementation Plan
 
+> **SUPERSEDED (July 10, 2026):** All phases below are complete. Active planning has moved to `CONSENSUS-REMAKE-PLAN.md` (accuracy roadmap + UI consolidation + three-mode redesign). This file is kept as the historical record of the March 2026 theme overhaul and its addenda. The "Future Studio Concept: Observability Dashboard" section below is carried forward as Goal B2/Studio in the new plan.
+
 BDK Transcribo is being renamed to **Consensus** and receiving a comprehensive UI/UX overhaul to move from a "utility" aesthetic to a "high-end workstation" feel (similar to Linear or Raycast). The hallmark feature is Deep Review (multi-model reconciliation).
 
 ---
+
+## June 30, 2026 Addendum: VibeVoice Empty-Pass Regression on 36-Minute Legal Audio
+
+**Status:** COMPLETE (June 30, 2026)
+
+Bug investigation reopened for `TestAudio/2026-06-26 - Maralan - Arbitration Settlement and Legalist Funding Resolution.m4a` after the installed `/Applications/Consensus.app` created empty Standard passes.
+
+Findings so far:
+- The audio itself validates as normal AAC voice audio: 36m10s, mono, 22.05 kHz, ~33 kbps.
+- The installed app is still the May 1 `1.0` bundle, predating the duration-scaled VibeVoice token-budget and fail-loud empty-pass guard currently present in the working tree.
+- Two saved projects for the Maralan file (`821BFDB0-B08C-4616-8489-5A3BB55510CF` and `DDCEF8CE-303E-4658-B280-02194F6AAE1D`) have `passes/standard.json` with `segmentCount: 0`, confirming the failure is an app/sidecar parse path rather than a bad source file.
+- Direct sidecar reproduction with the old `--max-tokens 8192` cap generated 8,192 tokens in 336.5s, produced 27,896 raw text characters, and parsed 0 transcript segments.
+- Direct sidecar verification with the new duration-scaled `--max-tokens 30136` budget generated 12,431 tokens in 450.8s, did not hit the token limit, and parsed 151 transcript segments.
+- App-level Swift smoke on the same Maralan audio passed: 36m10s duration, 151 segments, 3 detected speakers, 95% word confidence, 95% diarization quality, no warnings, and TXT/JSON exports written.
+
+Completed work:
+- Increased the Swift-provided VibeVoice token budget from the old short-recording cap to a generous duration-scaled budget.
+- Added sidecar metadata for `max_tokens` and `hit_token_limit`.
+- Added Swift guards that reject token-limit hits and zero-segment parses before any pass is saved.
+- Added empty-pass recovery when opening older broken projects.
+- Built and installed `/Applications/Consensus 1.1.app` with `CFBundleShortVersionString = 1.1`, `CFBundleVersion = 2`, and the full 102 MB `mlx.metallib` bundle.
+
+Decision note:
+- The test build will install side-by-side as `Consensus 1.1.app` while keeping the bundle executable and project library path unchanged. Changing the support-directory name would make the build look "fresh" but hide the existing projects; preserving `~/Library/Application Support/Consensus` makes this a true reliability test against the same local state.
+- Token-limit handling now fails loud as well as empty-output handling. A recovered partial parse is not enough for success if the sidecar hit `--max-tokens`, because that state can silently save an incomplete transcript.
+- Existing broken projects now recover through setup instead of opening a blank review surface. If a saved pass has zero segments, Consensus 1.1 warns that it came from an older empty-pass build and asks the user to re-run transcription.
+
+Follow-up from first Consensus 1.1 user run:
+- The Standard VibeVoice transcript succeeded on the Maralan file, but the app then auto-started Patch Review and showed a missing-model alert because the optional Voxtral Small verifier assets were not present locally.
+- Consensus now treats Patch Review as unavailable unless its sidecar, VibeVoice model, Voxtral model/projector, `llama-mtmd-cli`, and `ffmpeg` all exist. When unavailable, new/reopened projects are normalized to Standard speed, Deep/Verified tier choices are hidden, and confirming speakers stays on the Standard transcript without a modal.
+- Decision: prefer a polished Standard transcript over a scary degraded-mode alert. Downloading or bundling the verifier assets remains a separate Studio/Deep Review setup task.
 
 ## May 1, 2026 Addendum: Transcribing Progress Screen
 

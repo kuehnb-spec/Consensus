@@ -22,10 +22,12 @@ set -euo pipefail
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="Consensus"
+APP_NAME="Consensus 1.1"
 SWIFT_BINARY_NAME="Consensus"
 BUNDLE_EXECUTABLE="Consensus"
 BUNDLE_ID="com.bdk.consensus"
+BUNDLE_SHORT_VERSION="1.1"
+BUNDLE_VERSION="3"
 ICON_SOURCE_DIR="$SCRIPT_DIR/Design/AppIcon"
 LOGO_SOURCE_PATH="$SCRIPT_DIR/Design/Logo/consensus_logo_transparent.png"
 
@@ -111,7 +113,7 @@ echo "  Metallib: $METALLIB_PATH ($(du -h "$METALLIB_PATH" | cut -f1))"
 echo ""
 echo "[3/4] Assembling app bundle..."
 
-APP_DIR="$SCRIPT_DIR/build/Consensus.app"
+APP_DIR="$SCRIPT_DIR/build/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
@@ -186,17 +188,17 @@ cat > "$CONTENTS_DIR/Info.plist" << 'PLIST'
     <key>CFBundleIdentifier</key>
     <string>com.bdk.consensus</string>
     <key>CFBundleDisplayName</key>
-    <string>Consensus</string>
+    <string>__APP_NAME__</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Consensus</string>
+    <string>__APP_NAME__</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>__BUNDLE_SHORT_VERSION__</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>__BUNDLE_VERSION__</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
     <key>NSHighResolutionCapable</key>
@@ -208,6 +210,12 @@ cat > "$CONTENTS_DIR/Info.plist" << 'PLIST'
 </dict>
 </plist>
 PLIST
+
+sed -i '' \
+    -e "s|__APP_NAME__|$APP_NAME|g" \
+    -e "s|__BUNDLE_SHORT_VERSION__|$BUNDLE_SHORT_VERSION|g" \
+    -e "s|__BUNDLE_VERSION__|$BUNDLE_VERSION|g" \
+    "$CONTENTS_DIR/Info.plist"
 
 echo "  App bundle: $APP_DIR"
 

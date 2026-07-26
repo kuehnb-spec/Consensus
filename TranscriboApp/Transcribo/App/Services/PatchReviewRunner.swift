@@ -30,6 +30,14 @@ final class PatchReviewRunner {
         static let patchReview: Double = 0.55
     }
 
+    static var isAvailable: Bool {
+        availabilityError() == nil
+    }
+
+    static func availabilityError() -> String? {
+        PatchReviewSidecar.availabilityError()
+    }
+
     func run(
         audioURL: URL,
         standardPass: TranscriptPass,

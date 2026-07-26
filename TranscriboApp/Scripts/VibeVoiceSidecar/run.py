@@ -193,6 +193,7 @@ def main() -> int:
 
     gen_seconds = time.time() - t0
     full_text = "".join(full_text_parts).strip()
+    hit_token_limit = token_count >= args.max_tokens
 
     emit_progress(
         f"Parsing {token_count} tokens into segments...",
@@ -222,6 +223,8 @@ def main() -> int:
         "raw_text": full_text,
         "segments": segments,
         "tokens_generated": token_count,
+        "max_tokens": args.max_tokens,
+        "hit_token_limit": hit_token_limit,
     }
 
     Path(args.out).write_text(json.dumps(payload, default=str))

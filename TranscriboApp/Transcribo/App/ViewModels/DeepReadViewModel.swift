@@ -196,10 +196,13 @@ final class DeepReadViewModel {
     /// the project has saved summary content.
     func openProject(_ id: UUID) async {
         do {
-            let doc = try library.load(id)
+            var doc = try library.load(id)
+            let normalized = Self.normalizedForPatchReviewAvailability(doc)
+            if normalized != doc {
+                doc = try library.save(normalized)
+            }
             let pass = try library.loadPass(doc.activePass, for: id)
             project = doc
-            activePassContent = pass
             resolvedUncertaintyIndices = []
             if let loadedSummary = try? library.loadSummary(id) {
                 summary = loadedSummary
@@ -208,7 +211,14 @@ final class DeepReadViewModel {
                 summary = SummaryDocument()
                 showSummaryPane = doc.settings.includeSummary
             }
-            stage = pass == nil ? .setup : .reviewing
+            if let pass, pass.segments.isEmpty {
+                activePassContent = nil
+                stage = .setup
+                report(ConsensusError.transcriptionFailed("This project contains an empty transcript pass from an older build. Re-run Transcribe with Consensus 1.1 to regenerate it."))
+            } else {
+                activePassContent = pass
+                stage = pass == nil ? .setup : .reviewing
+            }
         } catch {
             report(error)
         }
@@ -237,7 +247,7 @@ final class DeepReadViewModel {
                 contentHash: nil
             )
             let title = url.deletingPathExtension().lastPathComponent
-            var settings = ProjectSettings()
+            var settings = Self.settingsForLocalCapabilities()
             if mode == .quickTake {
                 settings.speed = Self.recommendedQuickTakeSpeed(durationSeconds: info.duration)
                 settings.includeSummary = false
@@ -268,7 +278,8 @@ final class DeepReadViewModel {
     /// back to Standard while the sidecar batching/runtime budget is still
     /// being calibrated.
     static func recommendedQuickTakeSpeed(durationSeconds: Double) -> SpeedTier {
-        durationSeconds <= 30 * 60 ? .deep : .standard
+        guard PatchReviewRunner.isAvailable else { return SpeedTier.standard }
+        return durationSeconds <= 30 * 60 ? SpeedTier.deep : SpeedTier.standard
     }
 
     /// Called from the setup card when the user presses Transcribe.
@@ -544,6 +555,14 @@ final class DeepReadViewModel {
     private func runDeepPass() async {
         guard let current = project,
               let standardPass = activePassContent else {
+            stage = .reviewing
+            return
+        }
+
+        guard PatchReviewRunner.isAvailable else {
+            var updated = current
+            updated.settings.speed = .standard
+            project = try? library.save(updated)
             stage = .reviewing
             return
         }
@@ -1173,7 +1192,10 @@ final class DeepReadViewModel {
     /// back to `project.settings` and persist so the selections survive a
     /// close-and-reopen.
     func setSpeed(_ tier: SpeedTier) {
-        update { $0.settings.speed = tier }
+        let availableTier = (!PatchReviewRunner.isAvailable && tier != .standard)
+            ? SpeedTier.standard
+            : tier
+        update { $0.settings.speed = availableTier }
     }
 
     func setEngine(_ engine: RewrittenEngineChoice) {
@@ -1209,6 +1231,23 @@ final class DeepReadViewModel {
         }
         let merged = pieces.joined(separator: ", ").trimmingCharacters(in: .whitespacesAndNewlines)
         return merged.isEmpty ? nil : merged
+    }
+
+    private static func settingsForLocalCapabilities() -> ProjectSettings {
+        var settings = ProjectSettings()
+        if !PatchReviewRunner.isAvailable {
+            settings.speed = .standard
+        }
+        return settings
+    }
+
+    private static func normalizedForPatchReviewAvailability(_ document: ProjectDocument) -> ProjectDocument {
+        guard !PatchReviewRunner.isAvailable, document.settings.speed != .standard else {
+            return document
+        }
+        var normalized = document
+        normalized.settings.speed = .standard
+        return normalized
     }
 
     func setIncludeSummary(_ on: Bool) {

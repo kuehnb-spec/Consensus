@@ -34,20 +34,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-@main
-struct ConsensusApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    @State private var viewModel = TranscriptionViewModel()
-    @StateObject private var settings = AppSettings()
-
-    init() {
+/// The SwiftUI scene graph. Lives in the library (not the executable) so the
+/// executable target is a three-line launcher and the headless CLI target can
+/// link the same core without ever instantiating AppKit. See 10-consensus-spec.md.
+public struct ConsensusApp: App {
+    public init() {
         // Register the bundled OFL typefaces (Inter, Source Serif 4,
         // JetBrains Mono) before any view can resolve a `Font.custom`.
         // Safe for non-GUI launch modes (smoke harnesses) — does no drawing.
         FontRegistration.registerBundledFonts()
     }
 
-    var body: some Scene {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @State private var viewModel = TranscriptionViewModel()
+    @StateObject private var settings = AppSettings()
+
+    public var body: some Scene {
         WindowGroup {
             Group {
                 if case .none = SmokeRunner.launchMode {

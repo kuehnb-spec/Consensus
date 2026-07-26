@@ -168,7 +168,8 @@ actor VibeVoiceTranscriptionService {
             paths.scriptURL.path,
             "--model", paths.modelURL.path,
             "--audio", audioURL.path(percentEncoded: false),
-            "--out", outputURL.path
+            "--out", outputURL.path,
+            "--max-tokens", "\(Self.maxTokens(forAudioDuration: audioDuration))"
         ]
         if let context, !context.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             arguments.append("--context")
@@ -289,7 +290,14 @@ actor VibeVoiceTranscriptionService {
 
         let outputData = try Data(contentsOf: outputURL)
         let payload = try JSONDecoder().decode(SidecarPayload.self, from: outputData)
-        return Self.buildSegments(from: payload)
+        if payload.hit_token_limit == true {
+            throw ConsensusError.transcriptionFailed(Self.tokenLimitMessage(from: payload))
+        }
+        let segments = Self.buildSegments(from: payload)
+        guard !segments.isEmpty else {
+            throw ConsensusError.transcriptionFailed(Self.emptyResultMessage(from: payload))
+        }
+        return segments
     }
 
     /// Filter to non-JSON-progress lines for surfacing in errors. JSON progress
@@ -384,6 +392,9 @@ actor VibeVoiceTranscriptionService {
         let raw_text: String?
         let load_seconds: Double?
         let wall_clock_seconds: Double?
+        let tokens_generated: Int?
+        let max_tokens: Int?
+        let hit_token_limit: Bool?
     }
 
     private struct SidecarSegment: Decodable {
@@ -443,6 +454,59 @@ actor VibeVoiceTranscriptionService {
             )
         }
         return built
+    }
+
+    private static func maxTokens(forAudioDuration duration: TimeInterval) -> Int {
+        guard duration > 0 else { return 8_192 }
+
+        // VibeVoice emits structured JSON, so output tokens scale with audio
+        // duration plus wrapper overhead. The old fixed 8192 cap was enough
+        // for short gold fixtures, but it can truncate long legal calls before
+        // the JSON closes, leaving parse_transcription with zero segments.
+        // Use a deliberately generous budget for dense conversational audio;
+        // if the sidecar still hits the ceiling, we fail loud rather than save
+        // a partial transcript.
+        let estimated = Int((duration * 12.0).rounded(.up))
+        return min(max(8_192, estimated + 4_096), 65_536)
+    }
+
+    private static func tokenLimitMessage(from payload: SidecarPayload) -> String {
+        var pieces = [
+            "VibeVoice reached its transcript token limit before it clearly finished."
+        ]
+        if let tokens = payload.tokens_generated {
+            if let maxTokens = payload.max_tokens {
+                pieces.append("Generated \(tokens) of \(maxTokens) allowed tokens.")
+            } else {
+                pieces.append("Generated \(tokens) tokens.")
+            }
+        }
+        if let seconds = payload.wall_clock_seconds {
+            pieces.append(String(format: "Generation ran for %.1f seconds.", seconds))
+        }
+        pieces.append("Consensus did not save this pass because it may be incomplete. Retry with the current build; it uses a larger duration-scaled budget and refuses partial results.")
+        return pieces.joined(separator: " ")
+    }
+
+    private static func emptyResultMessage(from payload: SidecarPayload) -> String {
+        var pieces = [
+            "VibeVoice finished but did not return any transcript segments."
+        ]
+        if let tokens = payload.tokens_generated {
+            pieces.append("Generated \(tokens) tokens before parsing.")
+        }
+        if let seconds = payload.wall_clock_seconds {
+            pieces.append(String(format: "Generation ran for %.1f seconds.", seconds))
+        }
+        if let raw = payload.raw_text?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !raw.isEmpty {
+            let preview = raw.count > 320 ? "...\(raw.suffix(320))" : raw
+            pieces.append("Raw output tail: \(preview)")
+        } else {
+            pieces.append("The raw model output was empty.")
+        }
+        pieces.append("For long recordings, retry after this build; Consensus now allocates a duration-scaled VibeVoice token budget instead of the old short-recording cap.")
+        return pieces.joined(separator: " ")
     }
 
     /// VibeVoice doesn't emit per-word timings, so we synthesize them by linearly

@@ -145,17 +145,9 @@ final class AppSettings: ObservableObject {
         set { preferredModel = newValue.rawValue }
     }
 
-    /// Master switch for the Phase 0+ UI rewrite. When `false` (default),
-    /// the app continues to render the legacy SwiftUI surface exactly as
-    /// shipped in the April 21, 2026 build. When `true`, the rewritten
-    /// three-mode surface (Quick Take / Deep Read / Studio) takes over.
-    ///
-    /// Default flipped to `true` on 2026-04-23: the rewrite is now the
-    /// primary UI. The legacy surface remains reachable via the Settings
-    /// toggle as a one-project safety net; once the user has verified the
-    /// rewrite on a real project (Larsen call), the legacy UI and this
-    /// flag will be deleted and the branch merged to main.
-    @AppStorage("useRewrittenUI") var useRewrittenUI: Bool = true
+    // useRewrittenUI flag removed 2026-07-08: the rewritten surface has been
+    // the sole UI since the legacy view tree was archived
+    // (Brainstorming/archive/legacy-ui-2026-07/).
 
     /// Default mode for new projects in the rewritten UI (Quick Take /
     /// Deep Read / Studio). Persists across launches so a user who always

@@ -217,9 +217,14 @@ struct DeepReadSetupView: View {
     private func speedPicker(current: SpeedTier) -> some View {
         // Deep Read exposes two choices (Quick / Deep). Studio exposes all
         // four tiers with the fuller labels.
-        let tiers: [SpeedTier] = (viewModel.project?.mode == .studio)
-            ? [.standard, .deep, .verified, .perfect]
-            : [.standard, .deep]
+        let tiers: [SpeedTier]
+        if PatchReviewRunner.isAvailable {
+            tiers = (viewModel.project?.mode == .studio)
+                ? [.standard, .deep, .verified, .perfect]
+                : [.standard, .deep]
+        } else {
+            tiers = [.standard]
+        }
 
         return VStack(spacing: ConsensusTheme.Spacing.sm) {
             if tiers.count <= 2 {

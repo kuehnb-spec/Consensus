@@ -4,6 +4,14 @@ import PackageDescription
 let package = Package(
     name: "Consensus",
     platforms: [.macOS(.v15)],
+    products: [
+        // The GUI app bundle's executable.
+        .executable(name: "Consensus", targets: ["ConsensusGUI"]),
+        // The headless binary. Its target is named `ConsensusCommandLine`
+        // rather than `consensus` because SwiftPM build directories collide on
+        // a case-insensitive filesystem with the `Consensus` target.
+        .executable(name: "consensus", targets: ["ConsensusCommandLine"]),
+    ],
     dependencies: [
         .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.17.0"),
         .package(path: "Vendor/FluidAudio"),
@@ -79,8 +87,12 @@ let package = Package(
                 .swiftLanguageMode(.v5),
             ]
         ),
-        .executableTarget(
-            name: "Consensus",
+        // Core library: every model, service, view model, and view. Both the
+        // GUI app and the headless CLI are thin shims over this target, so the
+        // CLI never links an NSApplication and can run from a bare launchd job
+        // with no window server. See 10-consensus-spec.md.
+        .target(
+            name: "ConsensusCore",
             dependencies: [
                 "WhisperKit",
                 .product(name: "SpeakerKit", package: "WhisperKit"),
@@ -99,6 +111,25 @@ let package = Package(
                 .copy("App/Resources/Fonts/SourceSerif4"),
                 .copy("App/Resources/Fonts/JetBrainsMono"),
             ],
+            swiftSettings: [
+                .swiftLanguageMode(.v5),
+            ]
+        ),
+        // The GUI app — just the SwiftUI scene graph over ConsensusCore.
+        .executableTarget(
+            name: "ConsensusGUI",
+            dependencies: ["ConsensusCore"],
+            path: "Sources/ConsensusGUI",
+            swiftSettings: [
+                .swiftLanguageMode(.v5),
+            ]
+        ),
+        // The headless CLI (`consensus transcribe ...`). No SwiftUI scene, no
+        // AppKit lifecycle — safe for launchd/cron. See 10-consensus-spec.md.
+        .executableTarget(
+            name: "ConsensusCommandLine",
+            dependencies: ["ConsensusCore"],
+            path: "Sources/ConsensusCLI",
             swiftSettings: [
                 .swiftLanguageMode(.v5),
             ]

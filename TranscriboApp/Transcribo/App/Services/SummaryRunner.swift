@@ -36,6 +36,10 @@ final class SummaryRunner {
         model: CleanupModel = CleanupModel.recommended(),
         progress: @escaping @Sendable (Progress) -> Void
     ) async throws -> Output {
+        guard !pass.segments.isEmpty else {
+            throw ConsensusError.transcriptionFailed("Cannot generate a summary because the transcript has no speaker turns.")
+        }
+
         progress(Progress(fraction: 0, label: "Loading \(model.displayName)…"))
 
         try await cleanup.loadModel(model) { fraction in

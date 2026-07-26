@@ -1174,3 +1174,47 @@ Verified with `swift build` and `./build-app.sh --release`; the fresh bundle was
 ## 2026-05-20 — Checkpoint on rewrite-2026-04: UI overhaul plan, Deep Read pipeline
 
 Captured pending WIP during the May 2026 workspace reorganization. New `UI-OVERHAUL-PLAN.md` (74 lines). DeepPassRunner removed; standardized on StandardPassRunner. Deep Read pipeline overhaul: DeepReadViewModel, DeepReadReviewView, DeepReadRootView, DeepReadSetupView, DeepReviewEngine. Services: ConfidenceMergeService, ExportService, LLMReconcileService, SegmentMerger, TranscriptionPipeline. Models: ProjectDocument, TranscriptPass, AppSettings. Views: ContentView, SettingsView, TranscriptionSetupView, ExportSheet, PipelineInspectorView, RewrittenSurface, SpeakerNamingView. Branch is `rewrite-2026-04` — set upstream on this push. Totals: 2814 insertions, 853 deletions across 28 files.
+
+## 2026-06-30 — Consensus 1.1 Empty-Pass Reliability Fix
+
+Diagnosed the Maralan legal-audio failure as the old fixed VibeVoice `--max-tokens 8192` cap: the sidecar generated 8,192 tokens and 27,896 raw characters but parsed 0 segments, matching the two empty saved projects.
+Increased the Swift token budget to a duration-scaled cap, added sidecar metadata for token-limit hits, and made the app fail loud on both token-ceiling and zero-segment outputs instead of saving partial or empty passes.
+Added recovery for older empty-pass projects so opening them returns to setup with a re-run warning rather than a blank review surface.
+Verified the fix on the same 36m10s Maralan sample: direct sidecar returned 151 segments without hitting the 30,136-token cap, and the Swift smoke path saved/exported 151 segments with no warnings.
+The first user run then exposed a second issue: Standard transcription succeeded, but Patch Review auto-started and showed a missing Voxtral verifier asset error. Added Patch Review availability preflight, hid Deep/Verified tiers when verifier assets are absent, and kept missing-asset projects on the Standard transcript without a modal.
+Built and installed `/Applications/Consensus 1.1.app` as a side-by-side test build with version 1.1/build 3 and the full MLX metallib bundled.
+
+## 2026-07-10 — Remake kickoff: baseline verified, 2026 landscape researched, master plan written
+
+Kicked off the July 2026 remake push (Goal A: accuracy, Goal B: UI) with `CONSENSUS-REMAKE-PLAN.md` as the new master plan, superseding the completed `UI-OVERHAUL-PLAN.md` and the Phase A handoff.
+Verified the benchmark harness reproduces exactly: a fresh VibeVoice run on the gold file scored 10.21% WER / 6.43% DER (identical to April), and the archived v6+v8 best re-scored at 9.73% WER.
+Key analysis finding: ~half the measured WER is verbatim-vs-clean style mismatch, not misrecognition — ~49 of 71 insertions are fillers the hand-cleaned gold omits; style-normalized WER is ~6.4% baseline / ~5.9% best, and true content error is likely ~3-4%. The scorer needs a content-WER track before further optimization; the gold transcript also has a typo ("afer").
+Discovered the Voxtral Small verifier GGUFs were deleted from disk (matches the June 30 missing-assets alert), so the verifier bake-off will decide what earns a re-download.
+Ran three parallel web-research agents on the July 2026 landscape; full cited reports in `Brainstorming/2026-07-research/`. Headlines: keep VibeVoice-ASR as canonical (no successor since January); Qwen3-ASR-1.7B and Granite Speech 4.1 are the new second-opinion candidates; the vendored FluidAudio is 10+ versions behind an upstream that now ships pyannote community-1 on CoreML plus per-chunk speaker embeddings; Qwen3-Omni-30B-A3B and the newly Apache-licensed Gemma 4 12B are the verifier bake-off candidates (Step-Audio-R1.1 still has no llama.cpp path); and VibeVoice's own speaker tags are an unused free second diarization opinion.
+Decision: sequence engine work before UI consolidation so Studio-mode telemetry is built against the final pipeline.
+
+## 2026-07-10 (later) — Gold fixture drafts + AI-editor direction
+
+Drafted two new gold-standard fixtures for the benchmark set, both machine-drafted and awaiting Brant's verification: the Maralan 36-minute arbitration call (151 turns, confirmed speaker names reused from the June 30 project, 61 engine disagreements + 8 bracket-tag segments flagged) and the Clayton Everett 19-minute call (66 turns, 37 disagreements, speakers still numbered pending naming).
+Method: VibeVoice canonical + faster-whisper large-v3 second opinion + the Phase A disagreement differ, emitting a draft groundtruth JSON plus a timestamped REVIEW.md so human listening is spent only where engines disagreed.
+Hit and fixed a faster-whisper failure on the Clayton audio: large-v3 int8 with VAD collapsed two-minute spans into single sentences (627 words for 19 minutes); re-running against a 16 kHz WAV with VAD off and condition_on_previous_text=False produced a healthy 2,793 words.
+Fixed the "afer" typo in the existing gold transcript (JSON and RTF).
+Recorded Brant's decisions: direct-download distribution (not App Store), ~33GB model budget approved for the verifier bake-off, and a new plan section A5 ("The AI editor") expanding the local LLM's role to semantic plausibility scans and diarization sanity checks — always flag-and-verify, never free-form editing, per the Phase A v5 hallucination lesson.
+
+## 2026-07-10 — UI consolidation: legacy surface archived
+
+Confirmed the sequencing question with Brant: UI work proceeds now, engine bake-off and gold-transcript calibration follow when he has review time (the bake-off itself only needs the existing verified gold file).
+Consolidated the app onto the rewritten Deep Read surface: dependency analysis showed the rewritten tree referenced nothing in the legacy Views/ tree, ContentView already routed unconditionally to RewrittenSurface, and only SettingsView (Settings scene) plus the ProcessLog model types were still live.
+Archived 20 dead legacy view files (~6,000 lines: ReconciliationView, QualityView, TranscriptView, SimpleView, welcome tour, help center, and the rest) to Brainstorming/archive/legacy-ui-2026-07/, trimmed ContentView.swift to a 9-line wrapper, removed the useRewrittenUI flag from AppSettings, and moved CircularProgressGauge + DisagreementHeatmapView into the live App/Views tree, earmarked for Studio mode.
+Verified with a clean swift build and a release build installed to /Applications/Consensus 1.1.app, which launches normally. Follow-up noted: a full click-through of every stage plus deciding TranscriptionViewModel's future (still compiled for the Settings scene and smoke harness, unused by the rewritten surface).
+Also spawned the papercraft/cute-graphics research task over to WaffleHouseMeow Ultimate Edition, where it belonged — it had been sent to this session by mistake.
+
+## 2026-07-25 — Headless CLI: library extraction and `consensus transcribe`
+
+Brant reprioritized: freeze the transcription engine as-is and focus on the user interface plus a headless/CLI mode for automating captured audio on the Mac Studio, per the new `10-consensus-spec.md`.
+Found the blocking problem first: the existing `--smoke` headless path still booted a full SwiftUI `App` and `NSApplicationDelegate`, so it needed a window server and would have failed from a bare launchd job — exactly what the spec forbids.
+Restructured the package into one shared library (`ConsensusCore`, holding all models/services/views and now the SwiftUI scene as a public type) plus two thin executable launchers: `Consensus` (GUI) and `consensus` (CLI). Keeping the scene inside the library meant only one symbol needed to become public instead of the dozens a services-only split would have required.
+Implemented the CLI inside the library (`Transcribo/CLI/`) so it reaches the pipeline's internal API without widening it: argument parsing, spec exit codes 0/1/2/3/4, streaming SHA-256 input probing with a still-syncing guard, schema-2.0 JSON plus Markdown rendering with identity-free first-appearance speaker labels, atomic temp-then-rename writes, and idempotency keyed on filename and source hash.
+Hit two SwiftPM traps worth remembering: targets named `Consensus` and `consensus` collide on the case-insensitive filesystem (fixed by naming the target `ConsensusCommandLine` and the product `consensus`), and an executable module named `ConsensusApp` shadowed the library type of the same name (fixed by renaming the module `ConsensusGUI`).
+Verified end to end on real audio: full JSON/Markdown round trip, all error exit codes, idempotency and `--force`, `--quiet`/`--json-only`/`--output-dir`/`--speakers`/`--stt-hints`, SIGKILL mid-run leaving no partial files with a clean re-run, and a detached run with no controlling terminal. Documented usage and a launchd plist in the new `CLI.md`.
+Known gaps recorded in the spec: 2-hour audio is untested and would need internal chunking past VibeVoice's 60-minute ceiling, the config file is unimplemented, hosted `--engine` adapters are rejected rather than supported, and a true launchd daemon test on the Mac Studio is still pending.
