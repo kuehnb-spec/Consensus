@@ -125,7 +125,7 @@ Rules:
 - [~] `consensus transcribe meeting.m4a` on a 60-minute, 3-speaker recording produces valid JSON + Markdown with no interaction. *(Verified on 11s, 7.6min, and 36min 3-speaker files; no 60-minute fixture on hand.)*
 - [x] Re-running the same command exits 4 quickly; `--force` reprocesses.
 - [x] Kill the process mid-transcription: no partial output files remain; re-run succeeds.
-- [ ] A 2-hour recording produces one continuous transcript with monotonic timestamps.
+- [~] A 2-hour recording produces one continuous transcript with monotonic timestamps. *(36-min file verified: 150 segments, 0 non-monotonic starts, full coverage to 2170.0s. 2-hour audio still untested and needs chunking past VibeVoice's 60-min ceiling.)*
 - [x] An unsupported/corrupt file exits 2 with a clear stderr message; input untouched.
 - [ ] Two people talking over each other yields reasonable segmentation (spot-check, not perfection).
 - [x] `--version` reports app + engine/model versions matching the JSON provenance block.
@@ -150,6 +150,6 @@ Verified: full round trip on real audio (JSON + Markdown, schema 2.0), exit code
 Deferred / not yet true:
 - **`--engine`** accepts only `local`; hosted adapters are rejected with a clear error rather than silently falling back. The companion `11-hosted-transcription-research.md` referenced by this spec does not exist in the repo.
 - **Config file** (`~/.consensus/config.toml`) is not implemented — all settings come from flags and defaults. No secrets exist to protect yet because no hosted engine is wired.
-- **2-hour audio** is untested; the longest fixture on hand is 36 minutes. VibeVoice's own ceiling is 60 minutes / 64K tokens, so anything longer needs internal chunking that does not exist yet — a real gap for the spec's "2+ hours must work" requirement.
+- **2-hour audio** is untested; the longest fixture on hand is 36 minutes, which passes cleanly (150 segments, monotonic, full coverage, 0.21x real-time — about 4.8x faster than realtime). VibeVoice's own ceiling is 60 minutes / 64K tokens, so anything longer needs internal chunking that does not exist yet — a real gap for the spec's "2+ hours must work" requirement.
 - **Bare launchd** verified only by construction (no `NSApplication` is ever instantiated) plus a detached run; a true `launchctl` daemon test on the Mac Studio is still worth doing.
 - Word-level timestamps *are* emitted when the engine provides them (listed in the spec as a nice-to-have).
