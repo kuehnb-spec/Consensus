@@ -36,6 +36,8 @@ public enum ConsensusCLI {
             case .help:
                 FileHandle.standardOutput.write(Data(usage.utf8))
                 return ExitCode.success.rawValue
+            case .doctor:
+                return runDoctor().rawValue
             case .transcribe(let options):
                 return await runTranscribe(options).rawValue
             }
@@ -49,10 +51,61 @@ public enum ConsensusCLI {
         }
     }
 
+    // MARK: - doctor
+
+    /// Reports whether this machine can actually run a transcription, and where
+    /// each dependency was found. Exists because the engine needs a Python
+    /// sidecar and a 5.3 GB model that no binary can carry with it — without
+    /// this, a fresh install fails at inference time with nothing actionable.
+    private static func runDoctor() -> ExitCode {
+        let config = ConsensusConfig.resolve()
+        var lines = ["consensus \(appVersion) — environment check", ""]
+
+        if let configFile = config.configFileURL {
+            lines.append("config file: \(configFile.path)")
+        } else {
+            lines.append("config file: none (looked for ~/.consensus/config.toml)")
+        }
+        lines.append("")
+
+        for requirement in config.requirements {
+            let mark = requirement.found ? "OK  " : "MISS"
+            lines.append("[\(mark)] \(requirement.name)")
+            if requirement.found, let path = requirement.path {
+                lines.append("       \(path.path)")
+                if let source = requirement.source {
+                    lines.append("       via \(source)")
+                }
+            } else {
+                lines.append("       \(requirement.remedy)")
+            }
+            lines.append("")
+        }
+
+        lines.append(config.isComplete
+            ? "Ready — `consensus transcribe <file>` should work on this machine."
+            : "Not ready. Resolve the items marked MISS above.")
+        lines.append("")
+        lines.append("Overrides: CONSENSUS_PYTHON, CONSENSUS_SIDECAR, CONSENSUS_MODEL, CONSENSUS_CONFIG")
+
+        FileHandle.standardOutput.write(Data((lines.joined(separator: "\n") + "\n").utf8))
+        return config.isComplete ? .success : .transcriptionFailed
+    }
+
     // MARK: - transcribe
 
     private static func runTranscribe(_ options: TranscribeOptions) async -> ExitCode {
         let startedAt = Date()
+
+        // --- Environment preflight (exit 3) --------------------------------
+        // Check before hashing the input or loading anything: on a machine
+        // without the sidecar or model this is the failure the caller will hit,
+        // and it should be legible in a launchd log.
+        let config = ConsensusConfig.resolve()
+        guard config.isComplete else {
+            fail("Local engine unavailable — missing: \(config.missingSummary)")
+            return .transcriptionFailed
+        }
 
         // --- Input validation (exit 2) -------------------------------------
         let input = options.inputURL
@@ -193,6 +246,7 @@ public enum ConsensusCLI {
 
     USAGE:
       consensus transcribe <input-audio> [options]
+      consensus doctor
       consensus --version
 
     OPTIONS:
@@ -210,6 +264,14 @@ public enum ConsensusCLI {
     EXIT CODES:
       0 success   2 input unreadable   3 transcription failed
       4 output exists (use --force)    1 other failure
+
+    ENVIRONMENT:
+      CONSENSUS_CONFIG     Config file path (default: ~/.consensus/config.toml)
+      CONSENSUS_PYTHON     Python interpreter with mlx-audio installed
+      CONSENSUS_SIDECAR    Path to the VibeVoice sidecar run.py
+      CONSENSUS_MODEL      Path to the 4-bit MLX VibeVoice model directory
+
+    Run `consensus doctor` to see what this machine has and what it is missing.
 
     """
 }

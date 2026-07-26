@@ -34,3 +34,6 @@ __pycache__/
 *.bin
 *.pt
 *.ckpt
+
+# Release artifacts (published to GitHub Releases, not tracked)
+dist/

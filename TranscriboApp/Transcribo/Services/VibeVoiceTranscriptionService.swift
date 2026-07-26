@@ -84,31 +84,30 @@ actor VibeVoiceTranscriptionService {
         }
     }
 
-    /// Resolves dev-mode paths to the test-rig venv, sidecar script, and downloaded model.
+    /// Resolves the venv, sidecar script, and model through `ConsensusConfig`
+    /// (env vars → config file → conventional locations → HF cache → checkout).
+    /// Paths used to be hardcoded to one machine; see ConsensusConfig.swift.
+    ///
+    /// Missing entries resolve to a placeholder path so callers can still report
+    /// *what* was expected; `allExist` and `availabilityError()` gate real use.
     static func defaultPaths() -> SidecarPaths {
-        let projectRoot = URL(fileURLWithPath: "/Users/brantkuehn/Projects/Consensus")
-        let testRig = projectRoot.appendingPathComponent("Brainstorming/vibevoice-test")
+        let config = ConsensusConfig.resolve()
+        let home = URL(fileURLWithPath: NSHomeDirectory())
         return SidecarPaths(
-            pythonInterpreter: testRig.appendingPathComponent("venv/bin/python"),
-            scriptURL: projectRoot.appendingPathComponent("TranscriboApp/Scripts/VibeVoiceSidecar/run.py"),
-            modelURL: testRig.appendingPathComponent("model-4bit")
+            pythonInterpreter: config.paths.python
+                ?? home.appendingPathComponent(".consensus/venv/bin/python"),
+            scriptURL: config.paths.sidecar
+                ?? home.appendingPathComponent(".consensus/sidecar/run.py"),
+            modelURL: config.paths.model
+                ?? home.appendingPathComponent(".consensus/models/vibevoice-asr-4bit")
         )
     }
 
     /// Quick smoke check the user can hit before kicking off a real run.
     static func availabilityError() -> String? {
-        let paths = defaultPaths()
-        var missing: [String] = []
-        if !FileManager.default.fileExists(atPath: paths.pythonInterpreter.path) {
-            missing.append("Python venv at \(paths.pythonInterpreter.path)")
-        }
-        if !FileManager.default.fileExists(atPath: paths.scriptURL.path) {
-            missing.append("sidecar script at \(paths.scriptURL.path)")
-        }
-        if !FileManager.default.isReadableFile(atPath: paths.modelURL.path) {
-            missing.append("model directory at \(paths.modelURL.path)")
-        }
-        return missing.isEmpty ? nil : "VibeVoice setup incomplete. Missing: \(missing.joined(separator: "; "))."
+        let config = ConsensusConfig.resolve()
+        guard !config.isComplete else { return nil }
+        return "VibeVoice setup incomplete — missing: \(config.missingSummary)"
     }
 
     /// Progress callback signature:

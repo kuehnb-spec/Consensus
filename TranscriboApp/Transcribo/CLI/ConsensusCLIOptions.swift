@@ -30,6 +30,7 @@ extension ConsensusCLI {
 
     enum Command {
         case transcribe(TranscribeOptions)
+        case doctor
         case version
         case help
 
@@ -39,6 +40,7 @@ extension ConsensusCLI {
             switch first {
             case "--version", "-v": return .version
             case "--help", "-h": return .help
+            case "doctor": return .doctor
             case "transcribe": break
             default:
                 throw UsageError("unknown command '\(first)'")
