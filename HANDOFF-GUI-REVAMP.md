@@ -17,6 +17,18 @@ The MacBook Pro was the previous dev machine and produced the v2.0.0 CLI release
 
 ### The GUI build is broken under SwiftPM — start here
 
+> **RESOLVED (2026-07-30, later the same day):** the real cause was the
+> case-collision "related trap" below, not SwiftUICore. The GUI and CLI
+> product staging directories (`Consensus.product/` vs `consensus.product/`)
+> are the same path on APFS, so a full `swift build` linking both at once
+> corrupted one link — that is what produced the missing `_ConsensusGUI_main`
+> / `_ConsensusCommandLine_main` symbols. The SwiftUICore line is only a
+> warning (the MacBook shipped working app bundles from plain SwiftPM
+> executables for months). Fix: the GUI product is renamed `ConsensusApp`
+> (`build-app.sh` stages it into the bundle as `Consensus`; the CLI keeps its
+> deployed `consensus` product name). A full `swift build` now completes and
+> the GUI binary launches on the Studio. No `.xcodeproj` needed.
+
 A plain `swift build` (no `--product`) fails at the link step:
 
 ```text
@@ -83,6 +95,16 @@ The Studio's uncommitted tree was auto-captured to this branch, so **nothing is 
 **Brant's decision (2026-07-30): do this work as part of the GUI revamp, not before it.** Both items below are in scope for the revamp session; they were deliberately left un-merged so they get handled with attention rather than as a merge side-effect.
 
 ### Task A — forward-port the two bug fixes
+
+> **DONE, with a correction (2026-07-30):** the two hunks described below are
+> not actually present on `origin/wip/studio` — its `hasTranscript` is still
+> `activePass != nil` and its `TranscriptionPipeline` has no empty-segments
+> guard. What main already had (from the June 30 empty-pass work) covers the
+> live path: `VibeVoiceTranscriptionService` rejects zero-segment parses,
+> `TranscriptionViewModel` guards empty results, and the CLI refuses to write
+> an empty pass. The one genuinely missing piece — legacy
+> `TranscriptionProject.hasTranscript` treating an empty pass as a transcript
+> — is now fixed on main. Task B (FluidAudio strategy) remains open.
 
 Independent of everything else, and worth doing early since they are small and correct. Retrieve them with:
 

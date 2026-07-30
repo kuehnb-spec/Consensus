@@ -257,6 +257,12 @@ struct QuickTakeResultView: View {
         let palette = ConsensusTheme.Colors.speakerPalette
         let color = palette[(speaker?.paletteIndex ?? 0) % palette.count]
         let displayName = speaker?.displayName ?? segment.speakerID
+        // A named speaker nobody has confirmed is an intro-scan guess.
+        // Guardrail: guessed identities stay visibly unverified until a
+        // human confirms or corrects them.
+        let isUnverifiedGuess = (speaker?.isConfirmed == false)
+            && !displayName.hasPrefix("Speaker ")
+            && !displayName.hasPrefix("SPEAKER_")
 
         return VStack(alignment: .leading, spacing: ConsensusTheme.Spacing.xs) {
             HStack(spacing: ConsensusTheme.Spacing.sm) {
@@ -268,12 +274,23 @@ struct QuickTakeResultView: View {
                     renameDraft = displayName
                     renamingSpeakerID = segment.speakerID
                 } label: {
-                    Text(displayName)
-                        .font(ConsensusType.transcriptSpeaker)
-                        .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                    HStack(spacing: 4) {
+                        Text(displayName)
+                            .font(ConsensusType.transcriptSpeaker)
+                            .foregroundStyle(ConsensusTheme.Colors.textPrimary)
+                        if isUnverifiedGuess {
+                            Image(systemName: "questionmark.circle")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(ConsensusTheme.Colors.confidenceAmber)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
-                .help("Rename this speaker")
+                .help(
+                    isUnverifiedGuess
+                    ? "Name guessed from the recording — click to confirm or correct it"
+                    : "Rename this speaker"
+                )
                 .popover(
                     isPresented: Binding(
                         get: { renamingSpeakerID == segment.speakerID },

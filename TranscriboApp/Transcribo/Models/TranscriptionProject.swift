@@ -239,7 +239,11 @@ struct TranscriptionProject: Codable, Identifiable, Sendable {
     }
 
     var hasTranscript: Bool {
-        activePass != nil
+        // A pass with zero segments is a failed run, not a transcript —
+        // treating it as one made empty projects look transcribed (the
+        // wip/studio empty-transcript fix, forward-ported 2026-07-30).
+        guard let activePass else { return false }
+        return !activePass.result.segments.isEmpty
     }
 
     var qualityTier: String {

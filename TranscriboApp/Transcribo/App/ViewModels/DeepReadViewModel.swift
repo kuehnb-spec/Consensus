@@ -343,10 +343,8 @@ final class DeepReadViewModel {
             )
 
             if updated.mode == .quickTake {
-                // Quick Take never blocks on the naming screen. Apply only
-                // high-confidence intro-scan names; everyone else stays
-                // "Speaker N" and can be renamed inline on the result view.
-                await confirmSpeakers(Self.autoConfirmMappings(from: suggestions))
+                // Quick Take never blocks on the naming screen.
+                await quickTakeAdvance(with: suggestions)
             } else {
                 stage = .namingSpeakers(suggestions: suggestions)
             }
@@ -361,23 +359,44 @@ final class DeepReadViewModel {
     /// better than baptizing the transcript with a guessed name.
     private static let quickTakeAutoNameConfidence: Double = 0.75
 
-    /// Quick Take's stand-in for the naming screen: keep suggested names
-    /// only when the intro scan was confident; blank out the rest so
-    /// `confirmSpeakers` preserves each speaker's existing display name.
-    private static func autoConfirmMappings(
-        from suggestions: [SpeakerSuggestion]
-    ) -> [SpeakerSuggestion] {
-        suggestions.map { suggestion in
-            var mapped = suggestion
-            if suggestion.confidence < quickTakeAutoNameConfidence {
-                mapped.suggestedName = ""
+    /// Quick Take's stand-in for the naming screen. Applies high-confidence
+    /// intro-scan names as display names but deliberately leaves them
+    /// **unconfirmed** — a name inferred from audio is an unverified guess
+    /// and stays marked that way until a human touches it (the same
+    /// guardrail the CLI's identity-free speaker labels follow). Then
+    /// advances through the same Speed branch the naming screen would.
+    private func quickTakeAdvance(with suggestions: [SpeakerSuggestion]) async {
+        guard var current = project else { return }
+
+        for suggestion in suggestions
+        where suggestion.confidence >= Self.quickTakeAutoNameConfidence {
+            guard let idx = current.speakers.firstIndex(where: { $0.id == suggestion.id })
+            else { continue }
+            let trimmed = suggestion.suggestedName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                current.speakers[idx].displayName = trimmed
             }
-            return mapped
+            current.speakers[idx].voiceLibraryID = suggestion.voiceLibraryMatchID
+        }
+
+        do {
+            project = try library.save(current)
+        } catch {
+            report(error)
+            return
+        }
+
+        switch current.settings.speed {
+        case .standard:
+            stage = .reviewing
+        case .deep, .verified, .perfect:
+            await runDeepPass()
         }
     }
 
     /// Rename a speaker after the pipeline has finished — the inline rename
     /// path used by the Quick Take result view (which has no naming stage).
+    /// A human typed this name, so it counts as confirmed.
     func renameSpeaker(id: String, to name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

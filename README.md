@@ -1,22 +1,28 @@
-# BDK Transcribo
+# Consensus
 
-`BDK Transcribo` is a native macOS app for local transcription and speaker diarization.
-The active product lives in [TranscriboApp](/Users/brantkuehn/Projects/BDK-Transcribo/TranscriboApp).
+Consensus (formerly BDK Transcribo) is a privacy-first macOS app for local
+transcription and speaker diarization. Its hallmark is Deep Review: multiple
+transcription engines compared and reconciled — with audio evidence — into
+the lowest-error transcript the machine can defend. All processing happens
+on-device.
 
 ## Current Product Direction
 
-- Native SwiftUI macOS app
-- Local transcription via WhisperKit
-- Local speaker diarization via FluidAudio
-- Persistent transcription projects with saved transcript quality metrics
-- Built-in Help Center, first-run welcome tour, and demo project
+- Native SwiftUI macOS app with three tiers: Quick Take, Deep Read, Studio
+- VibeVoice-ASR canonical transcription with speaker diarization
+- Patch-based Deep Review: second-opinion engines + local audio re-checks
+  propose exact patches; deterministic gates decide
+- Headless `consensus` CLI for unattended automation (see `CLI.md`)
+- Persistent transcription projects with quality metrics and voice library
 - Export to text, Markdown, JSON, SRT, RTF, DOCX, and legal-style PDF
 
 ## Project Layout
 
-- [TranscriboApp](/Users/brantkuehn/Projects/BDK-Transcribo/TranscriboApp): active macOS application
-- [Legacy/PythonPrototype](/Users/brantkuehn/Projects/BDK-Transcribo/Legacy/PythonPrototype): archived Python/Gradio prototype
-- [ROADMAP.md](/Users/brantkuehn/Projects/BDK-Transcribo/ROADMAP.md): product and implementation roadmap
+- `TranscriboApp/`: the Swift package (GUI app + headless CLI over one core)
+- `Packaging/`: CLI release tarball and installer
+- `Scripts/`: benchmark harness (WER/DER scoring against gold fixtures)
+- `Legacy/PythonPrototype/`: archived Python/Gradio prototype
+- `ROADMAP.md`, `CONSENSUS-REMAKE-PLAN.md`: direction and active plan
 
 ## Build And Run
 
