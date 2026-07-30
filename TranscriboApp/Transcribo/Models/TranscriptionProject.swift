@@ -31,6 +31,37 @@ struct ProjectExportPreferences: Codable, Sendable {
     var showClockTime: Bool
     var recordingStartTime: Date?
     var legalPDFHeader: String
+    var includeQualityTierBadge: Bool
+    var highlightLowConfidence: Bool
+
+    init(
+        selectedFormats: [ExportFormat],
+        showElapsedTime: Bool,
+        showClockTime: Bool,
+        recordingStartTime: Date? = nil,
+        legalPDFHeader: String,
+        includeQualityTierBadge: Bool = false,
+        highlightLowConfidence: Bool = false
+    ) {
+        self.selectedFormats = selectedFormats
+        self.showElapsedTime = showElapsedTime
+        self.showClockTime = showClockTime
+        self.recordingStartTime = recordingStartTime
+        self.legalPDFHeader = legalPDFHeader
+        self.includeQualityTierBadge = includeQualityTierBadge
+        self.highlightLowConfidence = highlightLowConfidence
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        selectedFormats = try container.decode([ExportFormat].self, forKey: .selectedFormats)
+        showElapsedTime = try container.decode(Bool.self, forKey: .showElapsedTime)
+        showClockTime = try container.decode(Bool.self, forKey: .showClockTime)
+        recordingStartTime = try container.decodeIfPresent(Date.self, forKey: .recordingStartTime)
+        legalPDFHeader = try container.decode(String.self, forKey: .legalPDFHeader)
+        includeQualityTierBadge = try container.decodeIfPresent(Bool.self, forKey: .includeQualityTierBadge) ?? false
+        highlightLowConfidence = try container.decodeIfPresent(Bool.self, forKey: .highlightLowConfidence) ?? false
+    }
 }
 
 struct ExportRecord: Codable, Identifiable, Sendable {
@@ -146,6 +177,7 @@ struct TranscriptionPass: Codable, Identifiable, Sendable {
     var language: String
     var minSpeakers: Int?
     var maxSpeakers: Int?
+    var sourcePassID: UUID?
     var warnings: [String]
     var result: TranscriptionResult
     var qualitySummary: TranscriptQualitySummary
@@ -160,6 +192,7 @@ struct TranscriptionPass: Codable, Identifiable, Sendable {
         language: String,
         minSpeakers: Int?,
         maxSpeakers: Int?,
+        sourcePassID: UUID? = nil,
         warnings: [String] = [],
         result: TranscriptionResult,
         qualitySummary: TranscriptQualitySummary
@@ -173,6 +206,7 @@ struct TranscriptionPass: Codable, Identifiable, Sendable {
         self.language = language
         self.minSpeakers = minSpeakers
         self.maxSpeakers = maxSpeakers
+        self.sourcePassID = sourcePassID
         self.warnings = warnings
         self.result = result
         self.qualitySummary = qualitySummary
@@ -195,6 +229,9 @@ struct TranscriptionProject: Codable, Identifiable, Sendable {
     var passes: [TranscriptionPass]
     var activePassID: UUID?
     var exportHistory: [ExportRecord]
+    var projectSummary: String?
+    var detailedSummary: String?      // Full LLM-generated summary with action items
+    var properNounDictionary: [String: String]?  // misspelling → correct spelling
 
     var activePass: TranscriptionPass? {
         guard let activePassID else { return passes.last }
@@ -203,6 +240,10 @@ struct TranscriptionProject: Codable, Identifiable, Sendable {
 
     var hasTranscript: Bool {
         activePass != nil
+    }
+
+    var qualityTier: String {
+        passes.contains(where: { $0.kind == .deepReviewConsensus }) ? "Verified Transcript" : "Standard Transcript"
     }
 
     mutating func appendPass(_ pass: TranscriptionPass) {
@@ -250,11 +291,16 @@ struct TranscriptionProjectSummary: Identifiable, Sendable {
     let averageDiarizationQuality: Float?
     let hasConsensus: Bool
     let hasMultiplePasses: Bool
+    let audioDuration: TimeInterval
+    let speakerNames: [String]
+    let projectSummary: String?
+    let qualityTier: String
 }
 
 extension TranscriptionProject {
     var summary: TranscriptionProjectSummary {
         let qualitySummary = activePass?.qualitySummary
+        let names = speakerMapping.names.values.sorted()
         return TranscriptionProjectSummary(
             id: id,
             name: name,
@@ -267,7 +313,11 @@ extension TranscriptionProject {
             averageWordConfidence: qualitySummary?.averageWordConfidence,
             averageDiarizationQuality: qualitySummary?.averageDiarizationQuality,
             hasConsensus: passes.contains { $0.kind == .deepReviewConsensus },
-            hasMultiplePasses: passes.count > 1
+            hasMultiplePasses: passes.count > 1,
+            audioDuration: audioDuration,
+            speakerNames: names,
+            projectSummary: projectSummary,
+            qualityTier: qualityTier
         )
     }
 }

@@ -1,6 +1,113 @@
 # Consensus UI/UX Overhaul — Implementation Plan
 
+> **SUPERSEDED (July 10, 2026):** All phases below are complete. Active planning has moved to `CONSENSUS-REMAKE-PLAN.md` (accuracy roadmap + UI consolidation + three-mode redesign). This file is kept as the historical record of the March 2026 theme overhaul and its addenda. The "Future Studio Concept: Observability Dashboard" section below is carried forward as Goal B2/Studio in the new plan.
+
 BDK Transcribo is being renamed to **Consensus** and receiving a comprehensive UI/UX overhaul to move from a "utility" aesthetic to a "high-end workstation" feel (similar to Linear or Raycast). The hallmark feature is Deep Review (multi-model reconciliation).
+
+---
+
+## June 30, 2026 Addendum: VibeVoice Empty-Pass Regression on 36-Minute Legal Audio
+
+**Status:** COMPLETE (June 30, 2026)
+
+Bug investigation reopened for `TestAudio/2026-06-26 - Maralan - Arbitration Settlement and Legalist Funding Resolution.m4a` after the installed `/Applications/Consensus.app` created empty Standard passes.
+
+Findings so far:
+- The audio itself validates as normal AAC voice audio: 36m10s, mono, 22.05 kHz, ~33 kbps.
+- The installed app is still the May 1 `1.0` bundle, predating the duration-scaled VibeVoice token-budget and fail-loud empty-pass guard currently present in the working tree.
+- Two saved projects for the Maralan file (`821BFDB0-B08C-4616-8489-5A3BB55510CF` and `DDCEF8CE-303E-4658-B280-02194F6AAE1D`) have `passes/standard.json` with `segmentCount: 0`, confirming the failure is an app/sidecar parse path rather than a bad source file.
+- Direct sidecar reproduction with the old `--max-tokens 8192` cap generated 8,192 tokens in 336.5s, produced 27,896 raw text characters, and parsed 0 transcript segments.
+- Direct sidecar verification with the new duration-scaled `--max-tokens 30136` budget generated 12,431 tokens in 450.8s, did not hit the token limit, and parsed 151 transcript segments.
+- App-level Swift smoke on the same Maralan audio passed: 36m10s duration, 151 segments, 3 detected speakers, 95% word confidence, 95% diarization quality, no warnings, and TXT/JSON exports written.
+
+Completed work:
+- Increased the Swift-provided VibeVoice token budget from the old short-recording cap to a generous duration-scaled budget.
+- Added sidecar metadata for `max_tokens` and `hit_token_limit`.
+- Added Swift guards that reject token-limit hits and zero-segment parses before any pass is saved.
+- Added empty-pass recovery when opening older broken projects.
+- Built and installed `/Applications/Consensus 1.1.app` with `CFBundleShortVersionString = 1.1`, `CFBundleVersion = 2`, and the full 102 MB `mlx.metallib` bundle.
+
+Decision note:
+- The test build will install side-by-side as `Consensus 1.1.app` while keeping the bundle executable and project library path unchanged. Changing the support-directory name would make the build look "fresh" but hide the existing projects; preserving `~/Library/Application Support/Consensus` makes this a true reliability test against the same local state.
+- Token-limit handling now fails loud as well as empty-output handling. A recovered partial parse is not enough for success if the sidecar hit `--max-tokens`, because that state can silently save an incomplete transcript.
+- Existing broken projects now recover through setup instead of opening a blank review surface. If a saved pass has zero segments, Consensus 1.1 warns that it came from an older empty-pass build and asks the user to re-run transcription.
+
+Follow-up from first Consensus 1.1 user run:
+- The Standard VibeVoice transcript succeeded on the Maralan file, but the app then auto-started Patch Review and showed a missing-model alert because the optional Voxtral Small verifier assets were not present locally.
+- Consensus now treats Patch Review as unavailable unless its sidecar, VibeVoice model, Voxtral model/projector, `llama-mtmd-cli`, and `ffmpeg` all exist. When unavailable, new/reopened projects are normalized to Standard speed, Deep/Verified tier choices are hidden, and confirming speakers stays on the Standard transcript without a modal.
+- Decision: prefer a polished Standard transcript over a scary degraded-mode alert. Downloading or bundling the verifier assets remains a separate Studio/Deep Review setup task.
+
+## May 1, 2026 Addendum: Transcribing Progress Screen
+
+**Status:** COMPLETE (May 1, 2026)
+
+The VibeVoice transcription stage now uses a dedicated workstation-style progress screen instead of the generic centered progress card. The title, status strip, progress rail, and metric tiles have fixed regions so the page no longer jumps when streaming transcript text changes length.
+
+Completed work:
+- Threaded VibeVoice sidecar token count and tokens-per-second metadata into Swift progress updates.
+- Split live transcript output out of `StageProgress.label` and into a bounded rolling feed owned by `DeepReadViewModel`.
+- Added separate metric tiles for progress, total tokens, speed, and elapsed time.
+- Added a fixed-height live transcript panel that scrolls independently as VibeVoice emits text.
+
+---
+
+## May 1, 2026 Addendum: Speaker Naming Evidence Panel
+
+**Status:** COMPLETE (May 1, 2026)
+
+The "Who's speaking?" stage no longer expands long dialogue examples inside the speaker row. Rows stay compact for name entry, and the larger cross-recording sample set opens in an inspector-style evidence panel with its own scroll view.
+
+Completed work:
+- Replaced row expansion state with a selected speaker evidence pane.
+- Kept the speaker list in a bounded scroll region so the header and footer remain reachable.
+- Added a right-side evidence panel on wider windows, with a stacked fallback on narrow windows.
+- Kept preview samples compact and moved long dialogue review into independently scrolling sample cards.
+
+---
+
+## May 1, 2026 Addendum: Export Suite + Manual Revision Recovery
+
+**Status:** COMPLETE (May 1, 2026)
+
+The rewritten Deep Read surface now restores the full export surface from the legacy app instead of limiting the user to three text formats. The manual editor is also integrated into the new review toolbar, with a dedicated correction pane and native find/replace controls.
+
+Completed work:
+- Promoted export handling back to the shared `ExportFormat` / `ExportService` path so Deep Read can save text, Markdown, Obsidian Markdown, JSON, SRT, RTF, DOCX, and legal transcript PDF.
+- Added Legal PDF controls to the new export sheet: header text, elapsed timestamps, optional clock timestamps, and optional cover page content from the summary/to-do pane.
+- Added quick toolbar export paths for Legal PDF, Markdown, Obsidian Markdown, and plain text while keeping the full "Export with options" sheet.
+- Added a "Manual Revision" review-toolbar action that opens a rewrite-native editor and saves corrections as the project's `.manual` pass, so every export format uses the revised transcript.
+- Added find, previous/next match, replace, and replace-all controls backed by a native text view that highlights and scrolls to the active match.
+
+Decision note:
+- A separate rewritten exporter would have moved faster in the short term, but it would have duplicated the court-style PDF and DOCX logic. Reusing the shared export service keeps legal PDF behavior consistent across old and new surfaces and makes future export fixes land once.
+
+---
+
+## Future Studio Concept: Observability Dashboard
+
+**Status:** BACKLOG IDEA (May 1, 2026)
+
+Studio mode should eventually include a "work in progress" observability cockpit for hobbyist/power users who enjoy watching the local AI pipeline operate. This should feel like a native workstation dashboard, not a generic debug log.
+
+Candidate metrics:
+- **Run health:** current stage, elapsed time, real-time factor, stage timings, patch counts, accepted/rejected edit counts.
+- **Engine throughput:** VibeVoice tokens/sec, WhisperKit seconds processed/sec, patch verifier calls/minute, context/token counts where available.
+- **Process health:** app RSS, sidecar RSS, available memory/headroom, memory-pressure warnings, active child process IDs.
+- **Thermal health:** use official `ProcessInfo.thermalState` as the shippable baseline; investigate whether direct CPU/GPU temperature can be exposed safely as a developer-only adapter.
+- **Compute estimates:** prefer honest tokens/sec, audio real-time factor, and model/runtime stats over pretending to know true hardware FLOPs; FLOP estimates can be derived/labeled if useful.
+- **Review trace:** show the patch-review chain as it happens: candidate patch, audio window, second-opinion source, local re-listen text, masked-cloze options, model choice, confidence, public rationale, guardrail result, and final apply/reject reason. Do not expose raw hidden chain-of-thought; summarize the model's reasoning as auditable evidence and decision notes.
+
+Design direction:
+- Surface this as a Studio-only dashboard, likely adjacent to or replacing the current Pipeline Inspector.
+- Use compact metric tiles, small time-series strips, a process/event log, and a patch-review timeline with expandable evidence cards.
+- Keep it read-only and nonessential: it should deepen trust and enjoyment without making Quick Take or Deep Read feel technical.
+- Name the reasoning surface something like "Review Trace" or "Patch Audit" rather than "chain of thought," so it is clear the app is showing a product-safe explanation/audit trail rather than private model internals.
+
+Open implementation questions:
+- Which telemetry can be gathered without private APIs or elevated privileges?
+- Should deeper metrics come from Swift directly, sidecar JSON progress events, or a separate local telemetry sampler?
+- Can we sample frequently enough to feel alive without adding measurable overhead during ML inference?
+- How much of the raw model response should be retained for Studio auditability, and when should the app store only a short public rationale to avoid misleading users with uncalibrated hidden reasoning text?
 
 ---
 

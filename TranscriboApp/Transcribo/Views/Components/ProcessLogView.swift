@@ -16,6 +16,17 @@ struct ProcessLogEntry: Identifiable {
         case error
         case aiThinking
 
+        var label: String {
+            switch self {
+            case .info: return "INFO"
+            case .progress: return "PROGRESS"
+            case .success: return "SUCCESS"
+            case .warning: return "WARNING"
+            case .error: return "ERROR"
+            case .aiThinking: return "AI"
+            }
+        }
+
         var icon: String {
             switch self {
             case .info: return "info.circle"
@@ -103,6 +114,50 @@ final class ProcessLog {
         outputText = ""
         outputLabel = "Output"
     }
+
+    /// Render the full log as a human-readable markdown string for saving to a file.
+    /// Includes timestamps, severity, every message, and any attached detail block.
+    func renderAsMarkdown(title: String = "Diagnostic Report") -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+
+        var lines: [String] = []
+        lines.append("# \(title)")
+        lines.append("")
+        lines.append("Generated: \(formatter.string(from: Date()))")
+        lines.append("Entries: \(entries.count)")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        for entry in entries {
+            let time = formatter.string(from: entry.timestamp)
+            let level = "[\(entry.level.label)]"
+            lines.append("- `\(time)` \(level) \(entry.message)")
+            if let detail = entry.detail, !detail.isEmpty {
+                lines.append("")
+                lines.append("  ```")
+                for detailLine in detail.components(separatedBy: "\n") {
+                    lines.append("  \(detailLine)")
+                }
+                lines.append("  ```")
+                lines.append("")
+            }
+        }
+
+        if !outputText.isEmpty {
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+            lines.append("## Live Output")
+            lines.append("")
+            lines.append("```")
+            lines.append(outputText)
+            lines.append("```")
+        }
+
+        return lines.joined(separator: "\n")
+    }
 }
 
 /// Floating, closeable process log window with split panes.
@@ -110,9 +165,12 @@ final class ProcessLog {
 /// Right: Live output stream (transcription text, LLM generation, etc.)
 struct ProcessLogView: View {
     @Bindable var processLog: ProcessLog
+    @Environment(TranscriptionViewModel.self) private var viewModel
+    @EnvironmentObject private var settings: AppSettings
     @State private var isExpanded: Bool = true
     @State private var scrollToBottom: Bool = true
     @State private var outputScrollToBottom: Bool = true
+    @State private var savedReportURL: URL?
 
     private let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -304,6 +362,26 @@ struct ProcessLogView: View {
             .buttonStyle(.plain)
 
             Spacer()
+
+            // Save Report (Diagnostic Mode only)
+            if settings.diagnosticModeEnabled {
+                Button {
+                    if let url = viewModel.saveDiagnosticReport() {
+                        savedReportURL = url
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.caption2)
+                        Text("Save Report")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(ConsensusTheme.Colors.accent)
+                }
+                .buttonStyle(.plain)
+                .help("Export the process log as a markdown file for detailed review.")
+            }
 
             // Clear log
             Button {

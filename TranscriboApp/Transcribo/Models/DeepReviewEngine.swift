@@ -35,7 +35,7 @@ enum DeepReviewEngineChoice: String, CaseIterable, Codable, Identifiable, Sendab
 
     var id: String { rawValue }
 
-    static let defaultChoice: DeepReviewEngineChoice = .parakeetV3
+    static let defaultChoice: DeepReviewEngineChoice = .whisper
 
     var displayName: String {
         switch self {
@@ -75,15 +75,28 @@ enum DeepReviewEngineChoice: String, CaseIterable, Codable, Identifiable, Sendab
     }
 }
 
+enum VibeVoiceVariant: String, CaseIterable, Codable, Identifiable, Sendable {
+    case fourBitMLX
+
+    var id: String { rawValue }
+    var displayName: String { "VibeVoice ASR (MLX 4-bit)" }
+    var engineName: String { "VibeVoice" }
+}
+
 enum TranscriptionEngineDescriptor: Sendable {
     case whisper(WhisperModel)
     case fluidAsr(FluidAsrModelVariant)
+    /// Microsoft VibeVoice (joint ASR + diarization). `context` is forwarded as
+    /// a hotword bias — typically the project's known speaker names.
+    case vibevoice(VibeVoiceVariant, context: String?)
 
     var engineName: String {
         switch self {
         case .whisper:
             return "WhisperKit"
         case .fluidAsr(let variant):
+            return variant.engineName
+        case .vibevoice(let variant, _):
             return variant.engineName
         }
     }
@@ -94,6 +107,19 @@ enum TranscriptionEngineDescriptor: Sendable {
             return model.displayName
         case .fluidAsr(let variant):
             return variant.displayName
+        case .vibevoice(let variant, _):
+            return variant.displayName
+        }
+    }
+
+    /// Engines that emit speaker labels themselves and don't need a separate
+    /// diarization pass. The pipeline automatically skips diarization for these.
+    var providesOwnDiarization: Bool {
+        switch self {
+        case .vibevoice:
+            return true
+        case .whisper, .fluidAsr:
+            return false
         }
     }
 }

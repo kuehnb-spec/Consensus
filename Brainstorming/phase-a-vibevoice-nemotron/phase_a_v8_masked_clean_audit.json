@@ -1,0 +1,161 @@
+{
+  "candidate_count": 7,
+  "applied_count": 5,
+  "total_seconds": 92.63187265396118,
+  "audit": [
+    {
+      "candidate_index": 0,
+      "candidate": {
+        "segment_index": 1,
+        "segment_text": "Hello, this is Brant Kuehn.",
+        "segment_start_char": 8,
+        "find_start": 15,
+        "find_end": 26,
+        "find": "Brant Kuehn",
+        "replace": "Brankine",
+        "audio_start": 2.78,
+        "audio_end": 5.26
+      },
+      "decision": "apply_patch",
+      "confidence": 1.0,
+      "reason": "The name 'Brankine' is clearly spoken in the audio.",
+      "heard": null,
+      "fill": "Brankine",
+      "applied": true,
+      "elapsed_seconds": 13.813216924667358,
+      "raw_tail": " flash attention is enabled\ninit_audio: audio input is in experimental stage and may have reduced quality:\n    https://github.com/ggml-org/llama.cpp/discussions/13759\nmain: loading model: voxtral-small/Voxtral-Small-24B-Q4_K_M.gguf\nWARN: This is an experimental CLI for testing multimodal capability.\n      For normal use cases, please use the standard llama-cli\nencoding audio slice...\naudio slice encoded in 1738 ms\ndecoding audio batch 1/1, n_tokens_batch = 187\naudio decoded (batch 1/1) in 4 ms\nllama_perf_context_print:        load time =    1048.18 ms\nllama_perf_context_print: prompt eval time =   10008.39 ms /  1505 tokens (    6.65 ms per token,   150.37 tokens per second)\nllama_perf_context_print:        eval time =    1550.29 ms /    31 runs   (   50.01 ms per token,    20.00 tokens per second)\nllama_perf_context_print:       total time =   11981.68 ms /  1536 tokens\nllama_perf_context_print:    graphs reused =         30\nggml_metal_free: deallocating\nggml_metal_free: deallocating\n"
+    },
+    {
+      "candidate_index": 1,
+      "candidate": {
+        "segment_index": 3,
+        "segment_text": "Hey, Marie, thanks for calling.",
+        "segment_start_char": 57,
+        "find_start": 5,
+        "find_end": 10,
+        "find": "Marie",
+        "replace": "Maria",
+        "audio_start": 6.87,
+        "audio_end": 8.86
+      },
+      "decision": "apply_patch",
+      "confidence": 1.0,
+      "reason": "The audio clearly says 'Maria'.",
+      "heard": null,
+      "fill": "Maria",
+      "applied": true,
+      "elapsed_seconds": 12.28873085975647,
+      "raw_tail": " flash attention is enabled\ninit_audio: audio input is in experimental stage and may have reduced quality:\n    https://github.com/ggml-org/llama.cpp/discussions/13759\nmain: loading model: voxtral-small/Voxtral-Small-24B-Q4_K_M.gguf\nWARN: This is an experimental CLI for testing multimodal capability.\n      For normal use cases, please use the standard llama-cli\nencoding audio slice...\naudio slice encoded in 1680 ms\ndecoding audio batch 1/1, n_tokens_batch = 187\naudio decoded (batch 1/1) in 4 ms\nllama_perf_context_print:        load time =    1043.25 ms\nllama_perf_context_print: prompt eval time =    9137.52 ms /  1500 tokens (    6.09 ms per token,   164.16 tokens per second)\nllama_perf_context_print:        eval time =    1133.73 ms /    23 runs   (   49.29 ms per token,    20.29 tokens per second)\nllama_perf_context_print:       total time =   10691.10 ms /  1523 tokens\nllama_perf_context_print:    graphs reused =         22\nggml_metal_free: deallocating\nggml_metal_free: deallocating\n"
+    },
+    {
+      "candidate_index": 2,
+      "candidate": {
+        "segment_index": 8,
+        "segment_text": "No, no, she's got, uh, Virginia counsel on that.",
+        "segment_start_char": 239,
+        "find_start": 32,
+        "find_end": 39,
+        "find": "counsel",
+        "replace": "council",
+        "audio_start": 23.2,
+        "audio_end": 26.84
+      },
+      "decision": "keep_current",
+      "confidence": 1.0,
+      "reason": "The word 'counsel' fits the context of the sentence, as it refers to legal advice or representation, which is consistent with the phrase 'she's got, uh, Virginia ____ on that'.",
+      "heard": null,
+      "fill": "counsel",
+      "applied": false,
+      "elapsed_seconds": 14.305860042572021,
+      "raw_tail": " flash attention is enabled\ninit_audio: audio input is in experimental stage and may have reduced quality:\n    https://github.com/ggml-org/llama.cpp/discussions/13759\nmain: loading model: voxtral-small/Voxtral-Small-24B-Q4_K_M.gguf\nWARN: This is an experimental CLI for testing multimodal capability.\n      For normal use cases, please use the standard llama-cli\nencoding audio slice...\naudio slice encoded in 1669 ms\ndecoding audio batch 1/1, n_tokens_batch = 187\naudio decoded (batch 1/1) in 3 ms\nllama_perf_context_print:        load time =    1024.31 ms\nllama_perf_context_print: prompt eval time =    9184.35 ms /  1510 tokens (    6.08 ms per token,   164.41 tokens per second)\nllama_perf_context_print:        eval time =    3060.22 ms /    60 runs   (   51.00 ms per token,    19.61 tokens per second)\nllama_perf_context_print:       total time =   12658.41 ms /  1570 tokens\nllama_perf_context_print:    graphs reused =         58\nggml_metal_free: deallocating\nggml_metal_free: deallocating\n"
+    },
+    {
+      "candidate_index": 3,
+      "candidate": {
+        "segment_index": 10,
+        "segment_text": "No, no, that's, that's separate. I mean, I get, you know, I got a little bit of update at one point of, of, you know, strategy for how they were going to approach it or how she, you know, what she's seeing about the numbers, but, um.",
+        "segment_start_char": 372,
+        "find_start": 199,
+        "find_end": 205,
+        "find": "seeing",
+        "replace": "thinking",
+        "audio_start": 31.09,
+        "audio_end": 43.85
+      },
+      "decision": "apply_patch",
+      "confidence": 1.0,
+      "reason": "The context suggests that the speaker is referring to someone's thoughts or considerations about the numbers, which fits 'thinking' better than 'seeing'.",
+      "heard": null,
+      "fill": "thinking",
+      "applied": true,
+      "elapsed_seconds": 13.808629035949707,
+      "raw_tail": " flash attention is enabled\ninit_audio: audio input is in experimental stage and may have reduced quality:\n    https://github.com/ggml-org/llama.cpp/discussions/13759\nmain: loading model: voxtral-small/Voxtral-Small-24B-Q4_K_M.gguf\nWARN: This is an experimental CLI for testing multimodal capability.\n      For normal use cases, please use the standard llama-cli\nencoding audio slice...\naudio slice encoded in 1625 ms\ndecoding audio batch 1/1, n_tokens_batch = 187\naudio decoded (batch 1/1) in 4 ms\nllama_perf_context_print:        load time =    1030.09 ms\nllama_perf_context_print: prompt eval time =    9312.84 ms /  1558 tokens (    5.98 ms per token,   167.30 tokens per second)\nllama_perf_context_print:        eval time =    2333.55 ms /    47 runs   (   49.65 ms per token,    20.14 tokens per second)\nllama_perf_context_print:       total time =   12064.47 ms /  1605 tokens\nllama_perf_context_print:    graphs reused =         46\nggml_metal_free: deallocating\nggml_metal_free: deallocating\n"
+    },
+    {
+      "candidate_index": 4,
+      "candidate": {
+        "segment_index": 28,
+        "segment_text": "I had, for what it's worth, I had another one of these for Legalist, for JAMS, and we moved one of the calls and there was no issue with, there was no issue with that. Um, but that's it.",
+        "segment_start_char": 2778,
+        "find_start": 59,
+        "find_end": 67,
+        "find": "Legalist",
+        "replace": "legalists",
+        "audio_start": 189.36,
+        "audio_end": 202.34
+      },
+      "decision": "keep_current",
+      "confidence": 1.0,
+      "reason": "The word 'Legalist' fits the context and the surrounding words in the transcript.",
+      "heard": null,
+      "fill": "Legalist",
+      "applied": false,
+      "elapsed_seconds": 12.803744077682495,
+      "raw_tail": " flash attention is enabled\ninit_audio: audio input is in experimental stage and may have reduced quality:\n    https://github.com/ggml-org/llama.cpp/discussions/13759\nmain: loading model: voxtral-small/Voxtral-Small-24B-Q4_K_M.gguf\nWARN: This is an experimental CLI for testing multimodal capability.\n      For normal use cases, please use the standard llama-cli\nencoding audio slice...\naudio slice encoded in 1588 ms\ndecoding audio batch 1/1, n_tokens_batch = 187\naudio decoded (batch 1/1) in 3 ms\nllama_perf_context_print:        load time =    1044.13 ms\nllama_perf_context_print: prompt eval time =    9070.45 ms /  1544 tokens (    5.87 ms per token,   170.22 tokens per second)\nllama_perf_context_print:        eval time =    1620.74 ms /    33 runs   (   49.11 ms per token,    20.36 tokens per second)\nllama_perf_context_print:       total time =   11106.20 ms /  1577 tokens\nllama_perf_context_print:    graphs reused =         32\nggml_metal_free: deallocating\nggml_metal_free: deallocating\n"
+    },
+    {
+      "candidate_index": 5,
+      "candidate": {
+        "segment_index": 28,
+        "segment_text": "I had, for what it's worth, I had another one of these for Legalist, for JAMS, and we moved one of the calls and there was no issue with, there was no issue with that. Um, but that's it.",
+        "segment_start_char": 2778,
+        "find_start": 176,
+        "find_end": 185,
+        "find": "that's it",
+        "replace": "that said",
+        "audio_start": 189.36,
+        "audio_end": 202.34
+      },
+      "decision": "apply_patch",
+      "confidence": 1.0,
+      "reason": "The phrase 'that said' fits the context and completes the sentence logically.",
+      "heard": null,
+      "fill": "that said",
+      "applied": true,
+      "elapsed_seconds": 12.810438871383667,
+      "raw_tail": " flash attention is enabled\ninit_audio: audio input is in experimental stage and may have reduced quality:\n    https://github.com/ggml-org/llama.cpp/discussions/13759\nmain: loading model: voxtral-small/Voxtral-Small-24B-Q4_K_M.gguf\nWARN: This is an experimental CLI for testing multimodal capability.\n      For normal use cases, please use the standard llama-cli\nencoding audio slice...\naudio slice encoded in 1584 ms\ndecoding audio batch 1/1, n_tokens_batch = 187\naudio decoded (batch 1/1) in 4 ms\nllama_perf_context_print:        load time =    1035.21 ms\nllama_perf_context_print: prompt eval time =    9044.35 ms /  1545 tokens (    5.85 ms per token,   170.82 tokens per second)\nllama_perf_context_print:        eval time =    1521.13 ms /    31 runs   (   49.07 ms per token,    20.38 tokens per second)\nllama_perf_context_print:       total time =   10983.01 ms /  1576 tokens\nllama_perf_context_print:    graphs reused =         30\nggml_metal_free: deallocating\nggml_metal_free: deallocating\n"
+    },
+    {
+      "candidate_index": 6,
+      "candidate": {
+        "segment_index": 33,
+        "segment_text": "Oh, gosh. Well, I told him, I told him we were having a call. Okay, yeah.",
+        "segment_start_char": 3149,
+        "find_start": 0,
+        "find_end": 8,
+        "find": "Oh, gosh",
+        "replace": "That was fast",
+        "audio_start": 215.2,
+        "audio_end": 220.44
+      },
+      "decision": "apply_patch",
+      "confidence": 1.0,
+      "reason": "The phrase 'That was fast' fits the context of the conversation, indicating a quick response or action.",
+      "heard": null,
+      "fill": "That was fast",
+      "applied": true,
+      "elapsed_seconds": 12.801252841949463,
+      "raw_tail": " flash attention is enabled\ninit_audio: audio input is in experimental stage and may have reduced quality:\n    https://github.com/ggml-org/llama.cpp/discussions/13759\nmain: loading model: voxtral-small/Voxtral-Small-24B-Q4_K_M.gguf\nWARN: This is an experimental CLI for testing multimodal capability.\n      For normal use cases, please use the standard llama-cli\nencoding audio slice...\naudio slice encoded in 1554 ms\ndecoding audio batch 1/1, n_tokens_batch = 187\naudio decoded (batch 1/1) in 4 ms\nllama_perf_context_print:        load time =    1017.38 ms\nllama_perf_context_print: prompt eval time =    8794.39 ms /  1518 tokens (    5.79 ms per token,   172.61 tokens per second)\nllama_perf_context_print:        eval time =    1873.66 ms /    38 runs   (   49.31 ms per token,    20.28 tokens per second)\nllama_perf_context_print:       total time =   11083.84 ms /  1556 tokens\nllama_perf_context_print:    graphs reused =         36\nggml_metal_free: deallocating\nggml_metal_free: deallocating\n"
+    }
+  ]
+}

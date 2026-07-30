@@ -1,0 +1,86 @@
+{
+  "source": "../vibevoice-test/vibevoice_with_context.json",
+  "injections": [
+    {
+      "segment_index": 1,
+      "start": 2.78,
+      "end": 5.26,
+      "original_phrase": "Brant Kuehn",
+      "replacement_phrase": "Bernard Cohen",
+      "why_audible": "Different proper name; audio clearly enunciates 'Brant Kuehn'.",
+      "original_text": "Hello, this is Brant Kuehn.",
+      "corrupted_text": "Hello, this is Bernard Cohen."
+    },
+    {
+      "segment_index": 2,
+      "start": 5.26,
+      "end": 6.87,
+      "original_phrase": "Marie",
+      "replacement_phrase": "Tracy",
+      "why_audible": "Different proper name; audio clearly says 'Marie'.",
+      "original_text": "Yes, hi, it's Marie.",
+      "corrupted_text": "Yes, hi, it's Tracy."
+    },
+    {
+      "segment_index": 5,
+      "start": 10.07,
+      "end": 16.04,
+      "original_phrase": "mediation",
+      "replacement_phrase": "meditation",
+      "why_audible": "One-letter swap that flips meaning entirely (legal mediation vs sitting silently).",
+      "original_text": "So, uh, yeah, what's, what's going on? You guys have mediation next week?",
+      "corrupted_text": "So, uh, yeah, what's, what's going on? You guys have meditation next week?"
+    },
+    {
+      "segment_index": 8,
+      "start": 23.2,
+      "end": 26.84,
+      "original_phrase": "Virginia counsel",
+      "replacement_phrase": "Florida counsel",
+      "why_audible": "Different state name in legal context; clearly audible.",
+      "original_text": "No, no, she's got, uh, Virginia counsel on that.",
+      "corrupted_text": "No, no, she's got, uh, Florida counsel on that."
+    },
+    {
+      "segment_index": 22,
+      "start": 124.37,
+      "end": 144.25,
+      "original_phrase": "100%",
+      "replacement_phrase": "10%",
+      "why_audible": "Different number; audio clearly states one hundred percent.",
+      "original_text": "100%. I also don't want to incur her costs. I, I think you can pretty much assume if you'll give me, like, 20 minutes after we finish our call, uh, just to confirm, uh, but I think you can pretty much assume that, uh, I'll have client okay to write to the arbitrator, uh, and ask that.",
+      "corrupted_text": "10%. I also don't want to incur her costs. I, I think you can pretty much assume if you'll give me, like, 20 minutes after we finish our call, uh, just to confirm, uh, but I think you can pretty much assume that, uh, I'll have client okay to write to the arbitrator, uh, and ask that."
+    },
+    {
+      "segment_index": 28,
+      "start": 189.36,
+      "end": 202.34,
+      "original_phrase": "JAMS",
+      "replacement_phrase": "AAA",
+      "why_audible": "Different arbitration organization; abbreviations sound different.",
+      "original_text": "I had, for what it's worth, I had another one of these for Legalist, for JAMS, and we moved one of the calls and there was no issue with, there was no issue with that. Um, but that's it.",
+      "corrupted_text": "I had, for what it's worth, I had another one of these for Legalist, for AAA, and we moved one of the calls and there was no issue with, there was no issue with that. Um, but that's it."
+    },
+    {
+      "segment_index": 29,
+      "start": 202.34,
+      "end": 207.78,
+      "original_phrase": "different arbitrator",
+      "replacement_phrase": "different attorney",
+      "why_audible": "Different professional role; words sound nothing alike.",
+      "original_text": "It's also a different arbitrator. They may have different, different policies individually.",
+      "corrupted_text": "It's also a different attorney. They may have different, different policies individually."
+    },
+    {
+      "segment_index": 47,
+      "start": 380.98,
+      "end": 406.4,
+      "original_phrase": "funding",
+      "replacement_phrase": "lunch",
+      "why_audible": "Substantive content swap; clearly different word.",
+      "original_text": "Um, you know, I was not planning on bothering you about funding this week. Um, my understanding was that Legalist isn't open to that, short of, you know, revisiting that potential settlement agreement. Um, but again, you know, I kind of figured, you, you had said, you know, if I get authorization, I'll let you know. And, uh, it sounded to me like you hadn't, so, um, I was dropping it.",
+      "corrupted_text": "Um, you know, I was not planning on bothering you about lunch this week. Um, my understanding was that Legalist isn't open to that, short of, you know, revisiting that potential settlement agreement. Um, but again, you know, I kind of figured, you, you had said, you know, if I get authorization, I'll let you know. And, uh, it sounded to me like you hadn't, so, um, I was dropping it."
+    }
+  ],
+  "skipped": []
+}

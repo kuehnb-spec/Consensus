@@ -134,19 +134,22 @@ actor FluidAsrTranscriptionService {
         let currentDuration = nextWord.end - firstWord.start
         let sentenceEnded = lastWord.word.last.map { ".!?".contains($0) } ?? false
 
-        if gap > 1.1 {
+        // Only split on long pauses (> 2 seconds — someone stopped talking)
+        if gap > 2.0 {
             return true
         }
 
-        if sentenceEnded && (gap > 0.2 || currentDuration >= 3.5 || currentWords.count >= 10) {
+        // Split at sentence boundaries if the segment is already substantial
+        if sentenceEnded && currentDuration >= 8.0 {
             return true
         }
 
-        if currentDuration > 8.0 {
+        // Hard cap at 30 seconds to keep segments manageable
+        if currentDuration > 30.0 {
             return true
         }
 
-        return currentDuration > 5.5 && currentWords.count >= 14
+        return false
     }
 
     private static func buildWordTimings(from tokenTimings: [TokenTiming]) -> [WordTiming] {

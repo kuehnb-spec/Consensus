@@ -81,6 +81,33 @@ enum ConsensusTheme {
         static let danger            = confidenceRed
     }
 
+    // MARK: - Light Mode Colors (Simple Mode)
+
+    enum LightColors {
+        static let background        = Color(red: 0.961, green: 0.961, blue: 0.969)   // #F5F5F7
+        static let surfacePrimary    = Color.white                                      // #FFFFFF
+        static let surfaceSecondary  = Color(red: 0.941, green: 0.941, blue: 0.949)   // #F0F0F2
+        static let surfaceElevated   = Color.white
+
+        static let accent            = Colors.accent                                    // Same indigo
+        static let accentSubtle      = Colors.accent.opacity(0.10)
+        static let accentMuted       = Colors.accent.opacity(0.05)
+
+        static let textPrimary       = Color(red: 0.114, green: 0.114, blue: 0.122)   // #1D1D1F
+        static let textSecondary     = Color(red: 0.431, green: 0.431, blue: 0.451)   // #6E6E73
+        static let textTertiary      = Color(red: 0.682, green: 0.682, blue: 0.698)   // #AEAEB2
+        static let textMuted         = Color(red: 0.800, green: 0.800, blue: 0.812)
+
+        static let border            = Color.black.opacity(0.08)
+        static let borderSubtle      = Color.black.opacity(0.05)
+        static let borderAccent      = Colors.accent.opacity(0.30)
+
+        // Confidence and status colors work on both themes
+        static let confidenceGreen   = Colors.confidenceGreen
+        static let confidenceAmber   = Colors.confidenceAmber
+        static let confidenceRed     = Colors.confidenceRed
+    }
+
     // MARK: - Fonts
 
     enum Fonts {

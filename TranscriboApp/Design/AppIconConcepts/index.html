@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consensus Icon Concepts</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07101d;
+      --panel: rgba(15, 23, 42, 0.78);
+      --border: rgba(148, 163, 184, 0.2);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #6366f1;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(99, 102, 241, 0.18), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(45, 212, 191, 0.12), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      padding: 48px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.5;
+      max-width: 820px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+      margin-top: 32px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 24px;
+      backdrop-filter: blur(18px);
+      box-shadow: 0 18px 48px rgba(2, 6, 23, 0.38);
+    }
+
+    .card img {
+      width: 100%;
+      border-radius: 24px;
+      display: block;
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    .meta {
+      margin-top: 18px;
+    }
+
+    .meta h2 {
+      margin: 0 0 6px;
+      font-size: 21px;
+      font-weight: 650;
+    }
+
+    .tag {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.16);
+      color: #c7d2fe;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 24px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Consensus Icon Concepts</h1>
+  <p>
+    Four directions built around the same dark, precise product language: privacy, waveform analysis,
+    and reconciliation into a final consensus.
+  </p>
+
+  <div class="grid">
+    <article class="card">
+      <img src="consensus-wave-split.svg" alt="Wave Split concept">
+      <div class="meta">
+        <h2>Wave Split</h2>
+        <p>A clean circular mark with a single resolved waveform and endpoint. Strongest “audio becomes consensus” read.</p>
+        <span class="tag">Editorial / Precise</span>
+      </div>
+    </article>
+
+    <article class="card">
+      <img src="consensus-privacy-shield.svg" alt="Privacy Shield concept">
+      <div class="meta">
+        <h2>Privacy Shield</h2>
+        <p>Leans hardest into the app’s local-first promise by combining secure posture with a layered signal motif.</p>
+        <span class="tag">Local / Trustworthy</span>
+      </div>
+    </article>
+
+    <article class="card">
+      <img src="consensus-signal-knot.svg" alt="Signal Knot concept">
+      <div class="meta">
+        <h2>Signal Knot</h2>
+        <p>Two colored passes interlock around a transcript core. Most literal expression of multi-engine reconciliation.</p>
+        <span class="tag">Consensus / Dynamic</span>
+      </div>
+    </article>
+
+    <article class="card">
+      <img src="consensus-monogram-grid.svg" alt="Monogram Grid concept">
+      <div class="meta">
+        <h2>Monogram Grid</h2>
+        <p>A more restrained “C” monogram paired with structured transcript lines. Feels premium and desktop-native.</p>
+        <span class="tag">Brand / Minimal</span>
+      </div>
+    </article>
+  </div>
+</body>
+</html>

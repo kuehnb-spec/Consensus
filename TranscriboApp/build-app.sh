@@ -22,10 +22,14 @@ set -euo pipefail
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="Consensus"
+APP_NAME="Consensus 1.1"
 SWIFT_BINARY_NAME="Consensus"
 BUNDLE_EXECUTABLE="Consensus"
 BUNDLE_ID="com.bdk.consensus"
+BUNDLE_SHORT_VERSION="1.1"
+BUNDLE_VERSION="3"
+ICON_SOURCE_DIR="$SCRIPT_DIR/Design/AppIcon"
+LOGO_SOURCE_PATH="$SCRIPT_DIR/Design/Logo/consensus_logo_transparent.png"
 
 # Parse arguments
 BUILD_CONFIG="debug"
@@ -76,68 +80,32 @@ echo "  Binary: $BINARY"
 
 # --------------------------------------------------------------------------
 # Step 2: Compile Metal shaders into mlx.metallib
+#
+# Delegates to speech-swift's reference script, which compiles the full 32-file
+# kernel set from `Source/Cmlx/mlx/mlx/backend/metal/kernels/`. Previously this
+# script compiled its own subset (9 files) from `mlx-generated/metal/`,
+# producing a 3.1 MB metallib that was missing kernels exercised at runtime.
+# Slice 4 of the Word Timeline Rebuild (Apr 17, 2026) confirmed the
+# discrepancy. See Brainstorming/WORD-TIMELINE-REBUILD-PLAN.md.
 # --------------------------------------------------------------------------
 echo ""
-echo "[2/4] Compiling Metal shaders..."
+echo "[2/4] Compiling Metal shaders via speech-swift reference script..."
 
-MLX_CHECKOUT="$SCRIPT_DIR/.build/checkouts/mlx-swift"
-MLX_METAL_DIR="$MLX_CHECKOUT/Source/Cmlx/mlx-generated/metal"
-AIR_DIR="$BUILD_DIR/metallib-build"
-mkdir -p "$AIR_DIR"
-
-METAL_FLAGS="-Wall -Wextra -fno-fast-math -Wno-c++17-extensions"
-
-# Determine Metal version include path (use 3_1 for macOS 14+, 3_0 for older)
-METAL_VERSION_DIR="$MLX_METAL_DIR/metal_3_1"
-if [ ! -d "$METAL_VERSION_DIR" ]; then
-    METAL_VERSION_DIR="$MLX_METAL_DIR/metal_3_0"
-fi
-
-# Collect all .metal files
-METAL_FILES=()
-for f in "$MLX_METAL_DIR"/*.metal; do
-    [ -f "$f" ] && METAL_FILES+=("$f")
-done
-# Include subdirectory .metal files (steel attention, etc.)
-while IFS= read -r -d '' f; do
-    METAL_FILES+=("$f")
-done < <(find "$MLX_METAL_DIR" -mindepth 2 -name "*.metal" -print0 2>/dev/null)
-
-AIR_FILES=()
-COMPILE_FAILED=false
-
-for metal_file in "${METAL_FILES[@]}"; do
-    base=$(basename "$metal_file" .metal)
-    air_file="$AIR_DIR/${base}.air"
-
-    if xcrun -sdk macosx metal $METAL_FLAGS \
-        -c "$metal_file" \
-        -I"$MLX_METAL_DIR" \
-        -I"$METAL_VERSION_DIR" \
-        -o "$air_file" 2>&1; then
-        AIR_FILES+=("$air_file")
-        echo "  Compiled: $base.metal"
-    else
-        echo "  FAILED:   $base.metal"
-        COMPILE_FAILED=true
-    fi
-done
-
-if [ ${#AIR_FILES[@]} -eq 0 ]; then
-    echo "Error: No Metal shaders compiled successfully"
+SPEECH_SWIFT_SCRIPT="$SCRIPT_DIR/.build/checkouts/speech-swift/scripts/build_mlx_metallib.sh"
+if [ ! -x "$SPEECH_SWIFT_SCRIPT" ]; then
+    echo "Error: speech-swift metallib script not found at $SPEECH_SWIFT_SCRIPT"
+    echo "Run 'swift package resolve' first."
     exit 1
 fi
 
-if $COMPILE_FAILED; then
-    echo "Warning: Some Metal shaders failed to compile (continuing with available ones)"
-fi
+BUILD_DIR="$SCRIPT_DIR/.build" "$SPEECH_SWIFT_SCRIPT" "$BUILD_CONFIG"
 
-# Link all .air files into mlx.metallib
-METALLIB_PATH="$AIR_DIR/mlx.metallib"
-echo ""
-echo "  Linking ${#AIR_FILES[@]} shaders into mlx.metallib..."
-xcrun -sdk macosx metallib "${AIR_FILES[@]}" -o "$METALLIB_PATH" 2>&1
-echo "  Created: $METALLIB_PATH ($(du -h "$METALLIB_PATH" | cut -f1))"
+METALLIB_PATH="$SCRIPT_DIR/.build/$BUILD_CONFIG/mlx.metallib"
+if [ ! -f "$METALLIB_PATH" ]; then
+    echo "Error: speech-swift script ran but mlx.metallib not found at $METALLIB_PATH"
+    exit 1
+fi
+echo "  Metallib: $METALLIB_PATH ($(du -h "$METALLIB_PATH" | cut -f1))"
 
 # --------------------------------------------------------------------------
 # Step 3: Assemble the .app bundle
@@ -145,10 +113,13 @@ echo "  Created: $METALLIB_PATH ($(du -h "$METALLIB_PATH" | cut -f1))"
 echo ""
 echo "[3/4] Assembling app bundle..."
 
-APP_DIR="$SCRIPT_DIR/build/Consensus.app"
+APP_DIR="$SCRIPT_DIR/build/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+ICONSET_DIR="$BUILD_DIR/AppIcon.iconset"
+APP_ICON_PATH="$RESOURCES_DIR/AppIcon.icns"
+LOGO_DESTINATION_PATH="$RESOURCES_DIR/consensus_logo_transparent.png"
 
 # Clean previous build
 rm -rf "$APP_DIR"
@@ -162,6 +133,36 @@ cp "$METALLIB_PATH" "$MACOS_DIR/mlx.metallib"
 
 # Also place in Resources/ (search path #2 in device.cpp: "Resources/mlx")
 cp "$METALLIB_PATH" "$RESOURCES_DIR/mlx.metallib"
+
+# Build and copy the macOS app icon if source PNGs are available
+if [ -d "$ICON_SOURCE_DIR" ]; then
+    rm -rf "$ICONSET_DIR"
+    mkdir -p "$ICONSET_DIR"
+
+    cp "$ICON_SOURCE_DIR/icon_16x16.png" "$ICONSET_DIR/icon_16x16.png"
+    cp "$ICON_SOURCE_DIR/icon_32x32.png" "$ICONSET_DIR/icon_16x16@2x.png"
+    cp "$ICON_SOURCE_DIR/icon_32x32.png" "$ICONSET_DIR/icon_32x32.png"
+    cp "$ICON_SOURCE_DIR/icon_64x64.png" "$ICONSET_DIR/icon_32x32@2x.png"
+    cp "$ICON_SOURCE_DIR/icon_128x128.png" "$ICONSET_DIR/icon_128x128.png"
+    cp "$ICON_SOURCE_DIR/icon_256x256.png" "$ICONSET_DIR/icon_128x128@2x.png"
+    cp "$ICON_SOURCE_DIR/icon_256x256.png" "$ICONSET_DIR/icon_256x256.png"
+    cp "$ICON_SOURCE_DIR/icon_512x512.png" "$ICONSET_DIR/icon_256x256@2x.png"
+    cp "$ICON_SOURCE_DIR/icon_512x512.png" "$ICONSET_DIR/icon_512x512.png"
+    cp "$ICON_SOURCE_DIR/icon_1024x1024.png" "$ICONSET_DIR/icon_512x512@2x.png"
+
+    iconutil -c icns "$ICONSET_DIR" -o "$APP_ICON_PATH"
+    echo "  Created app icon: $APP_ICON_PATH"
+else
+    echo "  Warning: Icon source directory not found at $ICON_SOURCE_DIR"
+fi
+
+# Copy the brand logo into the bundle for future in-app use
+if [ -f "$LOGO_SOURCE_PATH" ]; then
+    cp "$LOGO_SOURCE_PATH" "$LOGO_DESTINATION_PATH"
+    echo "  Copied logo: $LOGO_DESTINATION_PATH"
+else
+    echo "  Warning: Logo source not found at $LOGO_SOURCE_PATH"
+fi
 
 # Copy any SPM resource bundles that exist alongside the built binary
 for bundle in "$BUILD_DIR"/*.bundle; do
@@ -187,17 +188,17 @@ cat > "$CONTENTS_DIR/Info.plist" << 'PLIST'
     <key>CFBundleIdentifier</key>
     <string>com.bdk.consensus</string>
     <key>CFBundleDisplayName</key>
-    <string>Consensus</string>
+    <string>__APP_NAME__</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Consensus</string>
+    <string>__APP_NAME__</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>__BUNDLE_SHORT_VERSION__</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>__BUNDLE_VERSION__</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
     <key>NSHighResolutionCapable</key>
@@ -209,6 +210,12 @@ cat > "$CONTENTS_DIR/Info.plist" << 'PLIST'
 </dict>
 </plist>
 PLIST
+
+sed -i '' \
+    -e "s|__APP_NAME__|$APP_NAME|g" \
+    -e "s|__BUNDLE_SHORT_VERSION__|$BUNDLE_SHORT_VERSION|g" \
+    -e "s|__BUNDLE_VERSION__|$BUNDLE_VERSION|g" \
+    "$CONTENTS_DIR/Info.plist"
 
 echo "  App bundle: $APP_DIR"
 

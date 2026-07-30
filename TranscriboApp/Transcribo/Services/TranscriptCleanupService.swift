@@ -178,9 +178,6 @@ actor TranscriptCleanupService {
             throw TranscriboError.transcriptionFailed("No cleanup model loaded for diarization resolution.")
         }
 
-        // Find segments where the passes disagree
-        let balanced = multiResult.passes.count > 1 ? multiResult.passes[1].segments : multiResult.passes[0].segments
-
         // Build a context window around each disagreement for LLM analysis
         var disagreements: [(index: Int, segment: DiarizationSegment, candidates: [String: String])] = []
 
@@ -216,9 +213,11 @@ actor TranscriptCleanupService {
             instructions: """
             You are a speaker diarization expert. Given a transcript with speaker attribution \
             disagreements between multiple analysis passes, determine the most likely correct \
-            speaker for each disputed segment. Consider conversational flow, topic continuity, \
-            pronouns, and logical consistency. Respond with ONLY the segment numbers and your \
-            chosen speaker ID, one per line, in the format: SEGMENT_N: SPEAKER_ID
+            speaker for each disputed segment. The candidate speaker IDs have already been \
+            aligned into a shared label space across passes. Consider conversational flow, \
+            topic continuity, pronouns, and logical consistency. Respond with ONLY the \
+            segment numbers and your chosen speaker ID, one per line, in the format: \
+            SEGMENT_N: SPEAKER_ID
             """,
             generateParameters: GenerateParameters(maxTokens: 2048, temperature: 0.1, topP: 0.95)
         )
@@ -297,8 +296,8 @@ actor TranscriptCleanupService {
         """]
 
         for (i, row) in discrepancies.enumerated() {
-            let refSpeaker = speakerMapping.displayName(for: row.referenceSpeakerID ?? "UNKNOWN")
-            let candSpeaker = speakerMapping.displayName(for: row.candidateSpeakerID ?? "UNKNOWN")
+            let refSpeaker = speakerMapping.displayName(for: row.referenceSpeakerID)
+            let candSpeaker = speakerMapping.displayName(for: row.candidateSpeakerID)
 
             promptLines.append("--- ITEM \(i + 1) [\(TimeFormatting.timestamp(row.start))] ---")
             promptLines.append("A (\(refSpeaker)): \(row.referenceText)")
@@ -363,6 +362,146 @@ actor TranscriptCleanupService {
         return PreResolutionResult(choices: choices, trivialRowIDs: trivialRowIDs)
     }
 
+    /// Candidate speaker boundaries discovered by any diarization pass.
+    struct CandidateBoundary: Sendable {
+        let time: TimeInterval
+        let beforeSpeaker: String
+        let afterSpeaker: String
+        let detectedByCount: Int  // how many passes detected this boundary
+        let totalPasses: Int
+    }
+
+    /// Result of LLM boundary confirmation.
+    struct BoundaryConfirmation: Sendable {
+        let time: TimeInterval
+        let isConfirmed: Bool
+    }
+
+    /// Use LLM to confirm or reject candidate speaker boundaries based on transcript context.
+    ///
+    /// Given a list of candidate speaker-change points (from multiple diarization passes),
+    /// the LLM reads the surrounding transcript text and decides whether each boundary
+    /// represents a real speaker change based on conversational patterns.
+    func confirmSpeakerBoundaries(
+        candidates: [CandidateBoundary],
+        transcriptionSegments: [TranscriptionSegment],
+        speakerMapping: SpeakerMapping
+    ) async throws -> [BoundaryConfirmation] {
+        guard let container = modelContainer else {
+            throw TranscriboError.transcriptionFailed("No cleanup model loaded.")
+        }
+
+        guard !candidates.isEmpty else { return [] }
+
+        // Build the prompt with transcript context around each candidate boundary
+        var promptLines: [String] = ["""
+        You are analyzing a transcript of a conversation. \
+        Multiple speaker-detection systems were run on the audio. Most of the time they agree, \
+        but at certain points, some systems detected a speaker change that others missed.
+
+        For each candidate speaker change below, I'll show you the transcript text around that \
+        point with speaker labels. Based on the conversational context, decide whether a \
+        DIFFERENT person is likely speaking after the marked point.
+
+        Key patterns that indicate a real speaker change:
+        - Short acknowledgments ("Okay.", "Right.", "Yeah.", "Gotcha.", "Mm-hmm.") between longer statements
+        - A question followed by an answer
+        - A statement followed by "So..." or "Well..." starting a new thought from a different perspective
+        - Change in pronoun perspective ("we filed" -> "you filed")
+        - Change in knowledge perspective (explaining something -> asking about it)
+        - A speaker switching mid-sentence to respond before the other finishes
+
+        Key patterns that indicate NO speaker change (same person continuing):
+        - Continuing the same thought with "And...", "So...", "But..."
+        - Self-correction or rephrasing
+        - Listing multiple items
+        - Filler words mid-sentence ("um", "uh", "you know")
+        - Pausing then resuming the same idea
+
+        For each item, respond with ONLY the number and YES or NO:
+        1: YES
+        2: NO
+        3: YES
+
+        """]
+
+        for (i, candidate) in candidates.enumerated() {
+            // Get ~15 seconds of transcript before and after the candidate boundary
+            let beforeSegments = transcriptionSegments.filter {
+                $0.end <= candidate.time + 1 && $0.start >= candidate.time - 15
+            }
+            let afterSegments = transcriptionSegments.filter {
+                $0.start >= candidate.time - 1 && $0.end <= candidate.time + 15
+            }
+
+            // Include speaker labels in the context so the LLM can see who's talking
+            let beforeText = beforeSegments
+                .map { seg in
+                    let name = speakerMapping.displayName(for: seg.speakerID)
+                    return "[\(name)]: \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"
+                }
+                .joined(separator: " ")
+                .suffix(300)
+
+            let afterText = afterSegments
+                .map { seg in
+                    let name = speakerMapping.displayName(for: seg.speakerID)
+                    return "[\(name)]: \(seg.text.trimmingCharacters(in: .whitespacesAndNewlines))"
+                }
+                .joined(separator: " ")
+                .prefix(300)
+
+            let detectionInfo = "\(candidate.detectedByCount) of \(candidate.totalPasses) systems detected a change here"
+            let currentSpeaker = speakerMapping.displayName(for: candidate.beforeSpeaker)
+
+            promptLines.append("--- BOUNDARY \(i + 1) at \(TimeFormatting.timestamp(candidate.time)) (\(detectionInfo)) ---")
+            promptLines.append("Currently labeled as \(currentSpeaker) speaking throughout.")
+            promptLines.append("BEFORE: ...\(beforeText)")
+            promptLines.append(">>> POSSIBLE SPEAKER CHANGE <<<")
+            promptLines.append("AFTER: \(afterText)...")
+            promptLines.append("")
+        }
+
+        let isQwen = loadedModelID?.lowercased().contains("qwen") ?? false
+        let effectivePrompt = isQwen ? "/no_think\n\(promptLines.joined(separator: "\n"))" : promptLines.joined(separator: "\n")
+
+        let session = ChatSession(
+            container,
+            instructions: """
+            You are a conversation analysis expert. Your job is to identify real speaker changes \
+            in a transcript based on conversational context. Be AGGRESSIVE about finding real \
+            speaker changes — short responses like "Okay", "Right", "Yeah", "Gotcha" between \
+            longer statements are almost always a different person. Respond with ONLY numbers \
+            and YES/NO, nothing else.
+            """,
+            generateParameters: GenerateParameters(maxTokens: 1024, temperature: 0.1, topP: 0.95)
+        )
+
+        let response = try await session.respond(to: effectivePrompt)
+
+        // Parse YES/NO responses
+        var confirmations: [BoundaryConfirmation] = []
+        let lines = response.components(separatedBy: .newlines)
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let parts = trimmed.components(separatedBy: ":")
+            guard parts.count >= 2,
+                  let num = Int(parts[0].trimmingCharacters(in: .whitespaces)),
+                  num >= 1, num <= candidates.count else { continue }
+
+            let answer = parts[1].trimmingCharacters(in: .whitespaces).uppercased()
+            let isConfirmed = answer.contains("YES")
+
+            confirmations.append(BoundaryConfirmation(
+                time: candidates[num - 1].time,
+                isConfirmed: isConfirmed
+            ))
+        }
+
+        return confirmations
+    }
+
     func unloadModel() {
         modelContainer = nil
         loadedModelID = nil
@@ -395,7 +534,7 @@ actor TranscriptCleanupService {
     ) -> String {
         var lines: [String] = ["The following segments have speaker attribution disagreements between multiple diarization passes.\n"]
 
-        for (i, d) in disagreements.enumerated() {
+        for d in disagreements {
             // Find transcript text near this time
             let nearbyText = transcriptionSegments
                 .filter { $0.start >= d.segment.start - 10 && $0.end <= d.segment.end + 10 }
@@ -403,7 +542,7 @@ actor TranscriptCleanupService {
                 .joined(separator: "\n")
 
             lines.append("--- SEGMENT_\(d.index) [\(TimeFormatting.timestamp(d.segment.start)) - \(TimeFormatting.timestamp(d.segment.end))] ---")
-            lines.append("Candidate speakers: \(d.candidates.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))")
+            lines.append("Candidate speakers (aligned IDs): \(d.candidates.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))")
             lines.append("Context:\n\(nearbyText)")
             lines.append("")
         }
@@ -417,6 +556,11 @@ actor TranscriptCleanupService {
     ) -> [(index: Int, speakerID: String)] {
         var corrections: [(index: Int, speakerID: String)] = []
         let lines = response.components(separatedBy: .newlines)
+        let validSpeakerIDsBySegment = Dictionary(
+            uniqueKeysWithValues: disagreements.map { disagreement in
+                (disagreement.index, Set(disagreement.candidates.values))
+            }
+        )
 
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -427,7 +571,10 @@ actor TranscriptCleanupService {
                   let segIndex = Int(parts[0].trimmingCharacters(in: .whitespaces)) else { continue }
 
             let speakerID = parts[1].trimmingCharacters(in: .whitespaces)
-            guard !speakerID.isEmpty else { continue }
+            guard !speakerID.isEmpty,
+                  validSpeakerIDsBySegment[segIndex]?.contains(speakerID) == true else {
+                continue
+            }
 
             corrections.append((index: segIndex, speakerID: speakerID))
         }

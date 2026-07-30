@@ -52,15 +52,22 @@ actor SpeakerKitDiarizationService {
             }
         )
 
-        // Convert SpeakerSegments to our DiarizationSegment type
+        // Convert SpeakerSegments to our DiarizationSegment type.
+        // SpeakerKit does not expose a per-segment confidence, so we derive a duration-based
+        // proxy: longer segments are more reliable than micro-segments (which are typically
+        // noise or brief false flips). The proxy saturates at ~3 seconds — beyond that,
+        // duration adds little additional evidence.
         return result.segments.compactMap { segment -> DiarizationSegment? in
             guard let speakerID = segment.speaker.speakerId else { return nil }
+
+            let duration = Float(segment.endTime - segment.startTime)
+            let durationProxy = max(0.35, min(0.95, 0.35 + duration * 0.25))
 
             return DiarizationSegment(
                 speakerID: "SPEAKER_\(speakerID)",
                 start: TimeInterval(segment.startTime),
                 end: TimeInterval(segment.endTime),
-                qualityScore: 1.0  // SpeakerKit doesn't expose per-segment quality
+                qualityScore: durationProxy
             )
         }
     }
@@ -87,6 +94,61 @@ actor SpeakerKitDiarizationService {
         }
 
         return results
+    }
+
+    /// Run diarization on a specific time range of the audio file.
+    /// Extracts a clip from `clipStart` to `clipEnd` and diarizes just that portion.
+    /// Returns segments with timestamps relative to the ORIGINAL audio (not the clip).
+    func diarizeFocused(
+        audioURL: URL,
+        clipStart: TimeInterval,
+        clipEnd: TimeInterval,
+        numberOfSpeakers: Int? = nil
+    ) async throws -> [DiarizationSegment] {
+        if speakerKit == nil {
+            try await prepareModels()
+        }
+
+        guard let speakerKit else {
+            throw ConsensusError.diarizationFailed("SpeakerKit models not loaded.")
+        }
+
+        // Load the full audio as PCM
+        let fullAudio = try await loadAudioAsPCM(url: audioURL)
+        let sampleRate: Double = 16000
+
+        // Extract the clip
+        let startSample = max(0, Int(clipStart * sampleRate))
+        let endSample = min(fullAudio.count, Int(clipEnd * sampleRate))
+        guard startSample < endSample else {
+            return []
+        }
+
+        let clipAudio = Array(fullAudio[startSample..<endSample])
+
+        // Configure and run diarization on the clip
+        var options = PyannoteDiarizationOptions()
+        if let numberOfSpeakers {
+            options.numberOfSpeakers = numberOfSpeakers
+        }
+
+        let result = try await speakerKit.diarize(
+            audioArray: clipAudio,
+            options: options,
+            progressCallback: { _ in }
+        )
+
+        // Convert segments and offset timestamps back to original audio timeline
+        return result.segments.compactMap { segment -> DiarizationSegment? in
+            guard let speakerID = segment.speaker.speakerId else { return nil }
+
+            return DiarizationSegment(
+                speakerID: "SPEAKER_\(speakerID)",
+                start: TimeInterval(segment.startTime) + clipStart,
+                end: TimeInterval(segment.endTime) + clipStart,
+                qualityScore: 1.0
+            )
+        }
     }
 
     func unload() async {

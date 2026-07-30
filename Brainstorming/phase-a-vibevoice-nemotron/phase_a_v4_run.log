@@ -1,0 +1,31 @@
+[v4] judge reviewing 23 disagreement spans at threshold=0.75
+[v4] 1/23 [keep:length_mismatch (a=5w vs] verdict=replace_with_b conf=0.95 (17.4s; total 17s; eta 383s)
+[v4] 2/23 [keep:length_mismatch (a=4w vs] verdict=replace_with_b conf=0.95 (17.4s; total 35s; eta 366s)
+[v4] 3/23 [keep:length_mismatch (a=5w vs] verdict=replace_with_b conf=0.95 (22.5s; total 57s; eta 383s)
+[v4] 4/23 [keep:judge_says_keep_a] verdict=keep_a conf=0.00 (19.0s; total 76s; eta 363s)
+[v4] 5/23 [keep:length_mismatch (a=13w v] verdict=replace_with_b conf=0.95 (18.4s; total 95s; eta 341s)
+[v4] 6/23 [FLIP] verdict=replace_with_b conf=0.95 (42.7s; total 138s; eta 390s)
+[v4] 7/23 [keep:judge_says_keep_a] verdict=keep_a conf=0.00 (58.0s; total 196s; eta 447s)
+[v4] 8/23 [keep:judge_says_keep_a] verdict=keep_a conf=0.00 (18.2s; total 214s; eta 401s)
+[v4] 9/23 [keep:judge_says_keep_a] verdict=keep_a conf=0.00 (28.8s; total 243s; eta 378s)
+[v4] 10/23 [FLIP] verdict=replace_with_b conf=0.95 (50.6s; total 293s; eta 381s)
+[v4] 11/23 [FLIP] verdict=replace_with_b conf=0.95 (27.3s; total 321s; eta 350s)
+[v4] 12/23 [FLIP] verdict=replace_with_b conf=0.95 (27.8s; total 349s; eta 320s)
+[v4] 13/23 [keep:judge_says_keep_a] verdict=keep_a conf=0.00 (20.8s; total 369s; eta 284s)
+[v4] 14/23 [keep:length_mismatch (a=17w v] verdict=replace_with_b conf=0.95 (53.0s; total 422s; eta 272s)
+[v4] 15/23 [keep:judge_says_keep_a] verdict=keep_a conf=0.00 (49.0s; total 471s; eta 251s)
+[v4] 16/23 [keep:judge_says_keep_a] verdict=keep_a conf=0.00 (20.7s; total 492s; eta 215s)
+[v4] 17/23 [keep:judge_says_keep_a] verdict=keep_a conf=0.00 (33.8s; total 526s; eta 186s)
+[v4] 18/23 [keep:judge_says_keep_a] verdict=keep_a conf=0.00 (21.8s; total 548s; eta 152s)
+[v4] 19/23 [FLIP] verdict=replace_with_b conf=0.95 (39.4s; total 587s; eta 124s)
+[v4] 20/23 [keep:length_mismatch (a=72w v] verdict=replace_with_b conf=0.95 (25.8s; total 613s; eta 92s)
+[v4] 21/23 [keep:judge_says_keep_a] verdict=keep_a conf=0.00 (16.7s; total 630s; eta 60s)
+[v4] 22/23 [keep:length_mismatch (a=136w ] verdict=replace_with_other conf=0.95 (28.8s; total 659s; eta 30s)
+[v4] 23/23 [FLIP] verdict=replace_with_b conf=0.95 (35.9s; total 695s; eta 0s)
+
+[v4] done.
+  spans reviewed:        23
+  applied corrections:   6
+  rejection breakdown:   {'length_mismatch (a=5w vs corrected=1w; ratio 0.20)': 1, 'length_mismatch (a=4w vs corrected=1w; ratio 0.25)': 1, 'length_mismatch (a=5w vs corrected=19w; ratio 3.80)': 1, 'judge_says_keep_a': 10, 'length_mismatch (a=13w vs corrected=2w; ratio 0.15)': 1, 'length_mismatch (a=17w vs corrected=1w; ratio 0.06)': 1, 'length_mismatch (a=72w vs corrected=20w; ratio 0.28)': 1, 'length_mismatch (a=136w vs corrected=6w; ratio 0.04)': 1}
+  total review time:     694s
+  wall clock:            695s

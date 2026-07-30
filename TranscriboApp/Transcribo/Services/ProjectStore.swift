@@ -72,6 +72,18 @@ actor ProjectStore {
         try data.write(to: projectFileURL(for: project.id), options: .atomic)
     }
 
+    func deleteProject(id: UUID) throws {
+        let directoryURL = projectDirectoryURL(for: id)
+        if fileManager.fileExists(atPath: directoryURL.path) {
+            try fileManager.removeItem(at: directoryURL)
+        }
+    }
+
+    /// Returns the file URL for a project's JSON file, for sharing via the system share sheet.
+    func shareableFileURL(for id: UUID) -> URL {
+        projectFileURL(for: id)
+    }
+
     private func ensureProjectsDirectoryExists() throws {
         try fileManager.createDirectory(at: projectsDirectoryURL, withIntermediateDirectories: true)
     }

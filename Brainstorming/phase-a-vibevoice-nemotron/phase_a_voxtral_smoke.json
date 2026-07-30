@@ -1,0 +1,35 @@
+{
+  "engine": "VibeVoice + Nemotron 3 Nano Omni review (standard-of-proof)",
+  "principle": "VibeVoice presumed correct; Nemotron only overturns with confidence>=threshold AND non-trivial diff AND evidence",
+  "context": "Brant Kuehn, Marie Larsen, Legalist, JAMS, arbitrator, mediation, Virginia counsel, Anthony",
+  "vibevoice_segments": 51,
+  "reviewed_segments": 3,
+  "applied_corrections": 0,
+  "rejections_by_reason": {
+    "nemotron_says_correct": 2
+  },
+  "parse_errors": 0,
+  "threshold": 0.75,
+  "review_seconds_total": 7.28155779838562,
+  "wall_clock_seconds_total": 7.337284088134766,
+  "segments": [
+    {
+      "speaker_id": null,
+      "start": 0.0,
+      "end": 2.78,
+      "text": "[Music]"
+    },
+    {
+      "speaker_id": 0,
+      "start": 2.78,
+      "end": 5.26,
+      "text": "Hello, this is Brant Kuehn."
+    },
+    {
+      "speaker_id": 1,
+      "start": 5.26,
+      "end": 6.87,
+      "text": "Yes, hi, it's Marie."
+    }
+  ]
+}

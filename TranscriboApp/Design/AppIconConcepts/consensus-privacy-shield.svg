@@ -1,0 +1,41 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="142" y1="88" x2="888" y2="938" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#132238"/>
+      <stop offset="0.45" stop-color="#0A1121"/>
+      <stop offset="1" stop-color="#050810"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="512" y1="224" x2="512" y2="816" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E2E8F0" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#94A3B8" stop-opacity="0.92"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="322" y1="388" x2="700" y2="664" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8FA1FF"/>
+      <stop offset="0.5" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#34D399"/>
+    </linearGradient>
+    <filter id="shadow" x="224" y="166" width="576" height="706" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="26" stdDeviation="34" flood-color="#02040A" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect x="64" y="64" width="896" height="896" rx="228" fill="url(#bg)"/>
+  <rect x="64.5" y="64.5" width="895" height="895" rx="227.5" stroke="white" stroke-opacity="0.12"/>
+
+  <g filter="url(#shadow)">
+    <path d="M512 222L734 310V478C734 616 644 741 512 802C380 741 290 616 290 478V310L512 222Z"
+      fill="url(#shield)"/>
+    <path d="M512 278L676 342V475C676 579 611 672 512 728C413 672 348 579 348 475V342L512 278Z"
+      fill="#0F172A"/>
+
+    <path d="M380 520C419 464 464 436 512 436C560 436 605 464 644 520"
+      stroke="url(#signal)" stroke-width="34" stroke-linecap="round"/>
+    <path d="M408 584C441 541 476 520 512 520C548 520 583 541 616 584"
+      stroke="url(#signal)" stroke-width="30" stroke-linecap="round"/>
+    <path d="M448 644C468 620 489 608 512 608C535 608 556 620 576 644"
+      stroke="url(#signal)" stroke-width="28" stroke-linecap="round"/>
+
+    <circle cx="512" cy="696" r="34" fill="#F8FAFC"/>
+    <circle cx="512" cy="696" r="14" fill="#6366F1"/>
+  </g>
+</svg>

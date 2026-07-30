@@ -28,6 +28,7 @@ final class TranscriptionPipeline {
 
     private let transcriptionService = TranscriptionService()
     private let fluidAsrService = FluidAsrTranscriptionService()
+    private let vibevoiceService = VibeVoiceTranscriptionService()
     private let diarizationService = DiarizationService()
 
     /// Optional process log for detailed status updates.
@@ -58,6 +59,10 @@ final class TranscriptionPipeline {
             language: language
         )
     }
+
+    /// When true, the pipeline skips diarization and returns segments with "UNKNOWN" speaker IDs.
+    /// Used for Deep Review's Engine B pass where we only need the text + word timings.
+    var skipDiarization: Bool = false
 
     func run(
         audioURL: URL,
@@ -149,6 +154,11 @@ final class TranscriptionPipeline {
                         }
                     }
                 )
+            case .vibevoice:
+                if let issue = VibeVoiceTranscriptionService.availabilityError() {
+                    throw ConsensusError.modelDownloadFailed(issue)
+                }
+                state = .downloadingModel(progress: 1.0)
             }
             log("Model ready", level: .success)
         } catch is CancellationError {
@@ -195,6 +205,28 @@ final class TranscriptionPipeline {
                         }
                     }
                 )
+            case .vibevoice(_, let context):
+                segments = try await vibevoiceService.transcribe(
+                    audioURL: audioURL,
+                    context: context,
+                    audioDuration: audioInfo.duration,
+                    progressCallback: { [weak self] progress, status, recentText, tokenCount, tokensPerSecond in
+                        Task { @MainActor in
+                            // Show the rolling transcript snippet in the
+                            // pipeline state so the legacy progress card
+                            // surfaces the same live text the rewritten UI
+                            // does. Status (token count, tps) is logged
+                            // separately via processLog.
+                            self?.state = .transcribing(progress: progress, currentText: recentText)
+                            if let recentText, !recentText.isEmpty {
+                                self?.processLog?.setOutput(recentText)
+                            }
+                            _ = status
+                            _ = tokenCount
+                            _ = tokensPerSecond
+                        }
+                    }
+                )
             }
             log("Transcription complete: \(segments.count) segments", level: .success)
         } catch is CancellationError {
@@ -208,41 +240,51 @@ final class TranscriptionPipeline {
 
         try Task.checkCancellation()
 
-        // Step 4: Speaker diarization
-        state = .diarizing
-        log("Starting speaker diarization (\(diarizationEngine.displayName))...", level: .progress)
+        // Step 4: Speaker diarization (skipped for text-only comparison passes
+        // AND for engines that emit their own speaker labels — VibeVoice in particular).
         let finalSegments: [TranscriptionSegment]
 
-        do {
-            let diarizationSegments = try await diarizationService.diarize(
-                audioURL: audioURL,
-                engine: diarizationEngine,
-                minSpeakers: minSpeakers,
-                maxSpeakers: maxSpeakers
-            )
-
-            let speakerCount = Set(diarizationSegments.map(\.speakerID)).count
-            log("Diarization complete: \(speakerCount) speakers identified, \(diarizationSegments.count) segments", level: .success)
-
-            try Task.checkCancellation()
-
-            // Step 4b: Merge transcription segments with diarization speaker labels
-            state = .mergingResults
-            log("Merging transcription with speaker labels...", level: .progress)
-            finalSegments = SegmentMerger.merge(
-                transcriptionSegments: segments,
-                diarizationSegments: diarizationSegments
-            )
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            // If diarization fails, continue with unspeakered segments
-            let warning = "Diarization failed. The transcript is still available, but speaker labels may be incomplete. \(error.localizedDescription)"
-            print(warning)
-            lastWarnings.append(warning)
-            log("Diarization failed: \(error.localizedDescription)", level: .warning)
-            log("Continuing without speaker labels", level: .info)
+        if skipDiarization {
+            log("Skipping diarization (text-only comparison pass)", level: .info)
             finalSegments = segments
+        } else if engine.providesOwnDiarization {
+            log("Using engine-provided diarization (\(engine.engineName))", level: .info)
+            finalSegments = segments
+        } else {
+            state = .diarizing
+            log("Starting speaker diarization (\(diarizationEngine.displayName))...", level: .progress)
+
+            do {
+                let diarizationSegments = try await diarizationService.diarize(
+                    audioURL: audioURL,
+                    engine: diarizationEngine,
+                    minSpeakers: minSpeakers,
+                    maxSpeakers: maxSpeakers
+                )
+
+                let speakerCount = Set(diarizationSegments.map(\.speakerID)).count
+                log("Diarization complete: \(speakerCount) speakers identified, \(diarizationSegments.count) segments", level: .success)
+
+                try Task.checkCancellation()
+
+                // Step 4b: Merge transcription segments with diarization speaker labels
+                state = .mergingResults
+                log("Merging transcription with speaker labels...", level: .progress)
+                finalSegments = SegmentMerger.merge(
+                    transcriptionSegments: segments,
+                    diarizationSegments: diarizationSegments
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // If diarization fails, continue with unspeakered segments
+                let warning = "Diarization failed. The transcript is still available, but speaker labels may be incomplete. \(error.localizedDescription)"
+                print(warning)
+                lastWarnings.append(warning)
+                log("Diarization failed: \(error.localizedDescription)", level: .warning)
+                log("Continuing without speaker labels", level: .info)
+                finalSegments = segments
+            }
         }
 
         try Task.checkCancellation()

@@ -1,0 +1,583 @@
+{
+  "engineName": "WhisperKit",
+  "diarizationEngineName": "SpeakerKit",
+  "modelName": "Large v3",
+  "turns": [
+    {
+      "speaker": "UNKNOWN",
+      "start": 3.140000581741333,
+      "end": 4.579999923706055,
+      "text": "Hello, this is Brankine."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 5.71999979019165,
+      "end": 6.599999904632568,
+      "text": "Yes, hi, it's Marie."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 6.960000038146973,
+      "end": 8.399999618530273,
+      "text": "Hey, Maria, thanks for calling."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 9.300000190734863,
+      "end": 9.619999885559082,
+      "text": "Yep."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 10.880001068115234,
+      "end": 13.819999694824219,
+      "text": "So, yeah, what's going on?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 13.819999694824219,
+      "end": 15.380000114440918,
+      "text": "You guys have mediation next week?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 17.260000228881836,
+      "end": 17.81999969482422,
+      "text": "Yes."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 18.6200008392334,
+      "end": 22.399999618530273,
+      "text": "And I take it that you are not leading it, right?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 22.780000686645508,
+      "end": 24.0,
+      "text": "No, no."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 24.260000228881836,
+      "end": 26.399999618530273,
+      "text": "She's got a Virginia council on that."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 27.079999923706055,
+      "end": 27.959999084472656,
+      "text": "Are you involved?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 28.260000228881836,
+      "end": 30.780000686645508,
+      "text": "Are you helping out or is it just sort of separate work streams?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 31.280000686645508,
+      "end": 32.720001220703125,
+      "text": "No, no, that's separate."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 33.09000015258789,
+      "end": 42.52000045776367,
+      "text": "I mean, I get, you know, I got a little bit of update at one point of, you know, strategy for how they were going to approach it or how she, you know, what she's thinking about the numbers."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 42.77000045776367,
+      "end": 46.939998626708984,
+      "text": "But no, I'm not involved in merits on anything."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 47.27000045776367,
+      "end": 51.36000061035156,
+      "text": "So you're not going to be there attending or dialing in or whatever next week?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 52.18000030517578,
+      "end": 52.279998779296875,
+      "text": "No."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 52.439998626708984,
+      "end": 52.939998626708984,
+      "text": "Got it."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 53.060001373291016,
+      "end": 53.31999969482422,
+      "text": "Okay."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 55.20000076293945,
+      "end": 57.7599983215332,
+      "text": "Yeah, look, I think there's a few things to talk about."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 57.97999954223633,
+      "end": 69.13999938964844,
+      "text": "So one is the idea of asking the arbitrator to push our call, our initial call, back until after that mediation."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 70.05999755859375,
+      "end": 73.77999877929688,
+      "text": "I think that was your idea, which I think is actually a pretty decent idea."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 74.68000030517578,
+      "end": 74.83999633789062,
+      "text": "Okay."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 75.6199951171875,
+      "end": 77.9000015258789,
+      "text": "I think I'd probably be in favor of that."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 78.5,
+      "end": 78.77999877929688,
+      "text": "Mm-hmm."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 79.26000213623047,
+      "end": 82.68000030517578,
+      "text": "And I'm pretty sure that if I recommend it to the client, they'll be okay with it too."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 84.5,
+      "end": 90.05999755859375,
+      "text": "Was that suggestion something that you'd like to do, or were you just brainstorming?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 90.05999755859375,
+      "end": 91.44000244140625,
+      "text": "I don't want to, like, you know."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 92.08000183105469,
+      "end": 96.23999786376953,
+      "text": "Yeah, no, I mean, if you're amenable to that, I would definitely recommend that as well."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 97.12999725341797,
+      "end": 105.5999984741211,
+      "text": "You know, I just think if we, you know, it's a one-day ADR, so hopefully by the end of Tuesday we'll have a lot more information about where things stand."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 105.91000366210938,
+      "end": 112.91999816894531,
+      "text": "And if there's a pay down, you know, a full pay down, a partial pay down, you know, that's obviously going to put us all in a really different position."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 114.73999786376953,
+      "end": 119.77999877929688,
+      "text": "then we will be on Monday. So, you know, I certainly don't want to waste anyone's time"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 120.0999984741211,
+      "end": 124.04000091552734,
+      "text": "or, you know, incur the cost of Miss Love if we don't need to."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 124.30000305175781,
+      "end": 129.77999877929688,
+      "text": "A hundred percent. I also don't want to incur her costs. I think you can pretty much assume"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 130.00999450683594,
+      "end": 135.74000549316406,
+      "text": "if you'll give me like 20 minutes after we finish our call just to confirm. But I think"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 135.82000732421875,
+      "end": 143.82000732421875,
+      "text": "you can pretty much assume that I'll have client okay to write to the arbitrator and ask that."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 144.60000610351562,
+      "end": 151.0800018310547,
+      "text": "Okay. Because I did look yesterday at, they have some sort of cancellation policy. I think it was"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 151.3000030517578,
+      "end": 156.82000732421875,
+      "text": "one business day is fine. So we should definitely at least, you know, reach out by tomorrow."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 157.25,
+      "end": 160.2399444580078,
+      "text": "Tell you what, here's what I'm going to do. I'm going to email my client right now. Give me one"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 160.25999450683594,
+      "end": 169.4600067138672,
+      "text": "second. Okay. And if he writes back while we're on the call, you have, you know, you can go ahead"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 169.52999877929688,
+      "end": 175.8000030517578,
+      "text": "and just, you know, email or call the case manager or whatever and tell them that you have my"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 177.36000061035156,
+      "end": 182.97999572753906,
+      "text": "consent to suggest we move it back. Okay. You know what, it looks like maybe this is"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 184.59999084472656,
+      "end": 187.17999267578125,
+      "text": "for an actual arbitration hearing."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 189.83999633789062,
+      "end": 199.8800048828125,
+      "text": "I had, for what it's worth, I had another one of these for legalists for jams, and we moved one of the calls, and there was no issue with that."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 201.3800048828125,
+      "end": 203.5399932861328,
+      "text": "But that said, it's also a different arbitrator."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 203.85000610351562,
+      "end": 207.10000610351562,
+      "text": "They may have different policies individually."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 208.4199981689453,
+      "end": 208.77999877929688,
+      "text": "Right."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 210.8800048828125,
+      "end": 214.0,
+      "text": "Well, he wrote back, so if you want to go ahead and send an email."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 214.75999450683594,
+      "end": 215.0800018310547,
+      "text": "Oh, wow."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 215.27000427246094,
+      "end": 215.77999877929688,
+      "text": "That was fast."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 216.39999389648438,
+      "end": 218.5399932861328,
+      "text": "Well, I told him we were having a call."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 219.25999450683594,
+      "end": 219.5,
+      "text": "Okay."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 219.8000030517578,
+      "end": 234.4199981689453,
+      "text": "Yeah. Okay. So I'll write to them after we get off. Do you want to do it for the next week? Or I guess we'll just have her let us know what her availability is?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 234.5800018310547,
+      "end": 261.05999755859375,
+      "text": "Yeah, I think we do that. I think we just let her tell us what her availability is. And I don't know if you were going to let the arbitrator know why we're putting it off. I don't have an opinion about whether we should give a rationale when you email. It might be too complicated and then she'll wonder and go back and read papers and spend time figuring out what's going on. It might be better just to remain silent on it."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 261.8999938964844,
+      "end": 265.4200134277344,
+      "text": "Yeah, as long, I mean, maybe I'll just indicate that it's, you know, mutual."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 266.0199890136719,
+      "end": 266.4800109863281,
+      "text": "Mutual, yeah."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 266.70001220703125,
+      "end": 267.94000244140625,
+      "text": "That should be enough, yeah."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 269.7400207519531,
+      "end": 276.7799987792969,
+      "text": "So then I guess that brings us to, is there anything else that we should talk about regarding resolving the case?"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 276.9200134277344,
+      "end": 283.1000061035156,
+      "text": "And I note that we haven't, Legalist has not received a request for any additional funding."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 283.4200134277344,
+      "end": 293.4599914550781,
+      "text": "And I don't know if that indicates that Ms. Anthony has found another source of funds."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 293.7099914550781,
+      "end": 300.5199890136719,
+      "text": "Or I don't remember what the timing is of her needs."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 300.8399963378906,
+      "end": 310.70001220703125,
+      "text": "Basically what I'm getting at is last time the big issue was that we came down to the wire and we didn't know anything about how much was requested until like a day before."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 311.739990234375,
+      "end": 321.4599914550781,
+      "text": "And I would, if there's going to be a need for capital, I'd rather know about it early so that we can figure out whether it's doable or not."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 321.6499938964844,
+      "end": 328.1600036621094,
+      "text": "So I'm curious if you're able to give me any insight into whether we should put that on our calendar."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 328.8299865722656,
+      "end": 338.8399963378906,
+      "text": "Yeah, I haven't talked about payroll with her recently, but I believe that it's probably tomorrow."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 340.760009765625,
+      "end": 348.2799987792969,
+      "text": "Um, so obviously I, I wasn't going to approach you because I had, you know, you know, and"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 348.3999938964844,
+      "end": 352.1600036621094,
+      "text": "listen, I apologize that that came down to the wire and it was like a little bit of a"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 352.1600036621094,
+      "end": 357.0799865722656,
+      "text": "bait and switch and then opening it up again on Monday, you know, that wasn't my intention."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 357.6000061035156,
+      "end": 357.8800048828125,
+      "text": "I know."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 358.4599914550781,
+      "end": 359.4599914550781,
+      "text": "We all have clients."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 359.7799987792969,
+      "end": 360.239990234375,
+      "text": "I know."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 360.8800048828125,
+      "end": 361.17999267578125,
+      "text": "Yeah."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 361.8599853515625,
+      "end": 365.20001220703125,
+      "text": "Um, you know, I certainly didn't want to be dealing with it on a Friday night either."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 365.9200134277344,
+      "end": 371.5199890136719,
+      "text": "Um, but yeah, there was, you know, continued interest in, in trying to settle it that next"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 371.6400146484375,
+      "end": 376.260009765625,
+      "text": "week, which I think I conveyed to you and, you know, never really heard back from, from"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 376.29998779296875,
+      "end": 376.7200012207031,
+      "text": "you guys."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 376.8800048828125,
+      "end": 379.260009765625,
+      "text": "So I thought that was a dead end at this point."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 379.3999938964844,
+      "end": 380.0199890136719,
+      "text": "Ah, okay."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 380.6600036621094,
+      "end": 380.79998779296875,
+      "text": "Okay."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 380.8399963378906,
+      "end": 385.0199890136719,
+      "text": "Um, you know, I was not planning on bothering you about funding this week."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 385.5199890136719,
+      "end": 391.70001220703125,
+      "text": "Um, my understanding was that legalist isn't open to that short of, you know, revisiting"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 391.8599853515625,
+      "end": 393.44000244140625,
+      "text": "that potential settlement agreement."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 394.5400085449219,
+      "end": 399.6199951171875,
+      "text": "Um, but again, you know, I kind of figured you, you had said, you know, if I get authorization,"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 399.8599853515625,
+      "end": 400.44000244140625,
+      "text": "I'll let you know."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 401.1000061035156,
+      "end": 403.5199890136719,
+      "text": "And, uh, it sounded to me like you hadn't."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 403.67999267578125,
+      "end": 406.29998779296875,
+      "text": "So I was dropping it."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 406.5,
+      "end": 406.67999267578125,
+      "text": "Okay."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 406.8800048828125,
+      "end": 407.239990234375,
+      "text": "All right."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 407.29998779296875,
+      "end": 407.6000061035156,
+      "text": "All right."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 407.82000732421875,
+      "end": 412.3399963378906,
+      "text": "Uh, look, I think that we would definitely, I'm sure the client would still be interested"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 412.94000244140625,
+      "end": 419.5199890136719,
+      "text": "in something that is similar to what we had proposed, uh, or at least similar to what"
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 419.5799865722656,
+      "end": 420.5400085449219,
+      "text": "we had come down to."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 421.1000061035156,
+      "end": 429.05999755859375,
+      "text": "I thought through negotiation that up until that Friday and then my recollection was on Monday."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 430.260009765625,
+      "end": 441.1199951171875,
+      "text": "And I don't mean to like mischaracterize. So if I if I am doing that, don't take it as a something sneaky or it's just my memory might be off."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 441.260009765625,
+      "end": 448.9800109863281,
+      "text": "But I seem to recall that the structure of what Miss Anthony or the amounts of what Miss Anthony was asking for on Monday was different than where I thought we had left on Friday."
+    },
+    {
+      "speaker": "UNKNOWN",
+      "start": 450.6199951171875,
+      "end": 456.5400085449219,
+      "text": "So if what we were talking about on Friday is..."
+    }
+  ]
+}

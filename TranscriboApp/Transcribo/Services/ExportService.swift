@@ -3,7 +3,7 @@ import Foundation
 import ZIPFoundation
 
 enum ExportFormat: String, CaseIterable, Identifiable, Codable, Sendable {
-    case txt, md, json, srt, rtf, docx, legalPDF
+    case txt, md, obsidianMarkdown, json, srt, rtf, docx, legalPDF
 
     var id: String { rawValue }
 
@@ -11,6 +11,7 @@ enum ExportFormat: String, CaseIterable, Identifiable, Codable, Sendable {
         switch self {
         case .txt: return "Text"
         case .md: return "Markdown"
+        case .obsidianMarkdown: return "Obsidian Markdown"
         case .json: return "JSON"
         case .srt: return "SRT Subtitles"
         case .rtf: return "Rich Text"
@@ -22,6 +23,7 @@ enum ExportFormat: String, CaseIterable, Identifiable, Codable, Sendable {
     var fileExtension: String {
         switch self {
         case .legalPDF: return "pdf"
+        case .obsidianMarkdown: return "md"
         default: return rawValue
         }
     }
@@ -30,6 +32,7 @@ enum ExportFormat: String, CaseIterable, Identifiable, Codable, Sendable {
         switch self {
         case .txt: return "doc.text"
         case .md: return "text.badge.checkmark"
+        case .obsidianMarkdown: return "note.text"
         case .json: return "curlybraces"
         case .srt: return "captions.bubble"
         case .rtf: return "doc.richtext"
@@ -45,6 +48,14 @@ struct LegalPDFOptions {
     var showClockTime: Bool = false
     var recordingStartTime: Date?
     var headerText: String = "TRANSCRIPT"
+
+    // Cover page options
+    var includeCoverPage: Bool = false
+    var coverPageSummary: String?
+    var coverPageActionItems: String?
+    var audioFileName: String?
+    var audioDuration: TimeInterval?
+    var speakerNames: [String] = []
 }
 
 /// Generates export files in all supported formats.
@@ -65,6 +76,7 @@ enum ExportService {
         switch format {
         case .txt: data = Data(formatText(result: result, speakerMapping: speakerMapping).utf8)
         case .md: data = Data(formatMarkdown(result: result, speakerMapping: speakerMapping).utf8)
+        case .obsidianMarkdown: data = Data(formatObsidianMarkdown(result: result, speakerMapping: speakerMapping).utf8)
         case .json: data = try formatJSON(result: result)
         case .srt: data = Data(formatSRT(result: result, speakerMapping: speakerMapping).utf8)
         case .rtf: data = Data(formatRTF(result: result, speakerMapping: speakerMapping).utf8)
@@ -101,11 +113,16 @@ enum ExportService {
     static func formatText(
         result: TranscriptionResult,
         speakerMapping: SpeakerMapping,
-        includeTimestamps: Bool = true
+        includeTimestamps: Bool = true,
+        highlightLowConfidence: Bool = false,
+        qualityTierBadge: String? = nil
     ) -> String {
         var lines: [String] = []
         lines.append("TRANSCRIPT: \(result.audioPath)")
         lines.append("Duration: \(TimeFormatting.timestamp(result.duration))")
+        if let badge = qualityTierBadge {
+            lines.append("Quality: \(badge)")
+        }
         lines.append(String(repeating: "=", count: 60))
         lines.append("")
 
@@ -113,8 +130,18 @@ enum ExportService {
 
         for seg in result.segments {
             let speaker = speakerMapping.displayName(for: seg.speakerID)
-            let text = seg.text.trimmingCharacters(in: .whitespaces)
+            var text = seg.text.trimmingCharacters(in: .whitespaces)
             guard !text.isEmpty else { continue }
+
+            // Optionally mark low-confidence words with brackets
+            if highlightLowConfidence, let words = seg.words {
+                text = words.map { word in
+                    if word.probability < 0.5 {
+                        return "[\(word.word)]"
+                    }
+                    return word.word
+                }.joined(separator: " ")
+            }
 
             if speaker != currentSpeaker {
                 currentSpeaker = speaker
@@ -177,6 +204,26 @@ enum ExportService {
             }
         }
 
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func formatObsidianMarkdown(
+        result: TranscriptionResult,
+        speakerMapping: SpeakerMapping
+    ) -> String {
+        let speakers = result.detectedSpeakers.map { speakerMapping.displayName(for: $0) }
+        let speakerList = speakers
+            .map { "\"\($0.replacingOccurrences(of: "\"", with: "\\\""))\"" }
+            .joined(separator: ", ")
+        var lines: [String] = []
+        lines.append("---")
+        lines.append("title: \"\(result.audioFileName.replacingOccurrences(of: "\"", with: "\\\""))\"")
+        lines.append("duration: \"\(TimeFormatting.timestamp(result.duration))\"")
+        lines.append("speakers: [\(speakerList)]")
+        lines.append("tags: [consensus/transcript]")
+        lines.append("---")
+        lines.append("")
+        lines.append(formatMarkdown(result: result, speakerMapping: speakerMapping))
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -611,13 +658,106 @@ enum ExportService {
             throw TranscriboError.exportFailed("Could not create PDF context.")
         }
 
+        // ---- Cover Page (optional) ----
+        if options.includeCoverPage {
+            pdfContext.beginPDFPage(nil)
+            let nsContext = NSGraphicsContext(cgContext: pdfContext, flipped: false)
+            NSGraphicsContext.current = nsContext
+
+            let titleFont = NSFont(name: "Courier-Bold", size: 16) ?? NSFont.monospacedSystemFont(ofSize: 16, weight: .bold)
+            let sectionFont = NSFont(name: "Courier-Bold", size: 12) ?? NSFont.monospacedSystemFont(ofSize: 12, weight: .bold)
+            let coverBody = bodyFont
+            let titleAttrs: [NSAttributedString.Key: Any] = [.font: titleFont, .foregroundColor: NSColor.black]
+            let sectionAttrs: [NSAttributedString.Key: Any] = [.font: sectionFont, .foregroundColor: NSColor.black]
+            let coverBodyAttrs: [NSAttributedString.Key: Any] = [.font: coverBody, .foregroundColor: NSColor.black]
+
+            var coverY = pageHeight - topMargin
+
+            // Title
+            NSAttributedString(string: "TRANSCRIPT COVER PAGE", attributes: titleAttrs)
+                .draw(at: NSPoint(x: leftMargin, y: coverY))
+            coverY -= 24
+
+            // Separator
+            pdfContext.setStrokeColor(NSColor.black.cgColor)
+            pdfContext.setLineWidth(1.0)
+            pdfContext.move(to: CGPoint(x: leftMargin, y: coverY))
+            pdfContext.addLine(to: CGPoint(x: pageWidth - rightMargin, y: coverY))
+            pdfContext.strokePath()
+            coverY -= 24
+
+            // Metadata fields
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .long
+            dateFormatter.timeStyle = .short
+
+            var metadataLines: [(String, String)] = []
+            if let fileName = options.audioFileName {
+                metadataLines.append(("File:", fileName))
+            }
+            if let startTime = options.recordingStartTime {
+                metadataLines.append(("Recorded:", dateFormatter.string(from: startTime)))
+            }
+            if let duration = options.audioDuration {
+                metadataLines.append(("Duration:", TimeFormatting.durationDisplay(duration)))
+            }
+            if !options.speakerNames.isEmpty {
+                metadataLines.append(("Speakers:", options.speakerNames.joined(separator: ", ")))
+            }
+
+            for (label, value) in metadataLines {
+                NSAttributedString(string: "\(label)  \(value)", attributes: coverBodyAttrs)
+                    .draw(at: NSPoint(x: leftMargin, y: coverY))
+                coverY -= lineSpacing
+            }
+
+            coverY -= lineSpacing
+
+            // Summary section
+            if let summary = options.coverPageSummary, !summary.isEmpty {
+                NSAttributedString(string: "SUMMARY", attributes: sectionAttrs)
+                    .draw(at: NSPoint(x: leftMargin, y: coverY))
+                coverY -= lineSpacing
+
+                let summaryLines = wordWrap(summary, maxWidth: maxCharsPerLine)
+                for line in summaryLines {
+                    guard coverY > bottomMargin else { break }
+                    NSAttributedString(string: line, attributes: coverBodyAttrs)
+                        .draw(at: NSPoint(x: leftMargin, y: coverY))
+                    coverY -= lineSpacing
+                }
+                coverY -= lineSpacing / 2
+            }
+
+            // Action items section
+            if let items = options.coverPageActionItems, !items.isEmpty,
+               coverY > bottomMargin + lineSpacing * 2 {
+                NSAttributedString(string: "ACTION ITEMS", attributes: sectionAttrs)
+                    .draw(at: NSPoint(x: leftMargin, y: coverY))
+                coverY -= lineSpacing
+
+                let itemLines = wordWrap(items, maxWidth: maxCharsPerLine)
+                for line in itemLines {
+                    guard coverY > bottomMargin else { break }
+                    NSAttributedString(string: line, attributes: coverBodyAttrs)
+                        .draw(at: NSPoint(x: leftMargin, y: coverY))
+                    coverY -= lineSpacing
+                }
+            }
+
+            pdfContext.endPDFPage()
+        }
+
+        // ---- Transcript Pages ----
         for pageIndex in 0..<totalPages {
             pdfContext.beginPDFPage(nil)
             let nsContext = NSGraphicsContext(cgContext: pdfContext, flipped: false)
             NSGraphicsContext.current = nsContext
 
-            // Page header
-            let pageHeaderText = "\(result.audioFileName)    Page \(pageIndex + 1) of \(totalPages)"
+            // Page header (offset page numbers if cover page exists)
+            let displayPage = options.includeCoverPage ? pageIndex + 2 : pageIndex + 1
+            let displayTotal = options.includeCoverPage ? totalPages + 1 : totalPages
+            let pageHeaderText = "\(result.audioFileName)    Page \(displayPage) of \(displayTotal)"
             let headerStr = NSAttributedString(string: pageHeaderText, attributes: headerAttributes)
             headerStr.draw(at: NSPoint(x: leftMargin, y: pageHeight - 50))
 

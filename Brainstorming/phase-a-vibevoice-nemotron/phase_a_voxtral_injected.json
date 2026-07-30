@@ -1,0 +1,323 @@
+{
+  "engine": "VibeVoice + Nemotron 3 Nano Omni review (standard-of-proof)",
+  "principle": "VibeVoice presumed correct; Nemotron only overturns with confidence>=threshold AND non-trivial diff AND evidence",
+  "context": "Brant Kuehn, Marie Larsen, Legalist, JAMS, arbitrator, mediation, Virginia counsel, Anthony",
+  "vibevoice_segments": 51,
+  "reviewed_segments": 51,
+  "applied_corrections": 0,
+  "rejections_by_reason": {
+    "nemotron_says_correct": 44
+  },
+  "parse_errors": 0,
+  "threshold": 0.75,
+  "review_seconds_total": 163.30456233024597,
+  "wall_clock_seconds_total": 164.83392000198364,
+  "segments": [
+    {
+      "speaker_id": null,
+      "start": 0.0,
+      "end": 2.78,
+      "text": "[Music]"
+    },
+    {
+      "speaker_id": 0,
+      "start": 2.78,
+      "end": 5.26,
+      "text": "Hello, this is Bernard Cohen."
+    },
+    {
+      "speaker_id": 1,
+      "start": 5.26,
+      "end": 6.87,
+      "text": "Yes, hi, it's Tracy."
+    },
+    {
+      "speaker_id": 0,
+      "start": 6.87,
+      "end": 8.86,
+      "text": "Hey, Marie, thanks for calling."
+    },
+    {
+      "speaker_id": 1,
+      "start": 8.86,
+      "end": 10.07,
+      "text": "Yep."
+    },
+    {
+      "speaker_id": 0,
+      "start": 10.07,
+      "end": 16.04,
+      "text": "So, uh, yeah, what's, what's going on? You guys have meditation next week?"
+    },
+    {
+      "speaker_id": 1,
+      "start": 16.04,
+      "end": 18.32,
+      "text": "Uh, yes."
+    },
+    {
+      "speaker_id": 0,
+      "start": 18.32,
+      "end": 23.2,
+      "text": "And I take it that you are not leading it, right? It's the..."
+    },
+    {
+      "speaker_id": 1,
+      "start": 23.2,
+      "end": 26.84,
+      "text": "No, no, she's got, uh, Florida counsel on that."
+    },
+    {
+      "speaker_id": 0,
+      "start": 26.84,
+      "end": 31.09,
+      "text": "Are you involved? Are you helping out? Or is it just sort of separate work streams?"
+    },
+    {
+      "speaker_id": 1,
+      "start": 31.09,
+      "end": 43.85,
+      "text": "No, no, that's, that's separate. I mean, I get, you know, I got a little bit of update at one point of, of, you know, strategy for how they were going to approach it or how she, you know, what she's seeing about the numbers, but, um."
+    },
+    {
+      "speaker_id": 0,
+      "start": 43.85,
+      "end": 44.55,
+      "text": "Got it."
+    },
+    {
+      "speaker_id": 1,
+      "start": 44.55,
+      "end": 47.13,
+      "text": "No, I'm, I'm not involved in merits on anything."
+    },
+    {
+      "speaker_id": 0,
+      "start": 47.13,
+      "end": 51.75,
+      "text": "So you're not going to be there attending or dialing in or whatever next week?"
+    },
+    {
+      "speaker_id": 1,
+      "start": 51.75,
+      "end": 52.54,
+      "text": "No."
+    },
+    {
+      "speaker_id": 0,
+      "start": 52.54,
+      "end": 55.03,
+      "text": "Got it. Um."
+    },
+    {
+      "speaker_id": 0,
+      "start": 55.03,
+      "end": 74.2,
+      "text": "Yeah, look, I think there's a few things to talk about. Uh, one is the idea of asking the arbitrator to push our call, our initial call, back until after that mediation. Um, I think that was your idea, which I think is actually a pretty decent idea."
+    },
+    {
+      "speaker_id": 1,
+      "start": 74.2,
+      "end": 75.07,
+      "text": "Okay."
+    },
+    {
+      "speaker_id": 0,
+      "start": 75.07,
+      "end": 78.24,
+      "text": "Um, I think I'd probably be in favor of that."
+    },
+    {
+      "speaker_id": 1,
+      "start": 78.24,
+      "end": 79.02,
+      "text": "Mm-hmm."
+    },
+    {
+      "speaker_id": 0,
+      "start": 79.02,
+      "end": 91.85,
+      "text": "Uh, and I'm pretty sure that if I recommend it to the client, they'll be okay with it, too. Um, is that, was that suggestion something that you'd like to do, or were you just brainstorming? I don't want to, like, you know."
+    },
+    {
+      "speaker_id": 1,
+      "start": 91.85,
+      "end": 124.37,
+      "text": "Yeah, no, I mean, if you're amenable to that, I would definitely recommend that as well. Um, you know, I just think if we, you know, it's a one-day ADR, so hopefully by the end of Tuesday, we'll have a lot more information about where things stand, and if there's a pay down, you know, a full pay down, a partial pay down, you know, that's, that's obviously going to put us all in, in a really different position, um, than we will be on Monday. So, um, you know, I, I certainly don't want to waste anyone's time or, you know, incur the cost of Ms. Love if we don't need to."
+    },
+    {
+      "speaker_id": 0,
+      "start": 124.37,
+      "end": 144.25,
+      "text": "10%. I also don't want to incur her costs. I, I think you can pretty much assume if you'll give me, like, 20 minutes after we finish our call, uh, just to confirm, uh, but I think you can pretty much assume that, uh, I'll have client okay to write to the arbitrator, uh, and ask that."
+    },
+    {
+      "speaker_id": 1,
+      "start": 144.25,
+      "end": 157.16,
+      "text": "Okay, because I did look yesterday at, they have some sort of cancellation policy. I think it was one business day is fine. Um, so we should definitely at least, you know, reach out by tomorrow."
+    },
+    {
+      "speaker_id": 0,
+      "start": 157.16,
+      "end": 160.76,
+      "text": "Tell you what, here's what I'm going to do. I'm going to email my client right now. Give me one second."
+    },
+    {
+      "speaker_id": 1,
+      "start": 160.76,
+      "end": 161.9,
+      "text": "Okay."
+    },
+    {
+      "speaker_id": 0,
+      "start": 162.84,
+      "end": 179.88,
+      "text": "Um, and if he writes back while we're on the call, you have, you know, you can go ahead and just, uh, you know, email or call the, uh, case manager or whatever and tell them that you have my, my consent to suggest we move it back."
+    },
+    {
+      "speaker_id": 1,
+      "start": 179.88,
+      "end": 187.78,
+      "text": "Um, oh, you know what? It looks like maybe this is, um, for an actual arbitration hearing."
+    },
+    {
+      "speaker_id": 0,
+      "start": 189.36,
+      "end": 202.34,
+      "text": "I had, for what it's worth, I had another one of these for Legalist, for AAA, and we moved one of the calls and there was no issue with, there was no issue with that. Um, but that's it."
+    },
+    {
+      "speaker_id": 0,
+      "start": 202.34,
+      "end": 207.78,
+      "text": "It's also a different attorney. They may have different, different policies individually."
+    },
+    {
+      "speaker_id": 1,
+      "start": 208.1,
+      "end": 209.42,
+      "text": "Right."
+    },
+    {
+      "speaker_id": 0,
+      "start": 210.06,
+      "end": 214.36,
+      "text": "Uh, well, he wrote back, so, uh, if you want to go ahead and send an email."
+    },
+    {
+      "speaker_id": 1,
+      "start": 214.36,
+      "end": 215.2,
+      "text": "Oh, wow."
+    },
+    {
+      "speaker_id": 0,
+      "start": 215.2,
+      "end": 220.44,
+      "text": "Oh, gosh. Well, I told him, I told him we were having a call. Okay, yeah."
+    },
+    {
+      "speaker_id": 1,
+      "start": 221.32,
+      "end": 234.63,
+      "text": "Okay, so, uh, yeah, I'll write to them after we get off. Um, is there, I mean, do you want to do it for the next week, or, you know, are you trying to, or I guess we'll just let her, have her let us know what her availability is?"
+    },
+    {
+      "speaker_id": 0,
+      "start": 234.63,
+      "end": 235.52,
+      "text": "Yeah, I think we do that."
+    },
+    {
+      "speaker_id": 0,
+      "start": 235.52,
+      "end": 262.8,
+      "text": "I think we just let her tell us what her availability is. Um, and I don't know if you were gonna let the arbitrator know why we're putting it off. I don't have an opinion about whether we should give a rationale when you email. Um, it might be too complicated and, you know, then she'll wonder, uh, and go back and, you know, read papers and spend time figuring out what's going on. It might be better just to remain silent on it, but I'm okay with that."
+    },
+    {
+      "speaker_id": 1,
+      "start": 262.8,
+      "end": 265.8,
+      "text": "Yeah, as long, as long, I mean, maybe I'll just indicate that it's, you know, mutual."
+    },
+    {
+      "speaker_id": 0,
+      "start": 265.8,
+      "end": 266.6,
+      "text": "Mutual, yeah."
+    },
+    {
+      "speaker_id": 1,
+      "start": 266.6,
+      "end": 268.52,
+      "text": "That should be enough, yeah."
+    },
+    {
+      "speaker_id": 0,
+      "start": 269.24,
+      "end": 300.76,
+      "text": "So then I guess that brings us to, uh, is there anything else that we should talk about regarding resolving the case? And I, I note that we haven't, Legalist has not received a request for any additional funding. And I don't know, um, if that indicates that Ms. Anthony has found another source of funds, or I, I don't remember what the, what the, what the timing is of her needs."
+    },
+    {
+      "speaker_id": 0,
+      "start": 300.76,
+      "end": 328.55,
+      "text": "Basically what I'm, basically what I'm getting at is, last time the big issue was that we came down to the wire, and we didn't know anything about how much was requested until, like, a day before. And I would, if there's going to be a need for capital, I'd rather know about it early so that we can figure out whether it's doable or not. So I'm curious if you're able to give me any insight into whether we should put that on our calendar."
+    },
+    {
+      "speaker_id": 1,
+      "start": 328.55,
+      "end": 339.58,
+      "text": "Yeah, I haven't talked about payroll with her recently, but I believe that, uh, it's probably tomorrow."
+    },
+    {
+      "speaker_id": 1,
+      "start": 339.7,
+      "end": 357.5,
+      "text": "Um, so obviously I, I wasn't going to approach you because I had, you know, you know, and I, listen, I apologize that that came down to the wire and it was like a little bit of a bait and switch and then opening it up again on Monday. You know, that wasn't my intention."
+    },
+    {
+      "speaker_id": 0,
+      "start": 357.5,
+      "end": 360.63,
+      "text": "I know. We all have clients. I know."
+    },
+    {
+      "speaker_id": 1,
+      "start": 360.63,
+      "end": 379.4,
+      "text": "Yeah. Um, you know, I certainly didn't want to be dealing with it on a Friday night either. Um, but, yeah, there was, you know, continued interest in, in trying to settle it that next week, which I think I conveyed to you. And, you know, never really heard back from, from you guys. So, I thought that was a dead end at this point."
+    },
+    {
+      "speaker_id": 0,
+      "start": 379.4,
+      "end": 380.98,
+      "text": "Ah, okay. Okay."
+    },
+    {
+      "speaker_id": 1,
+      "start": 380.98,
+      "end": 406.4,
+      "text": "Um, you know, I was not planning on bothering you about lunch this week. Um, my understanding was that Legalist isn't open to that, short of, you know, revisiting that potential settlement agreement. Um, but again, you know, I kind of figured, you, you had said, you know, if I get authorization, I'll let you know. And, uh, it sounded to me like you hadn't, so, um, I was dropping it."
+    },
+    {
+      "speaker_id": 0,
+      "start": 406.4,
+      "end": 407.66,
+      "text": "Okay, alright, alright."
+    },
+    {
+      "speaker_id": 0,
+      "start": 407.66,
+      "end": 425.8,
+      "text": "Uh, look, I think that we would definitely, I'm sure the client would still be interested in something that is similar to what we had proposed, uh, or at least similar to what we had come down to, I thought, through negotiation up until that Friday. Right."
+    },
+    {
+      "speaker_id": 0,
+      "start": 425.8,
+      "end": 456.64,
+      "text": "And then my recollection was on Monday, uh, and I don't mean to, like, mischaracterize, so if I, if I am doing that, don't take it as a, something sneaky, or, um, it's just my memory might be off, but I seem to recall that the structure of what Ms. Anthony, or the amounts of what Ms. Anthony was asking for on Monday was different than where I thought we had left on Friday. Um, so, if, if what we were talking about on Friday is,"
+    }
+  ]
+}
