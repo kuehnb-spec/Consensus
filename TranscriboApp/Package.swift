@@ -5,11 +5,18 @@ let package = Package(
     name: "Consensus",
     platforms: [.macOS(.v15)],
     products: [
-        // The GUI app bundle's executable.
-        .executable(name: "Consensus", targets: ["ConsensusGUI"]),
+        // The GUI app bundle's executable. Named `ConsensusApp` (not
+        // `Consensus`) because product staging directories collide with the
+        // `consensus` CLI product on a case-insensitive filesystem —
+        // `Consensus.product/` and `consensus.product/` are the same path, so
+        // a full `swift build` linking both executables at once corrupts one
+        // link (observed as a missing `_ConsensusCommandLine_main` symbol).
+        // build-app.sh stages this binary into the bundle as `Consensus`.
+        .executable(name: "ConsensusApp", targets: ["ConsensusGUI"]),
         // The headless binary. Its target is named `ConsensusCommandLine`
-        // rather than `consensus` because SwiftPM build directories collide on
-        // a case-insensitive filesystem with the `Consensus` target.
+        // rather than `consensus` for the same case-collision reason (the
+        // target-level fix from July 25); the product keeps the `consensus`
+        // name because installed machines and Packaging scripts depend on it.
         .executable(name: "consensus", targets: ["ConsensusCommandLine"]),
     ],
     dependencies: [

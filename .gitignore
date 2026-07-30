@@ -18,6 +18,15 @@ DerivedData/
 .build/
 .swiftpm/
 
+# Stray swiftc droppings from direct compiler invocations
+*.o
+*.d
+*.dia
+*.swiftdeps
+
+# Built app bundles (build with TranscriboApp/build-app.sh; ship via GitHub Releases)
+*.app/
+
 # local-assets -> ~/ProjectAssets/<project> (NAS-synced bulk files; never in git)
 local-assets
 

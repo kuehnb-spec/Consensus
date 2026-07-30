@@ -337,15 +337,54 @@ final class DeepReadViewModel {
             project = try library.save(updated)
             activePassContent = pass
 
-            stage = .namingSpeakers(
-                suggestions: Self.buildSuggestions(
-                    from: updated.speakers,
-                    segments: pass.segments
-                )
+            let suggestions = Self.buildSuggestions(
+                from: updated.speakers,
+                segments: pass.segments
             )
+
+            if updated.mode == .quickTake {
+                // Quick Take never blocks on the naming screen. Apply only
+                // high-confidence intro-scan names; everyone else stays
+                // "Speaker N" and can be renamed inline on the result view.
+                await confirmSpeakers(Self.autoConfirmMappings(from: suggestions))
+            } else {
+                stage = .namingSpeakers(suggestions: suggestions)
+            }
         } catch {
             report(error)
-            stage = .setup
+            stage = mode == .quickTake ? .idle : .setup
+        }
+    }
+
+    /// Intro-scan confidence a name needs before Quick Take applies it
+    /// without asking. Below this, keeping the neutral "Speaker N" label is
+    /// better than baptizing the transcript with a guessed name.
+    private static let quickTakeAutoNameConfidence: Double = 0.75
+
+    /// Quick Take's stand-in for the naming screen: keep suggested names
+    /// only when the intro scan was confident; blank out the rest so
+    /// `confirmSpeakers` preserves each speaker's existing display name.
+    private static func autoConfirmMappings(
+        from suggestions: [SpeakerSuggestion]
+    ) -> [SpeakerSuggestion] {
+        suggestions.map { suggestion in
+            var mapped = suggestion
+            if suggestion.confidence < quickTakeAutoNameConfidence {
+                mapped.suggestedName = ""
+            }
+            return mapped
+        }
+    }
+
+    /// Rename a speaker after the pipeline has finished — the inline rename
+    /// path used by the Quick Take result view (which has no naming stage).
+    func renameSpeaker(id: String, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        update { document in
+            guard let idx = document.speakers.firstIndex(where: { $0.id == id }) else { return }
+            document.speakers[idx].displayName = trimmed
+            document.speakers[idx].isConfirmed = true
         }
     }
 
@@ -604,10 +643,15 @@ final class DeepReadViewModel {
 
             stage = .reviewing
         } catch {
-            // Deep path failed — fall back to the Standard pass we already have.
-            // The user still gets a transcript; an alert explains the degrade.
-            errorMessage = "Patch Review failed: \(error.localizedDescription). Showing the Standard-tier transcript instead."
-            showError = true
+            // Deep path failed — fall back to the Standard pass we already
+            // have. Deep Read/Studio users get an alert explaining the
+            // degrade; Quick Take degrades silently to a polished Standard
+            // transcript (June 30 decision: no scary alerts in the
+            // pushbutton flow).
+            if current.mode != .quickTake {
+                errorMessage = "Patch Review failed: \(error.localizedDescription). Showing the Standard-tier transcript instead."
+                showError = true
+            }
             stage = .reviewing
         }
     }

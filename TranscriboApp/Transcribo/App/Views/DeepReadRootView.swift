@@ -100,32 +100,36 @@ struct DeepReadRootView: View {
                             .help("Manage the voice library")
                         }
                     }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            viewModel.toggleSummaryPane()
-                        } label: {
-                            Label(
-                                viewModel.showSummaryPane ? "Hide summary" : "Show summary",
-                                systemImage: viewModel.showSummaryPane
-                                    ? "sidebar.trailing"
-                                    : "sidebar.squares.trailing"
-                            )
+                    // Quick Take's result view carries its own action bar;
+                    // the workstation toolbar items stay out of its way.
+                    if !isQuickTake {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button {
+                                viewModel.toggleSummaryPane()
+                            } label: {
+                                Label(
+                                    viewModel.showSummaryPane ? "Hide summary" : "Show summary",
+                                    systemImage: viewModel.showSummaryPane
+                                        ? "sidebar.trailing"
+                                        : "sidebar.squares.trailing"
+                                )
+                            }
+                            .help("Toggle the summary & to-dos pane")
                         }
-                        .help("Toggle the summary & to-dos pane")
-                    }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            showingManualRevision = true
-                        } label: {
-                            Label("Manual Revision", systemImage: "pencil.and.scribble")
+                        ToolbarItem(placement: .primaryAction) {
+                            Button {
+                                showingManualRevision = true
+                            } label: {
+                                Label("Manual Revision", systemImage: "pencil.and.scribble")
+                            }
+                            .help("Open the manual revision pane")
                         }
-                        .help("Open the manual revision pane")
-                    }
-                    ToolbarItem(placement: .primaryAction) {
-                        copyMenu
-                    }
-                    ToolbarItem(placement: .primaryAction) {
-                        exportMenu
+                        ToolbarItem(placement: .primaryAction) {
+                            copyMenu
+                        }
+                        ToolbarItem(placement: .primaryAction) {
+                            exportMenu
+                        }
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
@@ -141,6 +145,13 @@ struct DeepReadRootView: View {
     }
 
     // MARK: - Stage routing
+
+    /// Whether the open project runs the pushbutton surface. Quick Take
+    /// swaps the workstation progress/review screens for calm,
+    /// appliance-grade equivalents.
+    private var isQuickTake: Bool {
+        viewModel.project?.mode == .quickTake
+    }
 
     @ViewBuilder
     private var currentStageView: some View {
@@ -159,11 +170,19 @@ struct DeepReadRootView: View {
             DeepReadSetupView(viewModel: viewModel)
 
         case .transcribing(let progress):
-            TranscriptionProgressView(
-                progress: progress,
-                snippets: viewModel.liveTranscriptionSnippets,
-                projectTitle: viewModel.project?.title
-            )
+            if isQuickTake {
+                QuickTakeProgressView(
+                    title: viewModel.project?.title ?? "Transcribing",
+                    phase: .listening,
+                    fraction: progress.fraction
+                )
+            } else {
+                TranscriptionProgressView(
+                    progress: progress,
+                    snippets: viewModel.liveTranscriptionSnippets,
+                    projectTitle: viewModel.project?.title
+                )
+            }
 
         case .namingSpeakers(let suggestions):
             SpeakerNamingView(
@@ -172,14 +191,26 @@ struct DeepReadRootView: View {
             )
 
         case .reconciling(let progress):
-            StageProgressView(
-                headline: "Reviewing Patches",
-                detail: progress.label.isEmpty ? "Patch editor in progress..." : progress.label,
-                fraction: progress.fraction
-            )
+            if isQuickTake {
+                QuickTakeProgressView(
+                    title: viewModel.project?.title ?? "Transcribing",
+                    phase: .doubleChecking,
+                    fraction: progress.fraction
+                )
+            } else {
+                StageProgressView(
+                    headline: "Reviewing Patches",
+                    detail: progress.label.isEmpty ? "Patch editor in progress..." : progress.label,
+                    fraction: progress.fraction
+                )
+            }
 
         case .reviewing:
-            DeepReadReviewView(viewModel: viewModel)
+            if isQuickTake {
+                QuickTakeResultView(viewModel: viewModel)
+            } else {
+                DeepReadReviewView(viewModel: viewModel)
+            }
 
         case .exporting:
             PlaceholderStageView(

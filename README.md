@@ -18,34 +18,21 @@ The active product lives in [TranscriboApp](/Users/brantkuehn/Projects/BDK-Trans
 - [Legacy/PythonPrototype](/Users/brantkuehn/Projects/BDK-Transcribo/Legacy/PythonPrototype): archived Python/Gradio prototype
 - [ROADMAP.md](/Users/brantkuehn/Projects/BDK-Transcribo/ROADMAP.md): product and implementation roadmap
 
-## Run The Native App
+## Build And Run
+
+The package targets macOS 15 and uses Swift Package Manager. Two executable
+products share one core library:
 
 ```bash
-cd /Users/brantkuehn/Projects/BDK-Transcribo/TranscriboApp
-swift build
-swift run
+cd TranscriboApp
+swift build                              # builds everything
+./build-app.sh --release --install       # assembles the .app bundle (GUI)
+swift build -c release --product consensus   # the headless CLI
 ```
 
-The package currently targets macOS 15 and uses Swift Package Manager.
-
-## Smoke Test With Local Audio
-
-You can run the real pipeline headlessly against a local file and save a disposable project workspace:
-
-```bash
-cd /Users/brantkuehn/Projects/BDK-Transcribo/TranscriboApp
-swift run Transcribo -- --smoke "/path/to/audio.m4a" --engine whisper --model tiny --output-dir "/tmp/transcribo-smoke"
-```
-
-This validates transcription, diarization, project persistence, and export generation in one pass.
-
-For Deep Review engine validation you can also run:
-
-```bash
-swift run Transcribo -- --smoke "/path/to/audio.m4a" --engine parakeet-v3 --output-dir "/tmp/transcribo-smoke-parakeet"
-```
-
-Deep Review now defaults to `Parakeet v3`, while the standard transcription path stays on WhisperKit.
+`build-app.sh` needs full Xcode plus the Metal Toolchain (it compiles
+`mlx.metallib` into the bundle). The headless CLI and its automation story
+are documented in `CLI.md`; distribution packaging lives in `Packaging/`.
 
 ## Onboarding And Help
 

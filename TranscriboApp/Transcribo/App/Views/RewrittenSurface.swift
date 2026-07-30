@@ -7,9 +7,8 @@ extension Notification.Name {
 /// Root wrapper for the app UI. Owns the per-launch `DeepReadViewModel` and
 /// the stores it depends on, then routes to `DeepReadRootView`.
 ///
-/// The VM is built lazily (on first appearance) so the legacy path pays no
-/// cost when the flag is off. If either store fails to initialise, a simple
-/// error card is shown instead of the root view.
+/// If either store fails to initialise, a simple error card is shown
+/// instead of the root view.
 struct RewrittenSurface: View {
     @EnvironmentObject private var settings: AppSettings
     @State private var viewModel: DeepReadViewModel?
@@ -51,7 +50,7 @@ struct RewrittenSurface: View {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 28, weight: .regular))
                 .foregroundStyle(ConsensusTheme.Colors.warning)
-            Text("Could not open the rewritten surface")
+            Text("Could not open the project library")
                 .font(ConsensusType.displayHeading)
                 .foregroundStyle(ConsensusTheme.Colors.textPrimary)
             Text(message)
