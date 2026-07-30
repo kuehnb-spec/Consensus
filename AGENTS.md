@@ -1,4 +1,4 @@
-# Consensus (formerly BDK Transcribo) — Codex Context
+# Consensus (formerly BDK Transcribo)
 
 A privacy-first macOS transcription app with speaker diarization, multi-engine Deep Review, and reconciliation workspace. Built with SwiftUI, WhisperKit, and FluidAudio. macOS 15+.
 
