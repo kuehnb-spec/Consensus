@@ -22,15 +22,15 @@ set -euo pipefail
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="Consensus 1.1"
+APP_NAME="Consensus"
 # The SwiftPM product is `ConsensusApp` (renamed from `Consensus` to stop the
 # case-insensitive product-directory collision with the `consensus` CLI); it
 # is staged into the bundle under the `Consensus` executable name below.
 SWIFT_BINARY_NAME="ConsensusApp"
 BUNDLE_EXECUTABLE="Consensus"
 BUNDLE_ID="com.bdk.consensus"
-BUNDLE_SHORT_VERSION="1.1"
-BUNDLE_VERSION="3"
+BUNDLE_SHORT_VERSION="2.1"
+BUNDLE_VERSION="4"
 ICON_SOURCE_DIR="$SCRIPT_DIR/Design/AppIcon"
 LOGO_SOURCE_PATH="$SCRIPT_DIR/Design/Logo/consensus_logo_transparent.png"
 
