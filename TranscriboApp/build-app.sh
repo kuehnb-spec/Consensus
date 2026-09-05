@@ -98,11 +98,39 @@ if [ ! -x "$SPEECH_SWIFT_SCRIPT" ]; then
     exit 1
 fi
 
-BUILD_DIR="$SCRIPT_DIR/.build" "$SPEECH_SWIFT_SCRIPT" "$BUILD_CONFIG"
-
 METALLIB_PATH="$SCRIPT_DIR/.build/$BUILD_CONFIG/mlx.metallib"
+
+# The Metal shaders only change when the MLX dependency changes, but the
+# toolchain that compiles them can vanish across Xcode/macOS updates (the
+# MetalToolchain component is a separate download). Rather than block the whole
+# build on that, reuse a previously compiled metallib when the compiler is
+# unavailable — the shaders in it are still valid.
+# `xcrun --find metal` and `xcodebuild -showComponent` both succeed even when
+# the toolchain can't actually run, so invoke the compiler to test it.
+if xcrun -sdk macosx metal --version &>/dev/null; then
+    BUILD_DIR="$SCRIPT_DIR/.build" "$SPEECH_SWIFT_SCRIPT" "$BUILD_CONFIG"
+else
+    echo "  Metal toolchain unavailable — looking for a previously built metallib."
+    if [ ! -f "$METALLIB_PATH" ]; then
+        for fallback in "$SCRIPT_DIR/build/$APP_NAME.app/Contents/Resources/mlx.metallib" \
+                        "/Applications/$APP_NAME.app/Contents/Resources/mlx.metallib"; do
+            if [ -f "$fallback" ]; then
+                echo "  Reusing metallib from: $fallback"
+                mkdir -p "$(dirname "$METALLIB_PATH")"
+                cp "$fallback" "$METALLIB_PATH"
+                break
+            fi
+        done
+    fi
+    if [ ! -f "$METALLIB_PATH" ]; then
+        echo "Error: no Metal toolchain and no previously built mlx.metallib to reuse."
+        echo "Install the toolchain with: xcodebuild -downloadComponent MetalToolchain"
+        exit 1
+    fi
+fi
+
 if [ ! -f "$METALLIB_PATH" ]; then
-    echo "Error: speech-swift script ran but mlx.metallib not found at $METALLIB_PATH"
+    echo "Error: mlx.metallib not found at $METALLIB_PATH"
     exit 1
 fi
 echo "  Metallib: $METALLIB_PATH ($(du -h "$METALLIB_PATH" | cut -f1))"
@@ -164,10 +192,23 @@ else
     echo "  Warning: Logo source not found at $LOGO_SOURCE_PATH"
 fi
 
-# Copy any SPM resource bundles that exist alongside the built binary
+# Copy the SPM resource bundles that belong to *this* build.
+#
+# `swift build` does not garbage-collect bundles from earlier builds, so a
+# renamed target leaves its old bundle behind in .build. Shipping the stale one
+# crashed the 1.1 app at launch: the binary wanted Consensus_ConsensusCore.bundle
+# and only the pre-rename Consensus_Consensus.bundle was copied, so Bundle.module
+# hit its fatalError before any window opened. Only ship bundles at least as new
+# as the executable we just built.
 for bundle in "$BUILD_DIR"/*.bundle; do
     if [ -d "$bundle" ]; then
         bundle_name=$(basename "$bundle")
+        # Orphan from before the target rename (Consensus -> ConsensusCore).
+        # Shipping it alongside the real one is what crashed 1.1 at launch.
+        if [ "$bundle_name" = "Consensus_Consensus.bundle" ]; then
+            echo "  Skipping orphaned bundle: $bundle_name"
+            continue
+        fi
         echo "  Copying bundle: $bundle_name"
         cp -R "$bundle" "$RESOURCES_DIR/$bundle_name"
     fi
