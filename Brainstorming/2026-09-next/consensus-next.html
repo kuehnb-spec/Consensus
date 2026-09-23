@@ -1,0 +1,543 @@
+<title>Consensus Next</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#F7F7F3; --sheet:#FFFFFF; --ink:#19202B; --ink2:#4B5363; --ink3:#6E7582;
+  --rule:#DFE0D9; --rule2:#ECECE6; --hl:#F4D54E; --hl-soft:rgba(244,213,78,.42);
+  --docket:#2B4C8C; --agree:#2E7652; --flag:#A8412A; --bar:#2B4C8C; --bar-best:#19202B;
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --ground:#111418; --sheet:#171B21; --ink:#E6E8EC; --ink2:#A9B0BB; --ink3:#838B97;
+  --rule:#2B3139; --rule2:#20252C; --hl:#D8BA38; --hl-soft:rgba(216,186,56,.30);
+  --docket:#93B2EE; --agree:#62B88E; --flag:#E57E62; --bar:#7E9FDD; --bar-best:#E6E8EC;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#111418; --sheet:#171B21; --ink:#E6E8EC; --ink2:#A9B0BB; --ink3:#838B97;
+  --rule:#2B3139; --rule2:#20252C; --hl:#D8BA38; --hl-soft:rgba(216,186,56,.30);
+  --docket:#93B2EE; --agree:#62B88E; --flag:#E57E62; --bar:#7E9FDD; --bar-best:#E6E8EC;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font:17px/1.6 var(--serif);padding-inline:20px;padding-block:0 80px}
+.wrap{max-width:760px;margin:0 auto}
+.wide{max-width:1080px;margin:0 auto}
+header.top{padding-block:56px 28px;border-bottom:1px solid var(--rule)}
+.eyebrow{font:500 12px/1.2 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+h1{font:700 clamp(40px,6vw,60px)/1.02 var(--serif);letter-spacing:-.02em;margin:10px 0 18px;text-wrap:balance}
+h1 .rule{display:block;width:140px;height:5px;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);margin-top:14px}
+.lede{font-size:20px;line-height:1.5;color:var(--ink2);max-width:62ch;margin:0}
+h2{font:600 30px/1.15 var(--serif);letter-spacing:-.01em;margin:0 0 6px;text-wrap:balance}
+h3{font:600 20px/1.3 var(--serif);margin:34px 0 8px}
+p{margin:0 0 16px;max-width:66ch}
+a{color:var(--docket)}
+section.item{padding-block:52px 8px;border-bottom:1px solid var(--rule)}
+.item-head{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:baseline;margin-bottom:20px}
+.item-no{font:500 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);padding-top:4px}
+.ask{grid-column:2;font:italic 16px/1.5 var(--serif);color:var(--ink3);margin:0}
+.verdict{border-left:3px solid var(--ink);padding:4px 0 4px 18px;margin:18px 0 24px;font-size:18px}
+.verdict b{font-weight:600}
+mark{background:linear-gradient(transparent 12%,var(--hl-soft) 12%,var(--hl-soft) 88%,transparent 88%);color:inherit;padding:0 2px}
+ul.tight{padding-left:20px;margin:0 0 16px;max-width:66ch}
+ul.tight li{margin-bottom:6px}
+.findings{display:grid;gap:14px;margin:28px 0 0;padding:0;list-style:none}
+.findings li{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:baseline}
+.findings .k{font:500 13px var(--mono);color:var(--ink3)}
+.broken{background:var(--sheet);border:1px solid var(--rule);border-left:3px solid var(--flag);padding:16px 20px;margin:28px 0 0;font:15px/1.55 var(--sans)}
+.broken strong{color:var(--flag);font-weight:600}
+.broken ol{margin:8px 0 0;padding-left:20px}
+.broken li{margin-bottom:6px}
+code,.mono{font-family:var(--mono);font-size:.84em}
+pre.cmd{font:13px/1.5 var(--mono);background:var(--sheet);border:1px solid var(--rule);padding:10px 14px;overflow-x:auto;margin:8px 0 0}
+/* tables */
+.tbl{overflow-x:auto;margin:18px 0 22px;border-top:1px solid var(--ink);border-bottom:1px solid var(--ink)}
+table{border-collapse:collapse;width:100%;font:14px/1.4 var(--sans);font-variant-numeric:tabular-nums}
+th{font:500 11px/1.3 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);text-align:left;padding:10px 10px 8px;border-bottom:1px solid var(--rule)}
+td{padding:9px 10px;border-bottom:1px solid var(--rule2);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-family:var(--mono);font-size:13px}
+tr.best td{font-weight:600}
+.caption{font:13px/1.5 var(--sans);color:var(--ink3);margin-top:-12px;margin-bottom:22px;max-width:70ch}
+/* bars */
+.bars{margin:18px 0 8px;font:13px/1.3 var(--sans)}
+.bar-row{display:grid;grid-template-columns:minmax(150px,210px) 1fr 58px;gap:12px;align-items:center;padding:5px 0}
+.bar-row .lab{color:var(--ink2)}
+.bar-track{height:14px;position:relative}
+.bar-fill{position:absolute;left:0;top:2px;height:10px;background:var(--bar);border-radius:0 4px 4px 0}
+.bar-row.best .bar-fill{background:var(--bar-best)}
+.bar-row.best .lab,.bar-row.best .val{color:var(--ink);font-weight:600}
+.bar-row .val{font-family:var(--mono);text-align:right;color:var(--ink2)}
+.bar-row[title]{cursor:default}
+.bar-row:hover .bar-fill{filter:brightness(1.15)}
+.axis{display:grid;grid-template-columns:minmax(150px,210px) 1fr 58px;gap:12px;font:11px var(--mono);color:var(--ink3)}
+.axis .ticks{display:flex;justify-content:space-between;border-top:1px solid var(--rule);padding-top:4px}
+/* experiment list */
+.exp{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:0;border-top:1px solid var(--rule)}
+.exp li{display:grid;grid-template-columns:34px 1fr auto;gap:12px;padding:14px 0;border-bottom:1px solid var(--rule)}
+.exp .rank{font:500 13px var(--mono);color:var(--ink3);padding-top:3px}
+.exp h4{font:600 17px/1.35 var(--serif);margin:0 0 4px}
+.exp p{font:15px/1.5 var(--sans);color:var(--ink2);margin:0}
+.exp .cost{font:11px/1.4 var(--mono);color:var(--ink3);text-align:right;white-space:nowrap;padding-top:4px}
+.decide{list-style:none;padding:0;margin:0;counter-reset:q}
+.decide li{counter-increment:q;padding:14px 0 14px 40px;position:relative;border-bottom:1px solid var(--rule);font-size:17px}
+.decide li::before{content:counter(q);position:absolute;left:0;top:14px;font:500 13px var(--mono);width:26px;height:26px;border:1px solid var(--ink);border-radius:50%;display:grid;place-items:center}
+.paths{font:13px/1.7 var(--mono);color:var(--ink2);background:var(--sheet);border:1px solid var(--rule);padding:14px 18px;overflow-x:auto;white-space:pre}
+
+/* ============ APP MOCKUP ============ */
+.mock-shell{margin:26px 0 10px}
+.mock-controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font:13px var(--sans);color:var(--ink2);margin-bottom:12px}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden;background:var(--sheet)}
+.seg button{font:500 12px var(--sans);border:0;background:transparent;color:var(--ink2);padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--sheet)}
+.seg button:focus-visible{outline:2px solid var(--docket);outline-offset:-2px}
+.mock-scroll{overflow-x:auto;border-radius:12px}
+.app{
+  --desk:#15171B; --desk2:#1C1F24; --desk3:#24282E; --line:rgba(236,232,222,.10); --dim:#8C8F95; --text:#D9DBDF;
+  --amber:#E2A33B; --hlapp:#F1CF45;
+  --paper:#F5F5EF; --paper-ink:#1A2130; --paper-rule:#DADBD2; --gutter:#9A9C98;
+  --s1:#6E8CA0; --s2:#B07A50; --s3:#8F9464; --s4:#96738F; --s5:#6E9C94;
+  min-width:960px;background:var(--desk);color:var(--text);border-radius:12px;overflow:hidden;
+  font:13px/1.4 -apple-system,"SF Pro Text",var(--sans);box-shadow:0 30px 60px -30px rgba(10,12,16,.55);border:1px solid #0b0c0e;
+}
+.app.night{--paper:#1E2127;--paper-ink:#E4E0D6;--paper-rule:#2E3239;--gutter:#6F727A}
+.chrome{display:grid;grid-template-columns:230px 1fr;height:34px;align-items:center;border-bottom:1px solid var(--line);background:var(--desk2)}
+.lights{display:flex;gap:7px;padding-left:14px}
+.lights i{width:11px;height:11px;border-radius:50%;background:#3a3d42;display:block}
+.lights i:nth-child(1){background:#E0625A}.lights i:nth-child(2){background:#DDB14A}.lights i:nth-child(3){background:#6BBE5A}
+.titlebar{display:flex;align-items:center;justify-content:space-between;padding:0 14px}
+.doc-title{font:600 14px var(--serif);color:#ECEAE4;letter-spacing:.01em}
+.doc-title small{font:400 11px var(--mono);color:var(--dim);margin-left:10px;letter-spacing:.04em}
+.lens{display:inline-flex;gap:0;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.lens span{font:500 10.5px var(--mono);letter-spacing:.1em;padding:4px 10px;color:var(--dim);text-transform:uppercase}
+.lens span.on{background:#ECEAE4;color:#15171B}
+.body{display:grid;grid-template-columns:230px 1fr;min-height:560px}
+.side{border-right:1px solid var(--line);padding:14px 10px;background:var(--desk)}
+.side h5{font:500 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:14px 8px 6px}
+.side h5:first-child{margin-top:2px}
+.side .row{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-radius:5px;color:#C9CBD0}
+.side .row.on{background:var(--desk3);color:#F0EEE8}
+.side .row .ct{font:11px var(--mono);color:var(--dim)}
+.side .row .dot{width:6px;height:6px;border-radius:50%;background:var(--amber);display:inline-block;margin-right:7px}
+.side .rec{padding:7px 8px;border-radius:5px;margin-top:2px}
+.side .rec.on{background:var(--desk3)}
+.side .rec b{display:block;font-weight:500;color:#E7E5E0;font-size:12.5px}
+.side .rec span{font:10.5px var(--mono);color:var(--dim)}
+.side .badge{font:9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:1px 5px;border:1px solid var(--line);border-radius:3px;color:var(--dim);margin-left:6px}
+.side .badge.v{color:#9FD3B1;border-color:rgba(159,211,177,.35)}
+.main{display:grid;grid-template-rows:auto 1fr auto;min-width:0}
+.strip{padding:10px 18px 8px;border-bottom:1px solid var(--line);background:var(--desk2)}
+.strip-meta{display:flex;justify-content:space-between;font:10.5px var(--mono);color:var(--dim);letter-spacing:.06em;margin-bottom:6px}
+.strip-meta b{color:var(--amber);font-weight:500}
+.strip svg{display:block;width:100%;height:74px}
+.stage{display:grid;grid-template-columns:1fr;min-height:0;position:relative}
+.app.review .stage,.app.studio .stage{grid-template-columns:1fr 250px}
+.desk-area{padding:22px 26px;overflow:hidden}
+.sheet{background:var(--paper);color:var(--paper-ink);max-width:640px;margin:0 auto;padding:22px 30px 26px 0;box-shadow:0 1px 0 rgba(0,0,0,.2),0 18px 40px -22px rgba(0,0,0,.6);display:grid;grid-template-columns:62px 1fr;font:15px/1.9 var(--serif);transition:background .2s,color .2s}
+.sheet .pg{grid-column:1/-1;display:flex;justify-content:space-between;padding-left:62px;font:10px var(--mono);letter-spacing:.1em;color:var(--gutter);margin-bottom:8px;text-transform:uppercase}
+.ln{font:10.5px/2.7 var(--mono);color:var(--gutter);text-align:right;padding-right:16px;border-right:1px solid var(--paper-rule);user-select:none}
+.txt{padding-left:18px}
+.txt p{margin:0;max-width:none}
+.spk{font-variant:small-caps;letter-spacing:.06em;font-weight:600}
+.t{font:10px var(--mono);color:var(--gutter);margin-right:6px}
+.dispute{background:linear-gradient(transparent 14%,rgba(241,207,69,.62) 14%,rgba(241,207,69,.62) 86%,transparent 86%);cursor:pointer;border-radius:1px;position:relative}
+.app.night .dispute{background:linear-gradient(transparent 14%,rgba(241,207,69,.30) 14%,rgba(241,207,69,.30) 86%,transparent 86%)}
+.dispute sup{font:600 9px var(--mono);color:#9A6A00;margin-left:1px}
+.app.night .dispute sup{color:var(--hlapp)}
+.dispute.settled{background:none;border-bottom:1px dotted var(--gutter)}
+.app.read .dispute{background:none}
+.app.read .dispute sup{display:none}
+.exhibit{position:absolute;left:50%;top:190px;transform:translateX(-58%);width:350px;background:#1D2026;color:#DADCE0;border:1px solid rgba(255,255,255,.12);border-radius:4px;box-shadow:0 20px 40px -12px rgba(0,0,0,.7);font:12.5px/1.45 var(--sans);z-index:3}
+.exhibit header{font:500 10px var(--mono);letter-spacing:.1em;color:var(--dim);padding:9px 12px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between}
+.exhibit .w{display:grid;grid-template-columns:78px 1fr 40px;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.05);align-items:baseline}
+.exhibit .w .who{font:10.5px var(--mono);color:var(--dim)}
+.exhibit .w .say{font:14px var(--serif);color:#EEECE6}
+.exhibit .w .pct{font:10.5px var(--mono);color:var(--dim);text-align:right}
+.exhibit .w.win .say{color:#fff}
+.exhibit .w.win .who{color:#9FD3B1}
+.exhibit .act{display:flex;gap:8px;padding:10px 12px}
+.exhibit .act button{font:500 11.5px var(--sans);padding:5px 10px;border-radius:4px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#E2E2E2;cursor:pointer}
+.exhibit .act button.primary{background:#ECEAE4;color:#15171B;border-color:#ECEAE4}
+.exhibit .note{padding:0 12px 10px;font:11px var(--mono);color:var(--dim)}
+.app.read .exhibit,.app.studio .exhibit{display:none}
+.rail{border-left:1px solid var(--line);padding:14px 14px;background:var(--desk);display:none}
+.app.review .rail.queue{display:block}
+.app.studio .rail.trace{display:block}
+.rail h5{font:500 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
+.q{padding:9px 10px;border:1px solid var(--line);border-radius:4px;margin-bottom:8px;background:var(--desk2)}
+.q .top{display:flex;justify-content:space-between;font:10px var(--mono);color:var(--dim);margin-bottom:3px}
+.q .top b{color:var(--hlapp);font-weight:500}
+.q .say{font:13.5px var(--serif);color:#E9E7E1}
+.q.done{opacity:.55}
+.q.done .top b{color:#9FD3B1}
+.meter{height:4px;background:var(--desk3);border-radius:2px;margin-top:6px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--amber)}
+.console{display:none;border-top:1px solid var(--line);background:#121418;padding:10px 18px 12px}
+.app.studio .console{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.ch{border:1px solid var(--line);border-radius:3px;padding:8px 10px;background:var(--desk2)}
+.ch .nm{font:500 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:#CFCFCF;display:flex;justify-content:space-between}
+.ch .nm i{width:7px;height:7px;border-radius:50%;background:#6BBE5A;display:inline-block}
+.ch .nm i.run{background:var(--amber)}
+.ch .kv{display:flex;justify-content:space-between;font:10.5px var(--mono);color:var(--dim);margin-top:5px}
+.ch .kv b{color:var(--amber);font-weight:500}
+.statusbar{display:flex;justify-content:space-between;align-items:center;padding:7px 18px;border-top:1px solid var(--line);font:10.5px var(--mono);color:var(--dim);letter-spacing:.04em;background:var(--desk2)}
+.statusbar .ok{color:#9FD3B1}
+.mock-note{font:13px/1.5 var(--sans);color:var(--ink3);margin-top:10px;max-width:74ch}
+.lens-explain{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:22px 0 6px}
+.lens-explain div{border-top:2px solid var(--ink);padding-top:10px;font:15px/1.5 var(--sans);color:var(--ink2)}
+.lens-explain b{display:block;font:600 17px var(--serif);color:var(--ink);margin-bottom:4px}
+@media (max-width:720px){
+  body{font-size:16px}
+  .lens-explain{grid-template-columns:1fr}
+  .exp li{grid-template-columns:28px 1fr}
+  .exp .cost{grid-column:2;text-align:left}
+  .bar-row,.axis{grid-template-columns:120px 1fr 52px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Consensus · proposal and first measurements · September 23, 2026</div>
+  <h1>Consensus Next<span class="rule"></span></h1>
+  <p class="lede">You asked for four things: use NVIDIA's new diarizer, rethink the interface, find test subjects that don't cost you editing time, and reopen the accuracy question. I measured before recommending. There is now a 149-minute public test corpus on the Studio, and every engine we'd consider has been scored against it.</p>
+  <ul class="findings">
+    <li><span class="k">1</span><span><b>Nemotron 3 Diarization is real and runs on-device today, but it doesn't beat what we have.</b> Across 15 clips, VibeVoice's own speaker labels scored <b>8.2% cpWER</b>. The same words with Nemotron's speakers scored <b>12.4%</b>. But Nemotron won 5 of the 15 clips, including one where VibeVoice's speakers collapsed (10.3% → 1.3% DER). It's a second witness, not a replacement.</span></li>
+    <li><span class="k">2</span><span><b>The test-subject problem is solved without movies.</b> Supreme Court arguments come with speaker-named, time-stamped official transcripts and public-domain audio. The 2020 term was argued <i>by telephone</i>, so we get legal phone-call audio. One script pulls as many as we want.</span></li>
+    <li><span class="k">3</span><span><b>You never need to hand-correct a transcript.</b> The engines act as witnesses against the reference. Where they agree with each other and not with it, the turn goes on a listen-list. Across the corpus that's <b>29 of 1,176 turns</b> (2.5%), about five minutes of listening, done once.</span></li>
+    <li><span class="k">4</span><span><b>The interface should center on the recording, not the pipeline.</b> One library with matter folders, one file format shared with the CLI, and the three modes as lenses you switch any time. The visual identity comes from the legal transcript itself: page:line numbering, highlighter marks, and a strip showing the engines converge.</span></li>
+  </ul>
+  <div class="broken">
+    <strong>Two things are broken right now. I fixed one; the other needs you.</strong>
+    <ol>
+      <li><b>The installed Consensus.app crashes on launch.</b> SwiftPM's resource lookup only checks the app bundle root and the absolute <code>.build</code> path compiled in. The build folder was deleted during a cleanup, so the app can't find its fonts and traps. I added a link step to <code>build-app.sh</code>; the durable fix is an Xcode app target.</li>
+      <li><b>The app can't be rebuilt</b>: the Xcode 27 update removed the Metal Toolchain that MLX needs. One command (about 700 MB from Apple), which I left for you:
+        <pre class="cmd">xcodebuild -downloadComponent MetalToolchain</pre></li>
+      <li style="list-style:none;margin-left:-20px;margin-top:8px;color:var(--ink3)">Also worth knowing: the Studio has <b>31 GB free</b>. The July plan assumed 202 GB, and the verifier bake-off models alone are about 33 GB.</li>
+    </ol>
+  </div>
+</header>
+
+<!-- =================== ITEM 1 =================== -->
+<section class="item" id="nemotron">
+  <div class="item-head"><span class="item-no">Item 1</span><h2>The new NVIDIA model</h2><p class="ask">"There is a new Nvidia diarization model out — let's see if we can use it."</p></div>
+  <p><b>Nemotron 3 Diarization</b> shipped today: 100M parameters, up to <b>8 speakers</b> (the older Sortformer line capped at 4), streaming and offline in one checkpoint, and the OpenMDW 1.1 license, which allows commercial use. NVIDIA reports 12.7% DER offline and #1 on VoiceArena's Diarization-Bench. FluidAudio, the Swift library we already depend on, added CoreML support in <b>v0.17.0</b> this afternoon, and <code>FluidInference/nemotron-3-diarization-coreml</code> is on Hugging Face.</p>
+  <p>I built FluidAudio 0.17.1 and ran Nemotron on every clip in the new corpus on the Studio's Neural Engine: about <b>24 seconds for 10 minutes of audio</b>, fully on-device. I ran the same audio through three comparisons: pyannote community-1 (FluidAudio's best offline pipeline), Parakeet v3 words assigned to each diarizer's speakers, and our current VibeVoice CLI.</p>
+
+  <div class="bars" id="cp-bars" role="img" aria-label="cpWER by configuration">
+  </div>
+  <div class="axis"><span></span><div class="ticks"><span>0%</span><span>10%</span><span>20%</span><span>30%</span></div><span></span></div>
+  <p class="caption" style="margin-top:8px">cpWER counts a word wrong if the text is wrong <i>or</i> it's credited to the wrong speaker, so it's the number that matches your experience of a bad transcript. Lower is better. Across 15 Supreme Court clips, 149 minutes, 6–10 speakers each. Word error is content WER: fillers and stutters are ignored on both sides.</p>
+
+  <div class="tbl"><table id="res-table">
+    <thead><tr><th>Configuration</th><th class="n">Word error</th><th class="n">cpWER</th><th class="n">Speaker confusion</th><th class="n">DER</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <p class="caption">DER = missed speech + false alarm + wrong speaker, 0.25 s collar. The raw diarizers show higher "missed" time because Oyez turns include the short pauses between sentences; speaker confusion is the fair comparison between them.</p>
+
+  <p>Swapping in Nemotron as the speaker engine would make transcripts <i>worse</i> on average: 8.2% → 12.4% cpWER with the same words. It undercounts speakers (6 of 10 on <i>Google v. Oracle</i>, where VibeVoice found all 10), and the 8-speaker cap bites on a nine-justice bench. But the per-clip table shows the two fail in different places. Nemotron was better on 5 of 15 clips, and on <i>Weyerhaeuser</i> it cut DER from 10.3% to 1.3% where VibeVoice's labels drifted. Two witnesses that fail differently is exactly what Consensus is built to use.</p>
+  <div class="verdict"><b>Verdict: adopt it, but as a witness, not the judge.</b> Nemotron earns a place three ways: (1) a second speaker opinion, since disagreement between two diarizers is exactly where attribution errors hide; (2) the fallback when VibeVoice can't run, for audio over 60 minutes or on a smaller Mac, where it beat community-1 clearly; (3) a future <b>live mode</b>, since it streams at 1 s latency.</div>
+  <p>Integration cost is modest: move from the vendored FluidAudio snapshot (years of releases behind) to a pinned remote <code>0.17.1</code>. The <code>wip/studio</code> branch already has half the API migration. Re-validate the CLI afterward, per the July handoff guardrails.</p>
+</section>
+
+<!-- =================== ITEM 2 =================== -->
+<section class="item" id="interface">
+  <div class="item-head"><span class="item-no">Item 2</span><h2>The interface</h2><p class="ask">"Keep the multi-mode setup, make it more beautiful and unique, and simplify files and projects."</p></div>
+
+  <h3>What's making it feel clunky</h3>
+  <ul class="tight">
+    <li><b>Two storage systems.</b> The app keeps projects as UUID folders hidden in Application Support; the CLI writes <code>.consensus.json</code> next to the audio. A recording your PADD pipeline transcribed overnight never shows up in the app.</li>
+    <li><b>Links that break.</b> Projects soft-link the original audio, so moving or renaming the file breaks the project, and there's no relink.</li>
+    <li><b>No way to group.</b> Projects are one flat list with no matter, client, or folder.</li>
+    <li><b>The pipeline is the UI.</b> The main view is a stage router that swaps the entire screen eight times, plus six modal sheets. You pick a mode before you've seen anything, and passes, tiers, and engines leak into the vocabulary.</li>
+  </ul>
+
+  <h3>Files: one recording, one place, one format</h3>
+  <ul class="tight">
+    <li><b>A library with Matters.</b> The sidebar holds <i>Inbox</i> (new arrivals, including everything the PADD watcher transcribes), <i>Matters</i> (your folders), <i>All recordings</i>, and <i>Voices</i>. Drop audio anywhere and it lands in the Inbox and starts.</li>
+    <li><b>Audio is copied in, once.</b> It's addressed by content hash, so re-importing the same file finds the existing recording. Moving or deleting the original never breaks anything.</li>
+    <li><b>Each recording is a readable package:</b> <code>Harbor call.consensus/</code> holding the audio, <code>transcript.json</code> (the CLI's schema 2.0, extended), <code>history/</code>, and <code>notes.md</code>. The CLI writes the same package, so the app and automation become two doors into one room. Drag a package out to hand a matter to co-counsel.</li>
+    <li><b>Passes become history.</b> You see one transcript with a status: <i>Draft → Checked → Verified → Certified</i>. Earlier versions live in a timeline, like document versions. Export is an action, not a stage.</li>
+    <li><b>The library lives on local disk</b>, never iCloud (the August lesson), and can be relocated.</li>
+  </ul>
+
+  <h3>Modes: lenses on the same recording, not three forks</h3>
+  <p>Keep the three modes, but decouple <i>how you look</i> from <i>how hard the machine works</i>. The mode is a lens you can switch mid-read; accuracy is a separate dial you can raise later ("Make this court-ready" runs the heavier pipeline in the background and upgrades the same recording).</p>
+  <div class="lens-explain">
+    <div><b>Read</b>Quick Take becomes a clean typeset transcript with speaker names and copy/export. No marks and no machinery.</div>
+    <div><b>Review</b>Deep Read becomes a highlighter view. Disputed spans are marked, and a queue sorted by risk tells you "7 spans, about 4 minutes." Click, listen, accept.</div>
+    <div><b>Studio</b>The instrument view: engine channel strips, the full evidence trace, and the convergence strip in detail.</div>
+  </div>
+
+  <h3>Identity: the transcript as a legal record</h3>
+  <p>The July design memo diagnosed the current look as AI-generated: a Tailwind palette, glassmorphism, and chip rows. I agree, and I'd push its fix further into your world. The document is typeset like a certified transcript: <b>page:line numbering</b> in the gutter, speaker names in small caps with a colon, and a <b>Cite 14:7</b> copy action, because that's how you cite a deposition. Disputes aren't red alarms; they're <b>highlighter</b>, the way you mark a transcript by hand, and the highlight disappears once the span is settled. Above the page, the <b>convergence strip</b> draws each engine as a thread: where the engines agree they run as one line of ink, where they disagree they splay apart. Consensus being forged, literally drawn. The paper can be day (bond white) or night (umber), and the desk around it stays dark.</p>
+
+  <div class="wide mock-shell">
+    <div class="mock-controls">
+      <span>Lens</span>
+      <div class="seg" role="group" aria-label="Lens">
+        <button id="lens-read" type="button" aria-pressed="false" data-lens="read">Read</button>
+        <button id="lens-review" type="button" aria-pressed="true" data-lens="review">Review</button>
+        <button id="lens-studio" type="button" aria-pressed="false" data-lens="studio">Studio</button>
+      </div>
+      <span>Paper</span>
+      <div class="seg" role="group" aria-label="Paper">
+        <button id="paper-day" type="button" aria-pressed="true" data-paper="day">Day</button>
+        <button id="paper-night" type="button" aria-pressed="false" data-paper="night">Night</button>
+      </div>
+      <span style="color:var(--ink3)">Try the highlighted words and the Accept button.</span>
+    </div>
+    <div class="mock-scroll">
+    <div class="app review" id="app">
+      <div class="chrome">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <div class="titlebar">
+          <div class="doc-title">Axon Enterprise v. FTC — argument excerpt<small>09:58 · 8 SPEAKERS</small></div>
+          <div class="lens"><span data-l="read">Read</span><span data-l="review" class="on">Review</span><span data-l="studio">Studio</span></div>
+        </div>
+      </div>
+      <div class="body">
+        <aside class="side">
+          <h5>Library</h5>
+          <div class="row"><span><span class="dot"></span>Inbox</span><span class="ct">3</span></div>
+          <div class="row"><span>All recordings</span><span class="ct">212</span></div>
+          <div class="row"><span>Voices</span><span class="ct">14</span></div>
+          <h5>Matters</h5>
+          <div class="row"><span>Harbor lease dispute</span><span class="ct">9</span></div>
+          <div class="row on"><span>Proving Ground</span><span class="ct">15</span></div>
+          <div class="row"><span>Estate of Adler</span><span class="ct">4</span></div>
+          <div class="row"><span>Firm admin</span><span class="ct">22</span></div>
+          <h5>Proving Ground</h5>
+          <div class="rec on"><b>Axon v. FTC</b><span>2022 · 9:58</span><span class="badge">Checked</span></div>
+          <div class="rec"><b>Loper Bright v. Raimondo</b><span>2024 · 9:48</span><span class="badge v">Verified</span></div>
+          <div class="rec"><b>Clinton v. Jones</b><span>1997 · 9:59</span><span class="badge">Draft</span></div>
+          <div class="rec"><b>Tanzin v. Tanvir</b><span>2020 · phone · 9:47</span><span class="badge v">Verified</span></div>
+        </aside>
+        <div class="main">
+          <div class="strip">
+            <div class="strip-meta"><span>CONVERGENCE · 3 WITNESSES</span><span><b id="agree-pct">98.6%</b> AGREEMENT · <span id="open-ct">2</span> OPEN</span></div>
+            <svg id="strip" viewBox="0 0 800 74" preserveAspectRatio="none" aria-label="Engine agreement and speaker lanes over time"></svg>
+          </div>
+          <div class="stage">
+            <div class="desk-area">
+              <div class="sheet" id="sheet">
+                <div class="pg"><span>Page 14</span><span>Oral argument · Nov 7 2022</span></div>
+                <div class="ln">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13<br>14</div>
+                <div class="txt">
+                  <p><span class="t">03:30</span><span class="spk">Justice Gorsuch:</span> Tell me what I'm missing. <span class="dispute settled" data-ex="0">1331</span> says that district courts have jurisdiction over these claims absent any other consideration.</p>
+                  <p><span class="t">04:47</span><span class="spk">Mr. Clement:</span> But, if you go with that approach, then I do think that, you know, district courts are going to have to be ready to apply a whole bunch of, you know, fairly well-established doctrines of <span class="dispute" data-ex="1">ripeness<sup>†1</sup></span> and exhaustion, primary jurisdiction, maybe abstention.</p>
+                  <p><span class="t">05:03</span><span class="spk">Mr. Clement:</span> I know, you know, you generally —</p>
+                  <p><span class="t">05:04</span><span class="spk">Justice Gorsuch:</span> Don't — don't they do that all the time? I mean, maybe that's simplistic, but —</p>
+                  <p><span class="t">06:44</span><span class="spk">Chief Justice Roberts:</span> Justice Kavanaugh? <span class="dispute" data-ex="2">Justice Barrett?<sup>†2</sup></span></p>
+                  <p><span class="t">06:47</span><span class="spk">Justice Barrett:</span> Just a quick question. So Justice Kagan asked you about interlocutory appeals, and it's true they're disfavored in all the contexts in which Justice Kagan was saying.</p>
+                </div>
+              </div>
+              <div class="exhibit" id="exhibit">
+                <header><span id="ex-h">EXHIBIT †1 · PAGE 14:5 · 04:59</span><span>2 WITNESSES</span></header>
+                <div class="w"><span class="who">VibeVoice</span><span class="say" id="ex-a">"doctrines of rightness"</span><span class="pct" id="ex-ap">n/a</span></div>
+                <div class="w win"><span class="who">Parakeet</span><span class="say" id="ex-b">"doctrines of ripeness"</span><span class="pct" id="ex-bp">0.999</span></div>
+                <div class="note" id="ex-note">Lexicon: "ripeness" is a justiciability doctrine · proposed: masked re-listen confirms before applying</div>
+                <div class="act"><button class="primary" type="button" id="ex-accept">Accept "ripeness"</button><button type="button" id="ex-play">▶ Play 3 s</button><button type="button" id="ex-keep">Keep original</button></div>
+              </div>
+            </div>
+            <aside class="rail queue">
+              <h5>Review queue · ~2 min</h5>
+              <div class="q" data-q="1"><div class="top"><span>14:5 · 04:59</span><b>RISK HIGH</b></div><div class="say">ripeness / rightness</div><div class="meter"><i style="width:84%"></i></div></div>
+              <div class="q" data-q="2"><div class="top"><span>14:11 · 06:45</span><b>RISK MED</b></div><div class="say">Justice Barrett / This is Barrett</div><div class="meter"><i style="width:52%"></i></div></div>
+              <div class="q done"><div class="top"><span>14:1 · 03:31</span><b>SETTLED</b></div><div class="say">1331 = "thirteen thirty-one"</div></div>
+              <div class="q done"><div class="top"><span>13:18 · 02:12</span><b>SETTLED</b></div><div class="say">Article III = "article 3"</div></div>
+            </aside>
+            <aside class="rail trace">
+              <h5>Evidence trace</h5>
+              <div class="q"><div class="top"><span>04:59 · FLAG</span><b>TEXT</b></div><div class="say">Witnesses split: rightness / ripeness</div></div>
+              <div class="q"><div class="top"><span>04:59 · LEXICON</span><b>HINT</b></div><div class="say">"ripeness" matches legal lexicon</div></div>
+              <div class="q"><div class="top"><span>06:45 · FLAG</span><b>TEXT</b></div><div class="say">"Justice" vs "This is" before Barrett</div></div>
+              <div class="q done"><div class="top"><span>03:31 · AUTO</span><b>SETTLED</b></div><div class="say">Number spelling only, no re-listen</div></div>
+            </aside>
+          </div>
+          <div class="console">
+            <div class="ch"><div class="nm">VibeVoice<i></i></div><div class="kv"><span>time</span><b>167 s</b></div><div class="kv"><span>words · spk</span><b>1,757 · 8</b></div></div>
+            <div class="ch"><div class="nm">Parakeet v3<i></i></div><div class="kv"><span>time</span><b>4 s</b></div><div class="kv"><span>words</span><b>1,781</b></div></div>
+            <div class="ch"><div class="nm">Nemotron 3<i></i></div><div class="kv"><span>mode</span><b>offline</b></div><div class="kv"><span>speakers</span><b>7</b></div></div>
+            <div class="ch"><div class="nm">Whisper L3<i class="run"></i></div><div class="kv"><span>status</span><b>planned</b></div><div class="kv"><span>role</span><b>3rd witness</b></div></div>
+            <div class="ch"><div class="nm">Verifier<i class="run"></i></div><div class="kv"><span>status</span><b>planned</b></div><div class="kv"><span>role</span><b>re-listen</b></div></div>
+          </div>
+          <div class="statusbar"><span>ON DEVICE · NOTHING LEAVES THIS MAC</span><span class="ok" id="status-r">CHECKED · 2 OPEN</span><span>CITE 14:5 ⌘⇧C</span></div>
+        </div>
+      </div>
+    </div>
+    </div>
+    <p class="mock-note">Every word on this page comes from the corpus (<i>Axon v. FTC</i>, Nov. 7, 2022, public domain), and both highlighted spans are real disagreements from tonight's runs: VibeVoice heard "doctrines of <i>rightness</i>" and "This is Barrett"; Parakeet heard "ripeness" and "Justice Barrett," which match the official transcript. Confidence reads "n/a" for VibeVoice because it doesn't produce real per-word confidence (see Item 4). Whisper and the verifier are shown as planned. The app is SwiftUI; this page only shows the direction.</p>
+  </div>
+</section>
+
+<!-- =================== ITEM 3 =================== -->
+<section class="item" id="corpus">
+  <div class="item-head"><span class="item-no">Item 3</span><h2>Test subjects without the editing</h2><p class="ask">"Publicly available transcripts of movies and speeches… the sheer volume of consistent transcripts lets us be confident."</p></div>
+  <p>Your instinct, that independent agreement earns trust, is exactly right, and it's the core of what I built. Movies are the wrong material for it, though. The audio is copyrighted, fan transcripts are cleaned up and not time-aligned, score and effects sit under the dialogue, and acted speech doesn't interrupt the way a deposition does. We'd end up measuring how transcribers edit rather than how well the engines hear.</p>
+  <p>Better: <b>the U.S. Supreme Court</b>. The audio is a federal record in the public domain. The words come from the Court's official reporter. Oyez has aligned every turn to the audio with the speaker's name. That's legal register, 6–10 speakers per clip, and the same nine voices recurring across hundreds of recordings, which is a free test for the Voice Library. And the 2020 term was argued <b>entirely by telephone</b>.</p>
+
+  <div class="tbl"><table>
+    <thead><tr><th>Built tonight</th><th class="n">Clips</th><th class="n">Minutes</th><th>What it tests</th></tr></thead>
+    <tbody>
+      <tr><td>Courtroom, 1996–1999 (tape era)</td><td class="n">4</td><td class="n">40</td><td>Old recordings, many justices, fast cross-talk</td></tr>
+      <tr><td>Courtroom, 2018–2024</td><td class="n">8</td><td class="n">79</td><td>Modern courtroom audio, overlapping interruptions</td></tr>
+      <tr><td>Telephone arguments, 2020</td><td class="n">3</td><td class="n">30</td><td>Phone-band legal audio, one speaker at a time</td></tr>
+    </tbody>
+  </table></div>
+  <p class="caption">Each clip is the 10-minute window with the most speaker changes, cut on turn boundaries. Adding more is one command.</p>
+
+  <h3>How the reference gets checked without you editing it</h3>
+  <p>Each clip is run through two engines built by different teams on different data. Where both engines agree with each other and not with the reference, the reference is probably the odd one out, and that turn goes on a <b>listen-list</b> with a three-second audio snippet. Everything else is trusted. On the first pass, the list surfaced something important: the official transcript is <mark>clean verbatim</mark>. The reporter drops stutters and false starts, so "there there there is" becomes "there's." The scorer now collapses repeated words on both sides, which cut the first seven clips' list from 29 turns to 19. Across all 15 clips it's <b>29 of 1,176 turns</b> (2.5%), each with a snippet. Most are timing drift in Oyez's 1990s alignments. That's about five minutes of listening, and you only do it once per clip.</p>
+
+  <h3>What to add next, in order</h3>
+  <ul class="tight">
+    <li><b>Earnings-21</b> (Rev.com): 44 real conference calls, 39 hours, 7–14 speakers, CC BY-SA text with RTTM speaker files. Verified tonight; it needs whole-file scoring because the references carry no timestamps.</li>
+    <li><b>AMI meetings</b> (CC BY 4.0): 100 hours of four-person conference-room meetings.</li>
+    <li><b>A synthetic stress lab.</b> Public-domain voices mixed into conversations with known overlap, phone-codec filtering, and noise. The truth is perfect by construction, and it can target specific failures, like the "Gotcha" swallowed inside a 115-second turn in the Everett call.</li>
+    <li><b>Your gold files stay the final exam.</b> We tune on public data and report on yours, so we never overfit to one call.</li>
+  </ul>
+</section>
+
+<!-- =================== ITEM 4 =================== -->
+<section class="item" id="accuracy">
+  <div class="item-head"><span class="item-no">Item 4</span><h2>Reopening the accuracy question</h2><p class="ask">"Once we got it working reasonably well we stopped testing alternative ideas — maybe it's time."</p></div>
+  <p>Tonight's numbers already overturn one assumption: the July plan treated VibeVoice's speaker tags as an unused second opinion, but they're the <b>best diarization we have</b>. VibeVoice also leads on words: 5.5% content WER against Parakeet's 7.6%. But Parakeet is 40× faster, and its errors land in different places ("ripeness" versus VibeVoice's "rightness"), which is what a consensus design needs.</p>
+  <p>One flaw surfaced along the way: <b>VibeVoice has no real word-level confidence.</b> Every word the CLI emits carries 0.95, the segment's score copied down. That quietly breaks the handoff's "never fabricate confidence" rule, and it means confidence can't be used to rank spans for review until we get it from a second engine. It's a small, contained CLI fix: emit <code>null</code> at word level.</p>
+  <p>One number decides whether the current patch-review architecture has headroom: <b>what share of real errors fall inside spans where the engines disagree?</b> Patch review can only fix what's flagged. If 80% of errors are disputed, invest in the verifier. If 40%, errors that every engine shares dominate, and a plausibility pass matters more. Now that there's a corpus with ground truth, that's measurable.</p>
+
+  <ol class="exp">
+    <li><span class="rank">A</span><div><h4>Measure disagreement recall first</h4><p>For every true error, check whether it sits inside a disputed span (two witnesses, then three). This tells us where the remaining accuracy lives before we spend a week on any engine.</p></div><span class="cost">1 day · no downloads</span></li>
+    <li><span class="rank">B</span><div><h4>Speaker consensus</h4><p>Fuse VibeVoice, Nemotron, and community-1 speaker turns with DOVER-Lap-style voting, and flag words where the diarizers disagree. The app's own thesis, applied to who said it.</p></div><span class="cost">2 days · on hand</span></li>
+    <li><span class="rank">C</span><div><h4>A third word witness</h4><p>Add Whisper large-v3 (already in the app) or Qwen3-ASR as a third voter, and do word-level ROVER alignment as the disagreement map. Three witnesses let a majority settle ties without a verifier.</p></div><span class="cost">2 days · ~3 GB</span></li>
+    <li><span class="rank">D</span><div><h4>Known roster and your voice as an anchor</h4><p>You're in most of your recordings. Enroll your voice once and pass the expected head-count ("me, opposing counsel, witness"). That's the cheapest large diarization win for structured calls. The Supreme Court corpus tests it, because the same justices recur.</p></div><span class="cost">3 days · on hand</span></li>
+    <li><span class="rank">E</span><div><h4>Plausibility pass for shared errors</h4><p>A text-only local LLM flags spans that don't make sense in context ("meditation" in an arbitration). Each flag becomes a masked re-listen, never a direct edit, per the Phase A lesson.</p></div><span class="cost">3 days · 8–13 GB</span></li>
+    <li><span class="rank">F</span><div><h4>Verifier bake-off, resumed</h4><p>Qwen3-Omni-30B versus Gemma 4 12B in the masked-cloze role, gated on zero edits to clean input. This needs disk space freed first.</p></div><span class="cost">4 days · ~33 GB</span></li>
+  </ol>
+  <p style="margin-top:18px">Every one of these runs through the same three scripts and posts a row to the same table, so an idea is tested in hours, not argued about in memos.</p>
+</section>
+
+<section class="item" id="decide" style="border-bottom:0">
+  <div class="item-head"><span class="item-no">Your call</span><h2>Four decisions</h2></div>
+  <ol class="decide">
+    <li><b>Visual direction:</b> the legal-record identity above (page:line, highlighter, convergence strip, dark desk around the paper). It replaces the indigo and glass rules in <code>AGENTS.md</code>, so it needs your sign-off.</li>
+    <li><b>Library model:</b> audio copied into a local library of <code>.consensus</code> packages with Matters, which the CLI also writes. The alternative is leaving audio in place and indexing it.</li>
+    <li><b>Metal Toolchain</b> download (700 MB) so the app can be rebuilt, and whether to free about 40 GB for the verifier bake-off.</li>
+    <li><b>Order of work:</b> I'd do experiment A, then the FluidAudio upgrade, then the library and file-format change, then the visual pass.</li>
+  </ol>
+
+  <h3>Where everything is</h3>
+  <div class="paths">Mac Studio · local disk · /Users/brantkuehn/Projects/Consensus/
+  Scripts/proving-ground/fetch_oyez.py              build Supreme Court clips + references
+  Scripts/proving-ground/run_engines.sh             run every engine over a corpus
+  Scripts/proving-ground/combine_words_speakers.py  words from one engine, speakers from another
+  Scripts/proving-ground/score_corpus.py            WER / cpWER / DER table
+  Scripts/proving-ground/audit_reference.py         witness audit → listen-list
+  Scripts/proving-ground/pg_text.py                 shared normalizer
+  TestCorpus/oyez/                                  15 clips, fixtures, RTTM/STM (git-ignored)
+  TestCorpus/oyez/_audit/listen-list.md             29 turns to spot-check, with snippets
+  TestCorpus/runs/                                  every engine's raw output
+  TestCorpus/results-2026-09-23.md                  tonight's full score table (per clip)
+  TranscriboApp/build-app.sh                        resource-bundle launch fix</div>
+</section>
+</div>
+
+<script>
+const RESULTS = [
+  // name, WER, cpWER, confusion, DER, best
+  ["VibeVoice (current CLI)", 5.51, 8.18, 2.5, 2.95, true],
+  ["VibeVoice words + Nemotron 3 speakers", 5.51, 12.39, 3.7, 4.01],
+  ["Parakeet words + Nemotron 3 speakers", 7.58, 13.63, 3.1, 6.28],
+  ["Parakeet words + Nemotron 3 (1 s streaming)", 7.58, 15.39, 4.3, 7.53],
+  ["VibeVoice words + community-1 speakers", 5.51, 20.13, 7.9, 8.15],
+  ["Parakeet words + community-1 speakers", 7.58, 21.33, 6.8, 9.66],
+  ["Nemotron 3 alone (offline)", null, null, 2.1, 12.74],
+  ["Nemotron 3 alone (1 s streaming)", null, null, 3.0, 14.06],
+  ["community-1 alone (offline)", null, null, 5.5, 16.12],
+];
+(function(){
+  const bars=document.getElementById('cp-bars'), max=30;
+  RESULTS.filter(r=>r[2]!=null).forEach(r=>{
+    const row=document.createElement('div');row.className='bar-row'+(r[5]?' best':'');
+    row.title=`${r[0]}: cpWER ${r[2].toFixed(1)}%, word error ${r[1].toFixed(1)}%`;
+    row.innerHTML=`<span class="lab">${r[0]}</span><span class="bar-track"><span class="bar-fill" style="width:${(r[2]/max*100).toFixed(1)}%"></span></span><span class="val">${r[2].toFixed(1)}%</span>`;
+    bars.appendChild(row);
+  });
+  const tb=document.querySelector('#res-table tbody');
+  const f=v=>v==null?'—':v.toFixed(1)+'%';
+  RESULTS.forEach(r=>{const tr=document.createElement('tr');if(r[5])tr.className='best';
+    tr.innerHTML=`<td>${r[0]}</td><td class="n">${f(r[1])}</td><td class="n">${f(r[2])}</td><td class="n">${f(r[3])}</td><td class="n">${f(r[4])}</td>`;tb.appendChild(tr);});
+})();
+
+// ---- mockup ----
+const app=document.getElementById('app');
+function setLens(l){
+  app.classList.remove('read','review','studio');app.classList.add(l);
+  document.querySelectorAll('[data-lens]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lens===l));
+  document.querySelectorAll('.lens span').forEach(s=>s.classList.toggle('on',s.dataset.l===l));
+}
+document.querySelectorAll('[data-lens]').forEach(b=>b.addEventListener('click',()=>setLens(b.dataset.lens)));
+document.querySelectorAll('[data-paper]').forEach(b=>b.addEventListener('click',()=>{
+  app.classList.toggle('night',b.dataset.paper==='night');
+  document.querySelectorAll('[data-paper]').forEach(x=>x.setAttribute('aria-pressed',x===b));
+}));
+const EX={
+  1:{h:"EXHIBIT †1 · PAGE 14:5 · 04:59",a:'"doctrines of rightness"',ap:"n/a",b:'"doctrines of ripeness"',bp:"0.999",n:'Lexicon: "ripeness" is a justiciability doctrine · proposed: masked re-listen confirms before applying',acc:'Accept "ripeness"',line:"14:5"},
+  2:{h:"EXHIBIT †2 · PAGE 14:11 · 06:45",a:'"Justice Kavanaugh. This is Barrett"',ap:"n/a",b:'"Justice Kavanaugh? Justice Barrett?"',bp:"0.876",n:"Speaker unchanged: both diarizers keep this line with the Chief Justice · proposed: masked re-listen on the first word",acc:'Accept "Justice Barrett?"',line:"14:11"},
+};
+let current=1;
+function openEx(k){current=+k;const e=EX[k];
+  document.getElementById('ex-h').textContent=e.h;document.getElementById('ex-a').textContent=e.a;
+  document.getElementById('ex-b').textContent=e.b;document.getElementById('ex-ap').textContent=e.ap;document.getElementById('ex-bp').textContent=e.bp;
+  document.getElementById('ex-note').textContent=e.n;document.getElementById('ex-accept').textContent=e.acc;
+  document.getElementById('exhibit').hidden=false;
+  document.querySelector('.statusbar span:last-child').textContent='CITE '+e.line+' ⌘⇧C';
+}
+document.querySelectorAll('.dispute').forEach(d=>d.addEventListener('click',()=>{if(!d.classList.contains('settled'))openEx(d.dataset.ex)}));
+document.querySelectorAll('.q[data-q]').forEach(q=>q.addEventListener('click',()=>openEx(q.dataset.q)));
+function settle(){
+  const d=document.querySelector(`.dispute[data-ex="${current}"]`);if(d&&!d.classList.contains('settled')){d.classList.add('settled');const s=d.querySelector('sup');if(s)s.remove();}
+  const q=document.querySelector(`.q[data-q="${current}"]`);if(q){q.classList.add('done');q.querySelector('.top b').textContent='SETTLED';q.querySelector('.meter')?.remove();}
+  const open=document.querySelectorAll('.dispute:not(.settled)').length;
+  document.getElementById('open-ct').textContent=open;
+  document.getElementById('agree-pct').textContent=(98.6+(2-open)*0.4).toFixed(1)+'%';
+  document.getElementById('status-r').textContent=open?`CHECKED · ${open} OPEN`:'VERIFIED · 0 OPEN';
+  drawStrip();
+  const next=[...document.querySelectorAll('.dispute:not(.settled)')].pop();
+  if(next)openEx(next.dataset.ex);else document.getElementById('exhibit').hidden=true;
+}
+document.getElementById('ex-accept').addEventListener('click',settle);
+document.getElementById('ex-keep').addEventListener('click',settle);
+
+// convergence strip: 3 engine threads + speaker lanes
+const DIS=[{x:400,k:1},{x:540,k:2},{x:180,k:0},{x:280,k:0},{x:660,k:0}];
+function drawStrip(){
+  const svg=document.getElementById('strip'),W=800,cy=22,ns='http://www.w3.org/2000/svg';
+  svg.innerHTML='';
+  const open=new Set([...document.querySelectorAll('.dispute:not(.settled)')].map(d=>+d.dataset.ex));
+  const offs=[-1,0,1],cols=['#C9CBD0','#E2A33B','#8FB0D8'];
+  offs.forEach((o,i)=>{
+    let d=`M0 ${cy}`;
+    for(let x=0;x<=W;x+=4){
+      let y=cy;
+      DIS.forEach(s=>{if(s.k&&!open.has(s.k))return;const amp=s.k?9:4;const g=Math.exp(-((x-s.x)**2)/(2*14*14));y+=o*amp*g;});
+      d+=` L${x} ${y.toFixed(2)}`;
+    }
+    const p=document.createElementNS(ns,'path');p.setAttribute('d',d);p.setAttribute('fill','none');
+    p.setAttribute('stroke',cols[i]);p.setAttribute('stroke-width',i===1?1.6:1.1);p.setAttribute('opacity',i===1?1:.8);svg.appendChild(p);
+  });
+  DIS.forEach(s=>{if(!s.k||!open.has(s.k))return;const r=document.createElementNS(ns,'rect');
+    r.setAttribute('x',s.x-9);r.setAttribute('y',cy-13);r.setAttribute('width',18);r.setAttribute('height',26);r.setAttribute('fill','rgba(241,207,69,.22)');svg.insertBefore(r,svg.firstChild);});
+  // speaker lanes
+  const lanes=[['#6E8CA0',[[0,40],[250,300],[640,700]]],['#B07A50',[[42,140],[300,420],[520,560],[705,800]]],['#8F9464',[[140,250],[420,520]]],['#96738F',[[560,640]]]];
+  lanes.forEach(([c,segs],i)=>segs.forEach(([a,b])=>{const r=document.createElementNS(ns,'rect');
+    r.setAttribute('x',a);r.setAttribute('y',44+i*7);r.setAttribute('width',b-a-2);r.setAttribute('height',4);r.setAttribute('rx',1);r.setAttribute('fill',c);svg.appendChild(r);}));
+  const ph=document.createElementNS(ns,'line');ph.setAttribute('x1',400);ph.setAttribute('x2',400);ph.setAttribute('y1',2);ph.setAttribute('y2',72);
+  ph.setAttribute('stroke','#E2A33B');ph.setAttribute('stroke-width',1);svg.appendChild(ph);
+}
+drawStrip();
+</script>

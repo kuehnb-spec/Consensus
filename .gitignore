@@ -49,3 +49,7 @@ __pycache__/
 
 # Release artifacts (published to GitHub Releases, not tracked)
 dist/
+
+# Proving Ground corpus — public audio + references pulled by Scripts/proving-ground/*.
+# Re-fetchable by script; large; never committed.
+TestCorpus/

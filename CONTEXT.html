@@ -24,23 +24,59 @@
 <script id="ctx-data" type="application/json">
 {
   "project": "Consensus",
-  "tagline": "BDK Transcribo",
-  "status": "paused",
-  "updated": "2026-03-22",
+  "tagline": "Privacy-first macOS transcription with multi-engine consensus review",
+  "status": "active",
+  "updated": "2026-09-23",
   "private": false,
-  "tags": [],
-  "summary": "BDK Transcribo (Auto-seeded draft from README + git log \u2014 set the real status, summary, and next actions.)",
+  "tags": [
+    "swift",
+    "macos",
+    "asr",
+    "diarization"
+  ],
+  "summary": "Consensus Next kickoff (2026-09-23). Built the Proving Ground: 15 public-domain Supreme Court clips (149 min, 6-10 speakers, incl. 2020 telephone arguments) with speaker-named references, run through VibeVoice, Parakeet v3, NVIDIA Nemotron 3 Diarization (released today) and pyannote community-1. Current VibeVoice CLI leads: 5.5% content WER, 8.2% cpWER, 3.0% DER; Nemotron speakers with the same words score 12.4% cpWER but win 5 of 15 clips, so it joins as a second speaker witness. Proposal with UI mockup in Brainstorming/2026-09-next/consensus-next.html. Installed app launch crash fixed; app rebuild blocked on Metal Toolchain after Xcode 27.",
   "next": [
     {
-      "text": "Review this auto-seeded dashboard and set real next actions.",
+      "text": "Brant: run `xcodebuild -downloadComponent MetalToolchain` so the app can be rebuilt",
+      "priority": "high"
+    },
+    {
+      "text": "Brant: decide visual direction, library model, disk budget, and work order (proposal, 'Four decisions')",
+      "priority": "high"
+    },
+    {
+      "text": "Experiment A: measure disagreement recall (share of true errors inside disputed spans)",
+      "priority": "high"
+    },
+    {
+      "text": "Upgrade vendored FluidAudio to pinned 0.17.1; re-validate CLI",
       "priority": "med"
+    },
+    {
+      "text": "CLI: emit null word-level confidence for VibeVoice (currently copies segment 0.95 to every word)",
+      "priority": "med"
+    },
+    {
+      "text": "Add Earnings-21 fetcher (whole-file cpWER) and a synthetic stress lab",
+      "priority": "low"
     }
   ],
-  "open_questions": [],
+  "open_questions": [
+    "Copy audio into a local .consensus library vs index in place?",
+    "Adopt the legal-record identity (replaces indigo/glass rules in AGENTS.md)?"
+  ],
   "decisions": [
     {
       "date": "2026-03-22",
       "text": "Initial commit"
+    },
+    {
+      "date": "2026-09-23",
+      "text": "Nemotron 3 Diarization adopted as a second speaker witness and >60-min fallback, not a replacement for VibeVoice's speakers (measured on Proving Ground)."
+    },
+    {
+      "date": "2026-09-23",
+      "text": "Public Supreme Court arguments (Oyez) replace movie scenes as the zero-labor test corpus; engines audit the references."
     }
   ],
   "links": [
@@ -49,8 +85,16 @@
       "href": "README.md"
     },
     {
-      "label": "Project context (CLAUDE.md)",
-      "href": "CLAUDE.md"
+      "label": "Consensus Next proposal",
+      "href": "Brainstorming/2026-09-next/consensus-next.html"
+    },
+    {
+      "label": "Proving Ground",
+      "href": "Scripts/proving-ground/README.md"
+    },
+    {
+      "label": "Remake plan (July)",
+      "href": "CONSENSUS-REMAKE-PLAN.md"
     }
   ]
 }

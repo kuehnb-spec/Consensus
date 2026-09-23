@@ -22,15 +22,15 @@ set -euo pipefail
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="Consensus 1.1"
+APP_NAME="Consensus"
 # The SwiftPM product is `ConsensusApp` (renamed from `Consensus` to stop the
 # case-insensitive product-directory collision with the `consensus` CLI); it
 # is staged into the bundle under the `Consensus` executable name below.
 SWIFT_BINARY_NAME="ConsensusApp"
 BUNDLE_EXECUTABLE="Consensus"
 BUNDLE_ID="com.bdk.consensus"
-BUNDLE_SHORT_VERSION="1.1"
-BUNDLE_VERSION="3"
+BUNDLE_SHORT_VERSION="2.1"
+BUNDLE_VERSION="4"
 ICON_SOURCE_DIR="$SCRIPT_DIR/Design/AppIcon"
 LOGO_SOURCE_PATH="$SCRIPT_DIR/Design/Logo/consensus_logo_transparent.png"
 
@@ -173,6 +173,13 @@ for bundle in "$BUILD_DIR"/*.bundle; do
         bundle_name=$(basename "$bundle")
         echo "  Copying bundle: $bundle_name"
         cp -R "$bundle" "$RESOURCES_DIR/$bundle_name"
+        # SwiftPM's generated `Bundle.module` accessor for executable products
+        # looks only at `<App>.app/<name>.bundle` and at the absolute .build
+        # path baked in at compile time. Without this link the installed app
+        # works only while this checkout's .build exists — once it was deleted
+        # (Sept 2026) the app crashed at launch in FontRegistration. The real
+        # fix is an Xcode app target; until then, link from the bundle root.
+        ln -s "Contents/Resources/$bundle_name" "$APP_DIR/$bundle_name"
     fi
 done
 
