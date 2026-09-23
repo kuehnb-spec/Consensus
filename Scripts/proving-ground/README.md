@@ -14,8 +14,10 @@ Scripts/.venv/bin/pip install jiwer meeteval whisper-normalizer
 # 1. Build clips (10-min windows with the most speaker changes)
 Scripts/.venv/bin/python Scripts/proving-ground/fetch_oyez.py --out TestCorpus/oyez --term 2020 --count 3
 
-# 2. Run engines (needs fluidaudiocli >= 0.17.0 and the installed `consensus` CLI)
-FLUIDAUDIO_CLI=/path/to/fluidaudiocli Scripts/proving-ground/run_engines.sh TestCorpus/oyez
+# 2. Run engines (needs fluidaudiocli >= 0.17.0 and the installed `consensus` CLI).
+#    A 0.17.1 build with its resource bundles lives in TestCorpus/tools/ on the Studio;
+#    rebuild with `swift build -c release --product fluidaudiocli` in a FluidAudio checkout.
+FLUIDAUDIO_CLI=TestCorpus/tools/fluidaudiocli Scripts/proving-ground/run_engines.sh TestCorpus/oyez
 
 # 3. Pair one engine's words with another's speakers
 Scripts/.venv/bin/python Scripts/proving-ground/combine_words_speakers.py \
