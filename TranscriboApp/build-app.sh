@@ -72,7 +72,9 @@ echo "[1/4] Building Swift executable..."
 cd "$SCRIPT_DIR"
 swift build $SWIFT_BUILD_FLAGS 2>&1
 
-BUILD_DIR="$SCRIPT_DIR/.build/arm64-apple-macosx/$BUILD_CONFIG"
+# Ask SwiftPM where products landed: the Xcode 27 toolchain's build system
+# writes to .build/out/Products/<Config>, not .build/arm64-apple-macosx/<config>.
+BUILD_DIR="$(swift build $SWIFT_BUILD_FLAGS --show-bin-path)"
 BINARY="$BUILD_DIR/$SWIFT_BINARY_NAME"
 
 if [ ! -f "$BINARY" ]; then
