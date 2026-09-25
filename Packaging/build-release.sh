@@ -5,19 +5,23 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${1:-$("$REPO_ROOT/TranscriboApp/.build/release/consensus" --version 2>/dev/null | head -1 | awk '{print $2}')}"
-VERSION="${VERSION:-2.0.0}"
+VERSION="${1:-$(grep -o 'appVersion = "[^"]*"' "$REPO_ROOT/TranscriboApp/Transcribo/CLI/ConsensusCLI.swift" | cut -d'"' -f2)}"
+SIGN_ID="${SIGN_ID:-Developer ID Application: BRANT DUNCAN KUEHN (WU3TPS59P8)}"
 STAGE="$REPO_ROOT/dist/stage/consensus-$VERSION"
 OUT="$REPO_ROOT/dist/consensus-$VERSION-macos-arm64.tar.gz"
 
 echo "==> Building release binary"
 cd "$REPO_ROOT/TranscriboApp"
 swift build -c release --product consensus
+# Xcode 27's SwiftPM writes to .build/out/Products/Release; ask rather than guess.
+BIN_DIR="$(swift build -c release --show-bin-path)"
 
 echo "==> Staging $STAGE"
 rm -rf "$REPO_ROOT/dist/stage"
 mkdir -p "$STAGE/VibeVoiceSidecar"
-cp "$REPO_ROOT/TranscriboApp/.build/release/consensus" "$STAGE/consensus"
+cp "$BIN_DIR/consensus" "$STAGE/consensus"
+# Developer ID signature + hardened runtime, so Gatekeeper accepts it once notarized.
+codesign --force --timestamp --options runtime --sign "$SIGN_ID" "$STAGE/consensus"
 cp "$REPO_ROOT/TranscriboApp/Scripts/VibeVoiceSidecar/run.py" "$STAGE/VibeVoiceSidecar/run.py"
 cp "$REPO_ROOT/Packaging/install.sh" "$STAGE/install.sh"
 cp "$REPO_ROOT/Packaging/requirements.txt" "$STAGE/requirements.txt"

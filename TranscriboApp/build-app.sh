@@ -175,13 +175,11 @@ for bundle in "$BUILD_DIR"/*.bundle; do
         bundle_name=$(basename "$bundle")
         echo "  Copying bundle: $bundle_name"
         cp -R "$bundle" "$RESOURCES_DIR/$bundle_name"
-        # SwiftPM's generated `Bundle.module` accessor for executable products
-        # looks only at `<App>.app/<name>.bundle` and at the absolute .build
-        # path baked in at compile time. Without this link the installed app
-        # works only while this checkout's .build exists — once it was deleted
-        # (Sept 2026) the app crashed at launch in FontRegistration. The real
-        # fix is an Xcode app target; until then, link from the bundle root.
-        ln -s "Contents/Resources/$bundle_name" "$APP_DIR/$bundle_name"
+        # The Xcode 27 toolchain generates a `Bundle.module` accessor that looks
+        # in Contents/Resources first. (The older accessor only checked the
+        # .app root and the absolute .build path, which crashed installed apps
+        # once .build was deleted; the root links that worked around it made
+        # the bundle unsignable, so they are gone.)
     fi
 done
 

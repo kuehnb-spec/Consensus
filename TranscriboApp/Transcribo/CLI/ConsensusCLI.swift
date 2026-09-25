@@ -19,7 +19,7 @@ public enum ConsensusCLI {
         case outputExists = 4
     }
 
-    public static let appVersion = "2.0.0"
+    public static let appVersion = "2.1.0"
     static let schemaVersion = "2.0"
 
     // MARK: - Entry point

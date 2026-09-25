@@ -303,8 +303,11 @@ final class DeepReadViewModel {
                     // The new Deep Review architecture is calibrated around
                     // VibeVoice as the canonical transcript. Other engines
                     // can still serve as second opinions inside Patch Review,
-                    // but the user-facing app no longer starts from them.
-                    engine: .vibevoice,
+                    // but the user-facing app no longer starts from them —
+                    // unless the VibeVoice engine isn't installed (a fresh
+                    // Mac that only has the downloaded app). Then Parakeet
+                    // runs instead of the transcription failing outright.
+                    engine: VibeVoiceTranscriptionService.availabilityError() == nil ? .vibevoice : .parakeet,
                     variant: .parakeetV3,
                     language: "en",
                     requestedSpeakerCount: nil,

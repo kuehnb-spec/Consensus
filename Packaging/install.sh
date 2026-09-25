@@ -34,8 +34,25 @@ if [[ "$(uname -m)" != "arm64" ]]; then
   echo "error: Consensus requires Apple Silicon (found $(uname -m))." >&2
   exit 1
 fi
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "error: python3 not found. Install Xcode command line tools: xcode-select --install" >&2
+# The engine's pinned wheels (numpy 2.4, transformers 5.7) need Python 3.11+.
+# macOS's own /usr/bin/python3 is 3.9, so look for a newer interpreter first.
+python_ok() { "$1" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; }
+PYTHON=""
+for candidate in "${CONSENSUS_PYTHON_BIN:-}" python3.13 python3.12 python3.14 python3.11 \
+    /opt/homebrew/bin/python3 \
+    /Library/Frameworks/Python.framework/Versions/3.13/bin/python3 \
+    /Library/Frameworks/Python.framework/Versions/3.12/bin/python3 \
+    python3; do
+  [[ -z "$candidate" ]] && continue
+  if command -v "$candidate" >/dev/null 2>&1 && python_ok "$candidate"; then
+    PYTHON="$(command -v "$candidate")"
+    break
+  fi
+done
+if [[ -z "$PYTHON" ]]; then
+  echo "error: Consensus needs Python 3.11 or newer (this Mac has $(python3 --version 2>&1 || echo none))." >&2
+  echo "Install Python 3.13 from https://www.python.org/downloads/macos/" >&2
+  echo "(or: brew install python@3.13), then run ./install.sh again." >&2
   exit 1
 fi
 
@@ -57,7 +74,8 @@ if [[ -x "$VENV/bin/python" && "$REINSTALL" == false ]]; then
 else
   say "Creating Python environment (this pulls ~700 MB of wheels)"
   rm -rf "$VENV"
-  python3 -m venv "$VENV"
+  say "Using $PYTHON ($("$PYTHON" --version 2>&1))"
+  "$PYTHON" -m venv "$VENV"
   "$VENV/bin/python" -m pip install --quiet --upgrade pip
   "$VENV/bin/python" -m pip install --quiet -r "$SOURCE_DIR/requirements.txt"
 fi
