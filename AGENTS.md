@@ -2,17 +2,36 @@
 
 A privacy-first macOS transcription app with speaker diarization, multi-engine Deep Review, and reconciliation workspace. Built with SwiftUI, WhisperKit, and FluidAudio. macOS 15+.
 
-## Active Work: UI/UX Overhaul
+## Active Work: "Consensus Next" identity (approved 2026-09-25)
 
-The app is undergoing a comprehensive visual redesign from "utility" to "high-end workstation" (Linear/Raycast quality). See `UI-OVERHAUL-PLAN.md` for the full phased plan with file manifest, phase status, and architectural decisions.
+The UI is being rebuilt around the legal record. Brant approved the direction
+in `Brainstorming/2026-09-next/consensus-next.html` (proposal + interactive
+mockup + motion reel). It **replaces** the older indigo/glassmorphism rules and
+`UI-OVERHAUL-PLAN.md`'s styling (kept only as history).
 
-Key design rules for all new UI work:
-- **Dark mode enforced** — Deep Slate background, no light mode assumptions
-- **Accent color** — Indigo (#6366F1) for primary actions and AI highlights
-- **Typography** — SF Pro for body, SF Mono for timestamps/percentages/metadata
-- **Cards** — Glassmorphism (`.ultraThinMaterial` + 1px border), no GroupBox
-- **Use `ConsensusTheme`** — All colors, fonts, spacing from the centralized theme. No hardcoded values.
-- **No emojis** — Use SF Symbols for all icons
+Design rules for all UI work:
+- **Two materials.** The *Desk* is the dark instrument chrome (flat, hairline
+  rules, no blur). The *Record* is the transcript as a sheet of paper, day
+  (bond white) or night (umber), set inside the desk.
+- **The Record is typeset like a certified transcript:** page:line numbers in
+  the gutter, speaker names in small caps with a colon, citable positions
+  ("Cite 14:7").
+- **Uncertainty is highlighter, not alarm.** Disputed spans get a highlighter
+  stroke; settled spans keep only a faint dotted underline. Red is reserved
+  for real failures.
+- **Type roles:** Source Serif 4 for the Record, titles and speaker names;
+  JetBrains Mono for every number that can change, timecodes and engraved
+  labels; SF Pro for controls only. Inter is retired.
+- **No indigo, no glassmorphism (`.ultraThinMaterial`), no Tailwind palette,
+  no chip rows.** Speakers use the muted archival tones, shown as margin rules
+  and lanes, not filled dots.
+- **Motion reports events, never decorates:** threads converge (signature),
+  wet ink dries, highlighter swipe/erase, re-listen loupe, speaker lanes,
+  line counter and one seal on Verified. Honor Reduce Motion with instant
+  state changes.
+- **Use `ConsensusTheme`** for every color, font, spacing and motion value.
+  No hardcoded values.
+- **No emojis.** SF Symbols, thin-stroke, for chrome only.
 
 ## Project History Logging
 
