@@ -38,20 +38,51 @@ enum FontRegistration {
         }
     }
 
+    /// The SwiftPM resource bundle, resolved without trapping.
+    ///
+    /// `Bundle.module` calls `fatalError` when it cannot locate its bundle,
+    /// which crashes the app during `ConsensusApp.init()` — before any window
+    /// exists, so the user sees only a crash report. That happened in the
+    /// 1.1 build: the target was renamed (`Consensus` → `ConsensusCore`), so
+    /// the expected bundle name changed while a stale bundle was shipped.
+    /// Typefaces are cosmetic; a missing bundle must degrade to system fonts,
+    /// never take the process down.
+    private static let resourceBundle: Bundle? = {
+        // Current and historical bundle names, so an older layout still works.
+        let names = ["Consensus_ConsensusCore", "Consensus_Consensus"]
+        var roots: [URL] = []
+        if let resources = Bundle.main.resourceURL { roots.append(resources) }
+        roots.append(Bundle.main.bundleURL)
+        // Next to the executable — how SwiftPM lays things out for a bare binary.
+        if let executable = Bundle.main.executableURL?.deletingLastPathComponent() {
+            roots.append(executable)
+        }
+
+        for root in roots {
+            for name in names {
+                let candidate = root.appendingPathComponent("\(name).bundle")
+                if let bundle = Bundle(url: candidate) { return bundle }
+            }
+        }
+        // Resources may also be flattened directly into the app bundle.
+        return Bundle.main
+    }()
+
     private static func register(directory: String, filename: String) {
         let subdir = "App/Resources/Fonts/\(directory)"
         let stem = (filename as NSString).deletingPathExtension
         let ext = (filename as NSString).pathExtension
 
-        guard let url = Bundle.module.url(
-            forResource: stem,
-            withExtension: ext,
-            subdirectory: subdir
-        ) ?? Bundle.module.url(
-            forResource: stem,
-            withExtension: ext,
-            subdirectory: directory
-        ) else {
+        guard let bundle = resourceBundle,
+              let url = bundle.url(
+                forResource: stem,
+                withExtension: ext,
+                subdirectory: subdir
+              ) ?? bundle.url(
+                forResource: stem,
+                withExtension: ext,
+                subdirectory: directory
+              ) else {
             log.error("Font resource not found in bundle: \(subdir)/\(filename, privacy: .public)")
             return
         }
