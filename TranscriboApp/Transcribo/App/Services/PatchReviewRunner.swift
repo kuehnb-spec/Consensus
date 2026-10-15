@@ -350,7 +350,7 @@ actor PatchReviewSidecar {
     }
 
     static func defaultPaths() -> SidecarPaths {
-        let projectRoot = URL(fileURLWithPath: "/Users/brantkuehn/Projects/Consensus")
+        let projectRoot = URL(fileURLWithPath: "/Users/brantkuehn/Projects/Quarterdeck/Consensus")
         let vibeVoiceRig = projectRoot.appendingPathComponent("Brainstorming/vibevoice-test")
         let verifierRoot = projectRoot.appendingPathComponent("Brainstorming/phase-a-vibevoice-nemotron/voxtral-small")
         return SidecarPaths(

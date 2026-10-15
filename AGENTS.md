@@ -1,5 +1,9 @@
 # Consensus (formerly BDK Transcribo)
 
+Part of Quarterdeck, Brant's suite of legal AI tools; suite rules are in
+`../AGENTS.md` (`~/Projects/Quarterdeck/AGENTS.md`). This repo moved to
+`~/Projects/Quarterdeck/Consensus` on 2026-10-15; `~/Projects/Consensus` is an alias. Its Mac app hard-codes the old project path, so keep the alias until the app is rebuilt.
+
 A privacy-first macOS transcription app with speaker diarization, multi-engine Deep Review, and reconciliation workspace. Built with SwiftUI, WhisperKit, and FluidAudio. macOS 15+.
 
 ## Active Work: "Consensus Next" identity (approved 2026-09-25)

@@ -1257,3 +1257,10 @@ Brant approved the legal-record identity and asked for motion. Built a motion re
 Brant asked to publish the new build on brantkuehn.com for his other Macs and for other people. Built `Packaging/release.sh`: a Developer ID-signed, hardened-runtime app in a signed DMG (90 MB) plus the signed CLI and engine installer (10 MB), with notarization gated on a stored notarytool profile.
 Getting there surfaced four problems that would have shipped broken. (1) The bundle-root resource links from the Sept 23 crash fix made the app unsignable. The Xcode 27 SwiftPM accessor already looks in `Contents/Resources`, so the links are gone; verified launching with `.build` moved aside. (2) The app hard-coded VibeVoice, so on any Mac without the engine it would error instead of transcribing; it now falls back to Parakeet. (3) The engine installer used whatever `python3` it found, but macOS ships 3.9 and the pinned wheels need 3.11+; the installer now finds a suitable interpreter or says exactly what to install. (4) The website's "Download the CLI" link pointed at a GitHub release that never existed.
 Both engines were smoke-tested inside the signed, hardened app. App and CLI are now 2.1.0. A draft GitHub release (v2.1.0, both assets) and the website download section (branch `consensus-2.1-download`, not pushed) wait on Brant's notarization credentials and his OK on the copy.
+
+## 2026-10-15 — Joined Quarterdeck
+
+Brant gathered his legal AI projects into one suite, Quarterdeck, and this repo moved
+to `~/Projects/Quarterdeck/Consensus`; `~/Projects/Consensus` remains as an alias so
+LaunchAgents, virtualenvs and old references keep working. AGENTS.md now points to the
+suite instructions, and live path references were updated.
