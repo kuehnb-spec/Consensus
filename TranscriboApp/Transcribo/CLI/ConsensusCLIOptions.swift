@@ -30,6 +30,7 @@ extension ConsensusCLI {
 
     enum Command {
         case transcribe(TranscribeOptions)
+        case export(ExportOptions)
         case doctor
         case version
         case help
@@ -41,6 +42,7 @@ extension ConsensusCLI {
             case "--version", "-v": return .version
             case "--help", "-h": return .help
             case "doctor": return .doctor
+            case "export": return try parseExport(Array(arguments.dropFirst()))
             case "transcribe": break
             default:
                 throw UsageError("unknown command '\(first)'")
@@ -122,6 +124,66 @@ extension ConsensusCLI {
                 quiet: quiet
             )
             return .transcribe(options!)
+        }
+
+        /// `consensus export <transcript.json> [--format md,legalPDF] [--speaker A=Name] …`
+        private static func parseExport(_ arguments: [String]) throws -> Command {
+            var rest = arguments
+            var input: String?
+            var outputDirectory: URL?
+            var formats: Set<ExportFormat> = []
+            var speakers: [String: String] = [:]
+            var header = "TRANSCRIPT"
+            var quiet = false
+
+            func requireValue(_ flag: String, _ queue: inout [String]) throws -> String {
+                guard let value = queue.first, !value.hasPrefix("--") else {
+                    throw UsageError("\(flag) requires a value")
+                }
+                queue.removeFirst()
+                return value
+            }
+
+            while !rest.isEmpty {
+                let argument = rest.removeFirst()
+                switch argument {
+                case "--output-dir":
+                    outputDirectory = URL(fileURLWithPath: try requireValue("--output-dir", &rest))
+                        .standardizedFileURL
+                case "--format":
+                    for token in try requireValue("--format", &rest).split(separator: ",") {
+                        let name = token.trimmingCharacters(in: .whitespaces)
+                        guard let format = ExportFormat(rawValue: name) else {
+                            let available = ExportFormat.allCases.map(\.rawValue).joined(separator: ", ")
+                            throw UsageError("unknown format '\(name)' (available: \(available))")
+                        }
+                        formats.insert(format)
+                    }
+                case "--speaker":
+                    let (id, name) = try parseSpeakerAssignment(try requireValue("--speaker", &rest))
+                    speakers[id] = name
+                case "--legal-header":
+                    header = try requireValue("--legal-header", &rest)
+                case "--quiet": quiet = true
+                case "--help", "-h": return .help
+                default:
+                    if argument.hasPrefix("-") { throw UsageError("unknown option '\(argument)'") }
+                    guard input == nil else { throw UsageError("export accepts exactly one input file") }
+                    input = argument
+                }
+            }
+
+            guard let inputPath = input else {
+                throw UsageError("export requires a .consensus.json file", code: .inputUnreadable)
+            }
+            return .export(ExportOptions(
+                inputURL: URL(fileURLWithPath: inputPath).standardizedFileURL,
+                outputDirectory: outputDirectory,
+                formats: formats.isEmpty ? [.md] : formats,
+                speakerNames: speakers,
+                legalHeader: header,
+                quiet: quiet
+            ))
         }
     }
 
