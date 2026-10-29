@@ -35,6 +35,34 @@ Scripts/.venv/bin/python Scripts/proving-ground/audit_reference.py --corpus Test
     --out TestCorpus/oyez/_audit
 ```
 
+### Nemotron 3.5 Transcribe (added 2026-10-29)
+
+Text-only speech LLM, run through `mlx-audio` 0.6.3 in its own venv; results
+and the decision are in `Brainstorming/2026-10-nemotron35/`.
+
+```bash
+uv venv -p /opt/homebrew/bin/python3.13 Scripts/.venv-nemo35
+uv pip install -p Scripts/.venv-nemo35 'mlx-audio[stt]==0.6.3'
+# 18 GB 4-bit checkpoint, kept on the G-Drive SSD on the Studio:
+#   nativ-community/Nemotron-3.5-Transcribe-30B-A4B-EA-4bit
+Scripts/.venv-nemo35/bin/python Scripts/proving-ground/run_nemotron35.py \
+    --model "/Volumes/G-DRIVE PRO STUDIO SSD/AI-Models/Models/Nemotron-3.5-Transcribe-30B-A4B-EA-4bit" \
+    --corpus TestCorpus/oyez --out TestCorpus/runs --task saa --task asr
+
+# No timestamps: hang its words on VibeVoice's clock and speakers
+Scripts/.venv/bin/python Scripts/proving-ground/align_untimed_words.py \
+    --words TestCorpus/runs/nemotron35-saa --timed TestCorpus/runs/vibevoice \
+    --out TestCorpus/runs/nemotron35-saa+vibevoice
+
+# Word-level witness test (Experiment A): share of the primary's errors inside disputes
+Scripts/.venv/bin/python Scripts/proving-ground/experiment_word_witness.py --corpus TestCorpus/oyez \
+    --runs TestCorpus/runs --pair vibevoice:nemotron35-saa:parakeet --pair vibevoice:parakeet
+```
+
+On the 32 GB Studio the model fits only while Ollama is empty; the runner loads
+it only then and releases it whenever another job holds the GPU, so a full
+corpus can take an hour or more at night.
+
 ## Why Supreme Court arguments
 
 Public-domain federal audio; words from the Court's official reporter; Oyez has

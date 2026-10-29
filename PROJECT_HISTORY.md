@@ -1264,3 +1264,10 @@ Brant gathered his legal AI projects into one suite, Quarterdeck, and this repo 
 to `~/Projects/Quarterdeck/Consensus`; `~/Projects/Consensus` remains as an alias so
 LaunchAgents, virtualenvs and old references keep working. AGENTS.md now points to the
 suite instructions, and live path references were updated.
+
+## 2026-10-29 — Nemotron 3.5 Transcribe tested: best word witness, not a new primary
+
+NVIDIA released Nemotron 3.5 Transcribe (a 34B mixture-of-experts speech LLM) on Oct 28, and Brant asked whether it should become the primary engine with VibeVoice as the checker. It ran on the Studio through a 4-bit MLX port (`mlx-audio` 0.6.3, 18 GB, kept on the G-Drive SSD) over the 15-clip Proving Ground, in speaker-attributed and plain modes.
+It trails VibeVoice on words (6.6% vs 5.5% WER), merges justices into one voice on several clips (29.8% cpWER on its own labels), emits no timestamps on the Mac, and once in 30 runs fell into a "the State of the State of…" loop that lost a clip. Reversing the roles worked better: as VibeVoice's witness it flags 65% of VibeVoice's word errors at a 6% flag rate, against 59% for Parakeet, so it becomes the word witness and VibeVoice stays primary. Some of its extra words are real cross-talk the official transcripts omit (checked on the audio once); that share is unmeasured.
+Built `run_nemotron35.py`, `align_untimed_words.py` (hangs a text-only engine's words on another engine's clock and speakers, +0.2 DER) and `experiment_word_witness.py` (Experiment A at word level, with a three-engine ROVER that only reached 5.31%).
+The 18 GB model overflowed the Studio's 25 GB GPU budget whenever Ollama held a model (DealCrawler's hourly qwen3:8b, plus a second client), so the runner loads it only while Ollama is idle rather than disturbing those jobs. A full-precision run on the 96 GB MacBook Pro waits on Brant's OK. Memo in `Brainstorming/2026-10-nemotron35/`, Word copy in the Drive reading room.
