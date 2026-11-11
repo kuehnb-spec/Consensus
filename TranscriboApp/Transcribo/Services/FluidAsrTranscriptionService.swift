@@ -22,7 +22,7 @@ actor FluidAsrTranscriptionService {
         )
 
         let manager = AsrManager()
-        try await manager.initialize(models: models)
+        try await manager.loadModels(models)
         managers[variant] = manager
         progressCallback(1.0)
     }
@@ -38,7 +38,9 @@ actor FluidAsrTranscriptionService {
         )
 
         progressCallback(0.05)
-        let result = try await manager.transcribe(audioURL)
+        // FluidAudio 0.17: the caller owns the TDT decoder state.
+        var decoderState = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
+        let result = try await manager.transcribe(audioURL, decoderState: &decoderState)
         progressCallback(1.0)
 
         return Self.buildSegments(from: result)

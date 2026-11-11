@@ -21,6 +21,12 @@ FluidAudio is a Swift framework for local, low-latency audio processing on Apple
 - Always use the actual models required by the code
 - If model authentication is required, inform the user rather than creating dummy versions
 
+### HUGGINGFACE UPLOADS
+
+- Uploading models, datasets, and files to HuggingFace is allowed
+- Creating HuggingFace repos is allowed
+- Confirm the target repo with the user before uploading
+
 ### MODEL OPERATIONS - CONSULT BEFORE IMPLEMENTING
 
 - When asked to merge, convert, or modify models:
@@ -43,9 +49,25 @@ FluidAudio is a Swift framework for local, low-latency audio processing on Apple
 2. **Testing Policy**: Add unit tests when writing new code.
 3. **Git Operations**: Never run `git push` unless explicitly requested.
    - **No Co-Author Tags**: Do not add `Co-Authored-By` lines for Claude, Copilot, or any AI assistant in commit messages.
-4. **Code Formatting**: All code must pass swift-format checks before merge
-5. **Avoid Deprecated Code**: Do not add support for deprecated models or features unless explicitly requested
-6. **Performance**: Keep RTFx > 1.0x for real-time capability
+   - **No GitHub comments**: Never post comments, reviews, or reactions on issues or PRs via `gh`. Reading issues, PRs, and comments is fine. Creating PRs and editing PR titles/bodies is fine.
+4. **Multi-Agent Workflow**: This repo is worked on by multiple coding agents
+   in parallel. Switching branches in a shared working tree drags unrelated
+   WIP changes (and their build artifacts) into your compile and surfaces
+   "file was modified during the build" errors. Use `git worktree` instead
+   — shared `.git`, isolated working tree + `.build/`, no collisions.
+
+   ```bash
+   # From the primary checkout, create an isolated tree for your branch
+   git worktree add ../FluidAudio-<task> -b <branch> origin/main
+   cd ../FluidAudio-<task>
+   # Independent working tree, independent .build/, shared .git
+   ```
+
+   One worktree per active task. Remove with `git worktree remove <path>` when
+   done. List active worktrees with `git worktree list`.
+5. **Code Formatting**: All code must pass swift-format checks before merge
+6. **Avoid Deprecated Code**: Do not add support for deprecated models or features unless explicitly requested
+7. **Performance**: Keep RTFx > 1.0x for real-time capability
 
 ## Code Style
 
@@ -53,9 +75,9 @@ FluidAudio is a Swift framework for local, low-latency audio processing on Apple
 - **Local formatting**: `swift format --in-place --recursive --configuration .swift-format Sources/ Tests/`
 - **Line length**: 120 characters
 - **Indentation**: 4 spaces
-- **Import order**: Alphabetical (OrderedImports rule)
+- **Import order**: Alphabetical preferred, but OrderedImports rule is disabled due to Swift 6.1 (GitHub Actions CI) vs 6.3 (local) formatter incompatibility. Swift 6.3 is unavailable in GitHub Actions runners.
 - **Naming**: lowerCamelCase for variables/functions, UpperCamelCase for types
-- **Error handling**: Proper Swift error handling, no force unwrapping in production. Per-module error enums conforming to `Error, LocalizedError` (e.g. `ASRError`, `VadError`, `OfflineDiarizationError`, `Qwen3AsrError`)
+- **Error handling**: Proper Swift error handling, no force unwrapping in production. Per-module error enums conforming to `Error, LocalizedError` (e.g. `ASRError`, `VadError`, `OfflineDiarizationError`)
 - **Logging**: Use `AppLogger(category:)` from `Shared/AppLogger.swift` — not `print()` in production code. One logger per component (e.g. `AppLogger(category: "VadManager")`)
 - **Documentation**: Triple-slash comments (`///`) for public APIs
 - **Control flow**: Prefer guard statements and early returns over nested if statements
@@ -88,18 +110,24 @@ swift package clean
 # Transcription
 swift run fluidaudiocli transcribe audio.wav
 swift run fluidaudiocli transcribe audio.wav --low-latency
+swift run fluidaudiocli multi-stream audio1.wav audio2.wav
+
+# TTS
+swift run fluidaudiocli tts "Hello world" --output hello.wav
 
 # Diarization
 swift run fluidaudiocli process meeting.wav --output results.json --threshold 0.6
-
-# Multi-stream processing
-swift run fluidaudiocli multi-stream audio1.wav audio2.wav
+swift run fluidaudiocli sortformer audio.wav
+swift run fluidaudiocli parakeet-eou --input audio.wav
 
 # Benchmarks
 swift run fluidaudiocli asr-benchmark --subset test-clean --max-files 100
 swift run fluidaudiocli diarization-benchmark --auto-download
 swift run fluidaudiocli vad-benchmark --num-files 40 --threshold 0.5
 swift run fluidaudiocli fleurs-benchmark --languages en_us,fr_fr --samples 10
+swift run fluidaudiocli sortformer-benchmark
+swift run fluidaudiocli ctc-earnings-benchmark
+swift run fluidaudiocli g2p-benchmark
 
 # Dataset downloads
 swift run fluidaudiocli download --dataset ami-sdm
@@ -111,12 +139,13 @@ swift run fluidaudiocli download --dataset librispeech-test-clean
 ```
 FluidAudio/
 ├── Sources/
-│   ├── FluidAudio/           # Main library
-│   │   ├── ASR/             # Automatic Speech Recognition (Parakeet TDT, Qwen3)
+│   ├── FluidAudio/           # Main library (single product)
+│   │   ├── ASR/             # Automatic Speech Recognition
+│   │   │   └── Parakeet/    # Parakeet TDT (Decoder/, SlidingWindow/, Streaming/)
 │   │   ├── Diarizer/        # Speaker diarization (segmentation, embedding, clustering)
+│   │   ├── TTS/             # Text-to-speech (KokoroAne, PocketTTS, StyleTTS2)
 │   │   ├── VAD/             # Voice Activity Detection (Silero VAD)
 │   │   └── Shared/          # Common utilities (audio conversion, model downloading)
-│   ├── FluidAudioTTS/       # Text-to-speech (Kokoro TTS)
 │   └── FluidAudioCLI/       # Command-line interface (macOS only)
 ├── Tests/                   # Test suite
 ├── Scripts/                 # Python utilities (benchmarks, evaluation tools)
@@ -129,11 +158,14 @@ FluidAudio/
 ## Architecture Overview
 
 ### Core Components
-- **AsrManager** (`ASR/`): Speech-to-text via TDT (Token Duration Transducer) decoding. Stateless per-chunk processing with automatic decoder state reset.
-- **StreamingAsrManager** (`ASR/Streaming/`): Real-time streaming ASR with sliding window processing and cancellation support.
+- **AsrManager** (`ASR/Parakeet/`): Speech-to-text via TDT (Token Duration Transducer) decoding. Stateless per-chunk processing with automatic decoder state reset.
+- **SlidingWindowAsrManager** (`ASR/Parakeet/SlidingWindow/`): Real-time ASR with sliding window processing and cancellation support.
+- **StreamingAsrManager** (`ASR/Parakeet/Streaming/`): Protocol for true streaming ASR engines (EOU, Nemotron) with cache-aware encoders.
 - **OfflineDiarizerManager** (`Diarizer/`): Speaker separation via segmentation, embedding extraction, and VBx clustering. 17.7% DER on AMI dataset.
 - **VadManager** (`VAD/`): Voice activity detection with CoreML models.
-- **KokoroSynthesizer** (`FluidAudioTTS/`): Text-to-speech synthesis.
+- **KokoroAneManager** (`TTS/KokoroAne/`): ANE-resident Kokoro 82M (7-stage CoreML chain) — English + Mandarin.
+- **PocketTtsSynthesizer** (`TTS/PocketTTS/`): PocketTTS streaming text-to-speech synthesis.
+- **StyleTTS2Manager** (`TTS/StyleTTS2/`): StyleTTS2 LibriTTS zero-shot voice cloning.
 
 ### Key Patterns
 - **Actor-based concurrency**: Thread-safe processing, no `@unchecked Sendable`
@@ -160,7 +192,9 @@ GitHub Actions workflows:
 
 ## Model Sources
 
-- **Diarization**: [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1)
+- **Diarization**:
+  - Online/Streaming (DiarizerManager): [FluidInference/speaker-diarization-coreml](https://huggingface.co/FluidInference/speaker-diarization-coreml) (based on pyannote/speaker-diarization-3.1)
+  - Offline Batch (OfflineDiarizerManager): [FluidInference/speaker-diarization-coreml](https://huggingface.co/FluidInference/speaker-diarization-coreml) (based on pyannote/speaker-diarization-community-1)
 - **VAD CoreML**: [FluidInference/silero-vad-coreml](https://huggingface.co/FluidInference/silero-vad-coreml)
 - **ASR Models**: [FluidInference/parakeet-tdt-0.6b-v3-coreml](https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml)
 - **Test Data**: [alexwengg/musan_mini*](https://huggingface.co/datasets/alexwengg) variants
