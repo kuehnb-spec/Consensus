@@ -219,6 +219,10 @@ struct MergedWord: Identifiable, Sendable {
     let confidence: Float
     let source: MergedWordSource
     let speakerID: String
+    /// `false` when no engine reported a probability for this word and
+    /// `confidence` is only a neutral ranking prior. Such words are written
+    /// back with a `nil` probability and are never flagged as low-confidence.
+    let confidenceKnown: Bool
 
     init(
         id: UUID = UUID(),
@@ -227,7 +231,8 @@ struct MergedWord: Identifiable, Sendable {
         end: Float,
         confidence: Float,
         source: MergedWordSource,
-        speakerID: String
+        speakerID: String,
+        confidenceKnown: Bool = true
     ) {
         self.id = id
         self.word = word
@@ -236,6 +241,7 @@ struct MergedWord: Identifiable, Sendable {
         self.confidence = confidence
         self.source = source
         self.speakerID = speakerID
+        self.confidenceKnown = confidenceKnown
     }
 }
 

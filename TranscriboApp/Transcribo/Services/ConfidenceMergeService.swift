@@ -21,6 +21,12 @@ enum ConfidenceMergeService {
     /// Below this confidence on BOTH engines, flag the region for review.
     private static let flagConfidenceThreshold: Float = 0.6
 
+    /// Ranking prior for a word whose engine reported no probability
+    /// (VibeVoice). Not a measurement: it sits at the flag threshold so an
+    /// unknown is neither "low" nor "high", and `confidenceKnown == false`
+    /// keeps it from being written back out as if an engine had said it.
+    private static let unknownWordConfidence: Float = flagConfidenceThreshold
+
     /// Minimum number of consecutive disagreeing words to flag as a region.
     private static let minimumFlagWords = 2
 
@@ -165,6 +171,7 @@ enum ConfidenceMergeService {
         let start: Float
         let end: Float
         let confidence: Float
+        let confidenceKnown: Bool
         let speakerID: String
         let segmentIndex: Int
     }
@@ -184,7 +191,8 @@ enum ConfidenceMergeService {
                         normalizedWord: normalizeWord(cleaned),
                         start: wt.start,
                         end: wt.end,
-                        confidence: wt.probability,
+                        confidence: wt.probability ?? unknownWordConfidence,
+                        confidenceKnown: wt.probability != nil,
                         speakerID: segment.speakerID,
                         segmentIndex: segIndex
                     ))
@@ -194,7 +202,8 @@ enum ConfidenceMergeService {
                 let textWords = segment.text.split(whereSeparator: \.isWhitespace).map(String.init)
                 let segDuration = Float(segment.end - segment.start)
                 let wordDuration = textWords.isEmpty ? segDuration : segDuration / Float(textWords.count)
-                let defaultConfidence = segment.averageWordConfidence ?? 0.5
+                let segmentConfidence = segment.averageWordConfidence
+                let defaultConfidence = segmentConfidence ?? unknownWordConfidence
 
                 for (i, w) in textWords.enumerated() {
                     let cleaned = w.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
@@ -207,6 +216,7 @@ enum ConfidenceMergeService {
                         start: wStart,
                         end: wEnd,
                         confidence: defaultConfidence,
+                        confidenceKnown: segmentConfidence != nil,
                         speakerID: segment.speakerID,
                         segmentIndex: segIndex
                     ))
@@ -321,7 +331,9 @@ enum ConfidenceMergeService {
             switch pair {
             case .matched(let ref, let cand):
                 let sameWord = ref.normalizedWord == cand.normalizedWord
-                let bestIsRef = ref.confidence >= cand.confidence
+                // An unknown probability can't win or lose a comparison;
+                // keep the reference (primary) word unless both are known.
+                let bestIsRef = !(ref.confidenceKnown && cand.confidenceKnown) || ref.confidence >= cand.confidence
                 let chosen = bestIsRef ? ref : cand
                 // Speaker lookup uses reference timings, matching the timing source we
                 // embed in the MergedWord below.
@@ -341,12 +353,13 @@ enum ConfidenceMergeService {
                     end: ref.end,
                     confidence: chosen.confidence,
                     source: source,
-                    speakerID: speaker
+                    speakerID: speaker,
+                    confidenceKnown: chosen.confidenceKnown
                 )
 
             case .referenceOnly(let ref):
                 // Skip low-confidence filler words only heard by one engine
-                if ref.confidence < lowConfidenceThreshold && isFillerWord(ref.normalizedWord) {
+                if ref.confidenceKnown && ref.confidence < lowConfidenceThreshold && isFillerWord(ref.normalizedWord) {
                     return nil
                 }
                 let speaker = speakerAt(time: (ref.start + ref.end) / 2, in: speakerTimeline)
@@ -356,11 +369,12 @@ enum ConfidenceMergeService {
                     end: ref.end,
                     confidence: ref.confidence,
                     source: .referenceOnly(confidence: ref.confidence),
-                    speakerID: speaker
+                    speakerID: speaker,
+                    confidenceKnown: ref.confidenceKnown
                 )
 
             case .candidateOnly(let cand):
-                if cand.confidence < lowConfidenceThreshold && isFillerWord(cand.normalizedWord) {
+                if cand.confidenceKnown && cand.confidence < lowConfidenceThreshold && isFillerWord(cand.normalizedWord) {
                     return nil
                 }
                 let speaker = speakerAt(time: (cand.start + cand.end) / 2, in: speakerTimeline)
@@ -370,7 +384,8 @@ enum ConfidenceMergeService {
                     end: cand.end,
                     confidence: cand.confidence,
                     source: .candidateOnly(confidence: cand.confidence),
-                    speakerID: speaker
+                    speakerID: speaker,
+                    confidenceKnown: cand.confidenceKnown
                 )
             }
         }
@@ -396,7 +411,8 @@ enum ConfidenceMergeService {
                 end: ref.end,
                 confidence: ref.confidence,
                 source: .referenceOnly(confidence: ref.confidence),
-                speakerID: speaker
+                speakerID: speaker,
+                confidenceKnown: ref.confidenceKnown
             )
         }
     }
@@ -448,7 +464,7 @@ enum ConfidenceMergeService {
             }
 
             // Collapse: keep the higher-confidence word, extend time range to cover both.
-            let keepCurrent = word.confidence > previous.confidence
+            let keepCurrent = word.confidenceKnown && previous.confidenceKnown && word.confidence > previous.confidence
             let chosen = keepCurrent ? word : previous
             let merged = MergedWord(
                 id: chosen.id,
@@ -457,7 +473,8 @@ enum ConfidenceMergeService {
                 end: max(previous.end, word.end),
                 confidence: chosen.confidence,
                 source: chosen.source,
-                speakerID: chosen.speakerID
+                speakerID: chosen.speakerID,
+                confidenceKnown: chosen.confidenceKnown
             )
             result[result.count - 1] = merged
         }
@@ -613,7 +630,7 @@ enum ConfidenceMergeService {
                         let reassigned = MergedWord(
                             id: word.id, word: word.word, start: word.start, end: word.end,
                             confidence: word.confidence, source: word.source,
-                            speakerID: lastSeg.speakerID
+                            speakerID: lastSeg.speakerID, confidenceKnown: word.confidenceKnown
                         )
                         if !segments.isEmpty {
                             segments[segments.count - 1].words.append(reassigned)
@@ -624,7 +641,7 @@ enum ConfidenceMergeService {
                     turnWords.append(MergedWord(
                         id: word.id, word: word.word, start: word.start, end: word.end,
                         confidence: word.confidence, source: word.source,
-                        speakerID: turn.speakerID
+                        speakerID: turn.speakerID, confidenceKnown: word.confidenceKnown
                     ))
                     wordIndex += 1
                     continue
@@ -639,7 +656,7 @@ enum ConfidenceMergeService {
                 turnWords.append(MergedWord(
                     id: word.id, word: word.word, start: word.start, end: word.end,
                     confidence: word.confidence, source: word.source,
-                    speakerID: turn.speakerID
+                    speakerID: turn.speakerID, confidenceKnown: word.confidenceKnown
                 ))
                 wordIndex += 1
             }
@@ -662,7 +679,7 @@ enum ConfidenceMergeService {
                 segments[segments.count - 1].words.append(MergedWord(
                     id: word.id, word: word.word, start: word.start, end: word.end,
                     confidence: word.confidence, source: word.source,
-                    speakerID: lastSpeaker
+                    speakerID: lastSpeaker, confidenceKnown: word.confidenceKnown
                 ))
                 wordIndex += 1
             }
@@ -737,7 +754,8 @@ enum ConfidenceMergeService {
         switch word.source {
         case .agreed:
             // Both engines agreed — only flag if both had low confidence
-            if word.confidence < flagConfidenceThreshold {
+            // (an unknown confidence is not low).
+            if word.confidenceKnown && word.confidence < flagConfidenceThreshold {
                 return .lowConfidence
             }
             return nil
@@ -1022,7 +1040,7 @@ enum ConfidenceMergeService {
                     word: w.word,
                     start: w.start,
                     end: w.end,
-                    probability: w.confidence
+                    probability: w.confidenceKnown ? w.confidence : nil
                 )
             }
 

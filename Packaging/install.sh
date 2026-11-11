@@ -66,6 +66,10 @@ xattr -d com.apple.quarantine "$PREFIX/consensus" 2>/dev/null || true
 say "Installing sidecar to $CONSENSUS_HOME/sidecar"
 mkdir -p "$CONSENSUS_HOME/sidecar"
 cp "$SOURCE_DIR/VibeVoiceSidecar/run.py" "$CONSENSUS_HOME/sidecar/run.py"
+if [ -d "$SOURCE_DIR/WitnessSidecar" ]; then
+  mkdir -p "$CONSENSUS_HOME/sidecar/witness"
+  cp -R "$SOURCE_DIR/WitnessSidecar/." "$CONSENSUS_HOME/sidecar/witness/"
+fi
 
 # --- Python environment ---------------------------------------------------
 VENV="$CONSENSUS_HOME/venv"

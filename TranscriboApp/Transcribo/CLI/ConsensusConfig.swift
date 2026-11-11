@@ -22,11 +22,14 @@ public struct ConsensusConfig: Sendable {
         public var python: URL?
         public var sidecar: URL?
         public var model: URL?
+        /// `witness_align.py`, used only by `transcribe --witness`.
+        public var witnessAligner: URL?
 
         /// Where each value came from, for `doctor` output.
         public var pythonSource: String?
         public var sidecarSource: String?
         public var modelSource: String?
+        public var witnessAlignerSource: String?
     }
 
     /// Path to the config file that was actually loaded, if any.
@@ -62,6 +65,14 @@ public struct ConsensusConfig: Sendable {
             ("Hugging Face cache", huggingFaceSnapshot()),
             ("repository checkout", repositoryRoot()?.appendingPathComponent(devModelSuffix)),
         ], into: &config.paths.modelSource)
+
+        config.paths.witnessAligner = firstExisting([
+            ("CONSENSUS_WITNESS_ALIGNER env", environmentPath("CONSENSUS_WITNESS_ALIGNER")),
+            ("config file", fileValues["witness_aligner"].map(expand)),
+            ("~/.consensus/sidecar", home.appendingPathComponent(".consensus/sidecar/witness/witness_align.py")),
+            ("alongside binary", binaryDirectory?.appendingPathComponent("WitnessSidecar/witness_align.py")),
+            ("repository checkout", repositoryRoot()?.appendingPathComponent(witnessSuffix)),
+        ], into: &config.paths.witnessAlignerSource)
 
         return config
     }
@@ -102,6 +113,7 @@ public struct ConsensusConfig: Sendable {
 
     // Layout of a source checkout, relative to the repository root.
     private static let sidecarSuffix = "TranscriboApp/Scripts/VibeVoiceSidecar/run.py"
+    private static let witnessSuffix = "TranscriboApp/Scripts/WitnessSidecar/witness_align.py"
     private static let devVenvSuffix = "Brainstorming/vibevoice-test/venv/bin/python"
     private static let devModelSuffix = "Brainstorming/vibevoice-test/model-4bit"
 
@@ -232,6 +244,19 @@ public struct ConsensusConfig: Sendable {
     }
 
     public var isComplete: Bool { requirements.allSatisfy(\.found) }
+
+    /// Needed only for `transcribe --witness`; reported by `doctor` but does
+    /// not make the machine "not ready" for a plain transcription.
+    public var witnessRequirement: Requirement {
+        Requirement(
+            name: "Word-witness aligner (optional, for --witness)",
+            path: paths.witnessAligner,
+            source: paths.witnessAlignerSource,
+            found: paths.witnessAligner != nil,
+            remedy: "Copy Scripts/WitnessSidecar/ to ~/.consensus/sidecar/witness/ "
+                + "or set CONSENSUS_WITNESS_ALIGNER to witness_align.py."
+        )
+    }
 
     /// One-line summary of what's missing, for the transcribe path's error.
     public var missingSummary: String {

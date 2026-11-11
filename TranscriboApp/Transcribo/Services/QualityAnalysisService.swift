@@ -9,7 +9,8 @@ enum QualityAnalysisService {
         let segments = result.segments
         let words = result.allWords
 
-        let wordConfidences = words.map(\.probability)
+        // Words without an engine probability (VibeVoice) are unknown, not 0 or 1.
+        let wordConfidences = words.compactMap(\.probability)
         let segmentConfidences = segments.compactMap(\.averageWordConfidence)
         let diarizationQualities = segments.compactMap(\.diarizationQuality)
         let averageLogProbs = segments.compactMap(\.averageLogProb)

@@ -188,6 +188,7 @@ final class PatchReviewRunner {
                 segmentStart: segment.start,
                 segmentEnd: segment.end
             )
+            segment.wordTimingSource = segment.words == nil ? nil : .interpolated
             return segment
         }
     }
@@ -241,7 +242,7 @@ final class PatchReviewRunner {
                 word: token,
                 start: Float(start),
                 end: Float(start + perToken),
-                probability: 0.90
+                probability: nil
             )
         }
     }

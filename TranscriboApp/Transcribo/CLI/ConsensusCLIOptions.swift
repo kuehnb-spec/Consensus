@@ -26,10 +26,12 @@ extension ConsensusCLI {
         var force = false
         var jsonOnly = false
         var quiet = false
+        var witness: WitnessEngine?
     }
 
     enum Command {
         case transcribe(TranscribeOptions)
+        case export(ExportOptions)
         case doctor
         case version
         case help
@@ -41,6 +43,7 @@ extension ConsensusCLI {
             case "--version", "-v": return .version
             case "--help", "-h": return .help
             case "doctor": return .doctor
+            case "export": return try parseExport(Array(arguments.dropFirst()))
             case "transcribe": break
             default:
                 throw UsageError("unknown command '\(first)'")
@@ -66,6 +69,7 @@ extension ConsensusCLI {
             var force = false
             var jsonOnly = false
             var quiet = false
+            var witness: WitnessEngine?
 
             while !rest.isEmpty {
                 let argument = rest.removeFirst()
@@ -91,6 +95,13 @@ extension ConsensusCLI {
                     }
                 case "--stt-hints":
                     hints = try requireValue("--stt-hints", &rest)
+                case "--witness":
+                    let raw = try requireValue("--witness", &rest)
+                    guard let engine = WitnessEngine(rawValue: raw.lowercased()) else {
+                        let known = WitnessEngine.allCases.map(\.rawValue).joined(separator: ", ")
+                        throw UsageError("unknown witness '\(raw)' (available: \(known))")
+                    }
+                    witness = engine
                 case "--force": force = true
                 case "--json-only": jsonOnly = true
                 case "--quiet": quiet = true
@@ -119,9 +130,80 @@ extension ConsensusCLI {
                 hints: hints,
                 force: force,
                 jsonOnly: jsonOnly,
-                quiet: quiet
+                quiet: quiet,
+                witness: witness
             )
             return .transcribe(options!)
+        }
+
+        /// `consensus export <transcript.json> [--format md,legalPDF] [--speaker A=Name] [--roster FILE] …`
+        private static func parseExport(_ arguments: [String]) throws -> Command {
+            var rest = arguments
+            var input: String?
+            var outputDirectory: URL?
+            var formats: Set<ExportFormat> = []
+            var speakers: [String: String] = [:]
+            var roster: [String: RosterEntry] = [:]
+            var header = "TRANSCRIPT"
+            var quiet = false
+
+            func requireValue(_ flag: String, _ queue: inout [String]) throws -> String {
+                guard let value = queue.first, !value.hasPrefix("--") else {
+                    throw UsageError("\(flag) requires a value")
+                }
+                queue.removeFirst()
+                return value
+            }
+
+            while !rest.isEmpty {
+                let argument = rest.removeFirst()
+                switch argument {
+                case "--output-dir":
+                    outputDirectory = URL(fileURLWithPath: try requireValue("--output-dir", &rest))
+                        .standardizedFileURL
+                case "--format":
+                    for token in try requireValue("--format", &rest).split(separator: ",") {
+                        let name = token.trimmingCharacters(in: .whitespaces)
+                        guard let format = ExportFormat(rawValue: name) else {
+                            let available = ExportFormat.allCases.map(\.rawValue).joined(separator: ", ")
+                            throw UsageError("unknown format '\(name)' (available: \(available))")
+                        }
+                        formats.insert(format)
+                    }
+                case "--speaker":
+                    let (id, name) = try parseSpeakerAssignment(try requireValue("--speaker", &rest))
+                    speakers[id] = name
+                case "--roster":
+                    let path = try requireValue("--roster", &rest)
+                    for (id, entry) in try loadRoster(URL(fileURLWithPath: path).standardizedFileURL) {
+                        roster[id] = entry
+                    }
+                case "--legal-header":
+                    header = try requireValue("--legal-header", &rest)
+                case "--quiet": quiet = true
+                case "--help", "-h": return .help
+                default:
+                    if argument.hasPrefix("-") { throw UsageError("unknown option '\(argument)'") }
+                    guard input == nil else { throw UsageError("export accepts exactly one input file") }
+                    input = argument
+                }
+            }
+
+            guard let inputPath = input else {
+                throw UsageError("export requires a .consensus.json file", code: .inputUnreadable)
+            }
+            // --speaker overrides the roster's name for the same label.
+            for (id, name) in speakers {
+                roster[id] = RosterEntry(name: name, role: roster[id]?.role)
+            }
+            return .export(ExportOptions(
+                inputURL: URL(fileURLWithPath: inputPath).standardizedFileURL,
+                outputDirectory: outputDirectory,
+                formats: formats.isEmpty ? [.md] : formats,
+                roster: roster,
+                legalHeader: header,
+                quiet: quiet
+            ))
         }
     }
 

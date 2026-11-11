@@ -136,7 +136,8 @@ enum ExportService {
             // Optionally mark low-confidence words with brackets
             if highlightLowConfidence, let words = seg.words {
                 text = words.map { word in
-                    if word.probability < 0.5 {
+                    // Unknown (nil) is not low: only bracket what an engine scored low.
+                    if let probability = word.probability, probability < 0.5 {
                         return "[\(word.word)]"
                     }
                     return word.word

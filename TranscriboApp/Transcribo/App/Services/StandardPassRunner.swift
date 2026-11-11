@@ -157,7 +157,8 @@ final class StandardPassRunner {
             ),
             styles: nil,
             quality: QualitySummary(
-                diarizationConfidence: 0.95,
+                // VibeVoice diarizes inside the model and reports no score.
+                diarizationConfidence: nil,
                 uncertainSegmentCount: 0,
                 stageTimings: stageTimings
             )

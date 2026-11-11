@@ -14,7 +14,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SIGN_ID="${SIGN_ID:-Developer ID Application: BRANT DUNCAN KUEHN (WU3TPS59P8)}"
-VERSION="$(grep -o 'appVersion = "[^"]*"' "$REPO_ROOT/TranscriboApp/Transcribo/CLI/ConsensusCLI.swift" | cut -d'"' -f2)"
+VERSION="$(grep -o 'app = "[^"]*"' "$REPO_ROOT/TranscriboApp/Transcribo/App/ConsensusVersion.swift" | cut -d'"' -f2)"
 DIST="$REPO_ROOT/dist"
 APP="$REPO_ROOT/TranscriboApp/build/Consensus.app"
 DMG="$DIST/Consensus-$VERSION.dmg"

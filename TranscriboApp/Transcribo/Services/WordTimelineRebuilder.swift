@@ -126,7 +126,8 @@ enum WordTimelineRebuilder {
                 end: newEnd,
                 confidence: mWord.confidence,
                 source: mWord.source,
-                speakerID: mWord.speakerID
+                speakerID: mWord.speakerID,
+                confidenceKnown: mWord.confidenceKnown
             )
             updatedMergedWords[mIdx] = updated
             matchedCount += 1

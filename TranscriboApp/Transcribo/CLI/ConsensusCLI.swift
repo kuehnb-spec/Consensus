@@ -19,8 +19,9 @@ public enum ConsensusCLI {
         case outputExists = 4
     }
 
-    public static let appVersion = "2.1.0"
-    static let schemaVersion = "2.0"
+    /// Aliases kept for callers; the values live in ConsensusVersion.
+    public static var appVersion: String { ConsensusVersion.app }
+    static var schemaVersion: String { ConsensusVersion.transcriptSchema }
 
     // MARK: - Entry point
 
@@ -38,6 +39,8 @@ public enum ConsensusCLI {
                 return ExitCode.success.rawValue
             case .doctor:
                 return runDoctor().rawValue
+            case .export(let options):
+                return await runExport(options).rawValue
             case .transcribe(let options):
                 return await runTranscribe(options).rawValue
             }
@@ -82,6 +85,16 @@ public enum ConsensusCLI {
             lines.append("")
         }
 
+        let witness = config.witnessRequirement
+        lines.append("[\(witness.found ? "OK  " : "--  ")] \(witness.name)")
+        if witness.found, let path = witness.path {
+            lines.append("       \(path.path)")
+            if let source = witness.source { lines.append("       via \(source)") }
+        } else {
+            lines.append("       \(witness.remedy)")
+        }
+        lines.append("")
+
         lines.append(config.isComplete
             ? "Ready — `consensus transcribe <file>` should work on this machine."
             : "Not ready. Resolve the items marked MISS above.")
@@ -104,6 +117,10 @@ public enum ConsensusCLI {
         let config = ConsensusConfig.resolve()
         guard config.isComplete else {
             fail("Local engine unavailable — missing: \(config.missingSummary)")
+            return .transcriptionFailed
+        }
+        if options.witness != nil, config.paths.witnessAligner == nil {
+            fail("--witness needs the word-witness aligner — run `consensus doctor`")
             return .transcriptionFailed
         }
 
@@ -176,13 +193,37 @@ public enum ConsensusCLI {
             return .transcriptionFailed
         }
 
+        // --- Word witness (exit 3 on failure) -------------------------------
+        // Asked-for disputes that silently go missing would read as "no
+        // disputes", so a witness failure fails the run.
+        var engines = vibeVoiceEngines(config: config)
+        var witnessReport: WitnessReport?
+        if let witness = options.witness {
+            log("Running word witness \(witness.rawValue)", options: options)
+            do {
+                let report = try await runWitness(witness, audioURL: input, pass: pass, config: config) { fraction in
+                    guard !options.quiet else { return }
+                    let percent = Int((fraction * 100).rounded())
+                    FileHandle.standardError.write(Data("progress \(percent) Witness \(witness.rawValue)\n".utf8))
+                }
+                engines.append(report.descriptor)
+                witnessReport = report
+                log("Witness \(witness.rawValue): \(report.disputes.count) disputes over \(report.disputedTokens) of \(report.primaryTokens) words", options: options)
+            } catch {
+                fail("Word witness failed: \(error.localizedDescription)")
+                return .transcriptionFailed
+            }
+        }
+
         // --- Output (atomic) -----------------------------------------------
-        let document = TranscriptDocument(
+        var document = TranscriptDocument(
             probe: probe,
             pass: pass,
             options: options,
-            processingSeconds: Date().timeIntervalSince(startedAt)
+            processingSeconds: Date().timeIntervalSince(startedAt),
+            engines: engines
         )
+        document.witness = witnessReport
 
         do {
             try writeAtomically(document.jsonData(), to: jsonURL)
@@ -222,12 +263,14 @@ public enum ConsensusCLI {
     // MARK: - Output helpers
 
     private static func printVersion() {
-        let engine = "VibeVoice ASR (MLX 4-bit)"
+        let config = ConsensusConfig.resolve()
+        let mlxAudio = mlxAudioVersion(python: config.paths.python).map { " (mlx-audio \($0))" } ?? ""
         let lines = [
             "consensus \(appVersion)",
             "schema \(schemaVersion)",
-            "engine \(engine)",
-            "diarization FluidAudio",
+            "engine VibeVoice-ASR 4-bit MLX\(mlxAudio)",
+            "diarization VibeVoice-ASR (joint, in-model)",
+            "witnesses \(WitnessEngine.allCases.map(\.rawValue).joined(separator: ", ")) (FluidAudio \(ConsensusVersion.fluidAudio))",
         ]
         FileHandle.standardOutput.write(Data((lines.joined(separator: "\n") + "\n").utf8))
     }
@@ -237,7 +280,7 @@ public enum ConsensusCLI {
         FileHandle.standardError.write(Data("\(message)\n".utf8))
     }
 
-    private static func fail(_ message: String) {
+    static func fail(_ message: String) {
         FileHandle.standardError.write(Data("error: \(message)\n".utf8))
     }
 
@@ -246,6 +289,7 @@ public enum ConsensusCLI {
 
     USAGE:
       consensus transcribe <input-audio> [options]
+      consensus export <file.consensus.json> [--format md,legalPDF,...] [--speaker A=Name] [--roster FILE] [--legal-header TEXT]
       consensus doctor
       consensus --version
 
@@ -255,11 +299,19 @@ public enum ConsensusCLI {
       --language CODE      Language code (default: en)
       --engine NAME        Engine adapter to use (default: local)
       --stt-hints "A, B"   Proper-noun hints to bias recognition
+      --witness ID         Run a second engine as word witness and emit disputes[] (ids: \(WitnessEngine.allCases.map(\.rawValue).joined(separator: ", ")))
       --force              Reprocess even if output already exists
       --json-only          Skip the Markdown rendering
       --quiet              Suppress progress; errors still go to stderr
       --version            Print app, model, and engine versions
       --help               Show this message
+
+    EXPORT OPTIONS:
+      --format LIST        Comma list of \(ExportFormat.allCases.map(\.rawValue).joined(separator: ", ")) (default: md)
+      --speaker A=Name     Name a speaker label (repeatable; A is short for SPEAKER_A)
+      --roster FILE        JSON map of label to name, or to {"name": ..., "role": ...}
+      --legal-header TEXT  Header line for the legal PDF (default: TRANSCRIPT)
+      --output-dir DIR     Where exports go (default: alongside the JSON)
 
     EXIT CODES:
       0 success   2 input unreadable   3 transcription failed

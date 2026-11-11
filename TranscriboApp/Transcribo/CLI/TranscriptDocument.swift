@@ -11,12 +11,16 @@ extension ConsensusCLI {
         let pass: TranscriptPass
         let options: TranscribeOptions
         let processingSeconds: TimeInterval
+        /// Every engine that contributed, by role (typed; see EngineDescriptor).
+        let engines: [EngineDescriptor]
+        /// Present only when `--witness` ran.
+        var witness: WitnessReport? = nil
 
         // MARK: - JSON (authoritative artifact)
 
         func jsonData() throws -> Data {
             var root: [String: Any] = [:]
-            root["schema_version"] = ConsensusCLI.schemaVersion
+            root["schema_version"] = ConsensusVersion.transcriptSchema
 
             var source: [String: Any] = [
                 "filename": probe.url.lastPathComponent,
@@ -33,14 +37,15 @@ extension ConsensusCLI {
             if let hints = options.hints { config["stt_hints"] = hints }
 
             root["provenance"] = [
-                "app_version": ConsensusCLI.appVersion,
-                "engines": engineDescriptors(),
+                "app_version": ConsensusVersion.app,
+                "engines": engines.map(\.json),
                 "config": config,
                 "processed_at": Self.iso8601.string(from: Date()),
                 "processing_seconds": rounded(processingSeconds, 1),
             ]
 
             root["speakers"] = speakerLabels
+            root["word_timing"] = documentWordTiming ?? NSNull()
             root["segments"] = pass.segments.map { segment in
                 var payload: [String: Any] = [
                     "start": rounded(segment.start, 2),
@@ -51,16 +56,35 @@ extension ConsensusCLI {
                 // Never fabricate confidence: emit null when the engine gave none.
                 payload["confidence"] = segment.averageLogProb.map { confidence(fromLogProb: $0) } ?? NSNull()
                 if let words = segment.words, !words.isEmpty {
+                    // How the word times were obtained; "interpolated" means an
+                    // even split of the segment span, not a measurement.
+                    payload["word_timing"] = segment.wordTimingSource?.rawValue ?? NSNull()
                     payload["words"] = words.map { word in
                         [
                             "word": word.word,
                             "start": rounded(TimeInterval(word.start), 2),
                             "end": rounded(TimeInterval(word.end), 2),
-                            "confidence": rounded(TimeInterval(word.probability), 3),
+                            "confidence": word.probability.map { rounded(TimeInterval($0), 3) } ?? NSNull(),
                         ] as [String: Any]
                     }
                 }
                 return payload
+            }
+
+            if let witness {
+                // `disputes` present means a witness ran; [] means it found
+                // nothing to dispute. Absent means nobody checked.
+                root["witness"] = [
+                    "id": witness.descriptor.id ?? NSNull(),
+                    "normalization": witness.normalization,
+                    "primary_tokens": witness.primaryTokens,
+                    "witness_tokens": witness.witnessTokens,
+                    "disputed_tokens": witness.disputedTokens,
+                    "dispute_rate": witness.primaryTokens > 0
+                        ? rounded(Double(witness.disputedTokens) / Double(witness.primaryTokens), 4) : NSNull(),
+                    "processing_seconds": rounded(witness.seconds, 1),
+                ] as [String: Any]
+                root["disputes"] = witness.disputes.map(\.json)
             }
 
             return try JSONSerialization.data(
@@ -82,7 +106,7 @@ extension ConsensusCLI {
                 lines.append("- **Recorded:** \(Self.humanDate.string(from: created))")
             }
             lines.append("- **Speakers:** \(speakerLabels.count)")
-            lines.append("- **Transcribed:** \(Self.humanDate.string(from: Date())) by Consensus \(ConsensusCLI.appVersion)")
+            lines.append("- **Transcribed:** \(Self.humanDate.string(from: Date())) by Consensus \(ConsensusVersion.app)")
             lines.append("")
             lines.append("---")
             lines.append("")
@@ -158,23 +182,16 @@ extension ConsensusCLI {
 
         // MARK: - Provenance helpers
 
-        private func engineDescriptors() -> [[String: Any]] {
-            let attribution = pass.engineAttribution
-            var engines: [[String: Any]] = []
-            let mirror = Mirror(reflecting: attribution)
-            for child in mirror.children {
-                if let value = child.value as? String, !value.isEmpty {
-                    engines.append(["name": child.label ?? "engine", "model": value, "version": ConsensusCLI.appVersion])
-                }
-            }
-            if engines.isEmpty {
-                engines = [[
-                    "name": "VibeVoice",
-                    "model": "VibeVoice ASR (MLX 4-bit)",
-                    "version": ConsensusCLI.appVersion,
-                ]]
-            }
-            return engines
+        /// Document-level summary of `segments[].word_timing`: the single
+        /// value when every timed segment agrees, "mixed" otherwise, nil when
+        /// no segment carries words.
+        var documentWordTiming: String? {
+            let sources = Set(pass.segments.compactMap { segment -> String? in
+                guard let words = segment.words, !words.isEmpty else { return nil }
+                return segment.wordTimingSource?.rawValue ?? "unknown"
+            })
+            if sources.isEmpty { return nil }
+            return sources.count == 1 ? sources.first : "mixed"
         }
 
         /// Maps an average log-probability to a 0–1 confidence. Approximate by

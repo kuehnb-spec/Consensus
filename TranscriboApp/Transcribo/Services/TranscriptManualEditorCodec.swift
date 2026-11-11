@@ -292,7 +292,7 @@ enum TranscriptManualEditorCodec {
                         word: editedWord,
                         start: Float.nan,
                         end: Float.nan,
-                        probability: 0.0
+                        probability: nil
                     ))
                 }
             }

@@ -102,7 +102,8 @@ actor FluidAsrTranscriptionService {
                     start: firstWord.start,
                     end: lastWord.end,
                     text: joinedText,
-                    words: segmentWords
+                    words: segmentWords,
+                    wordTimingSource: .engine
                 )
             )
 

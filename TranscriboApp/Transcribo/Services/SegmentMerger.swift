@@ -436,7 +436,8 @@ enum SegmentMerger {
 
         let segmentDuration = max(0.01, segment.end - segment.start)
         let wordDuration = segmentDuration / Double(textWords.count)
-        let defaultConfidence = segment.averageWordConfidence ?? 0.5
+        // Estimated words inherit the segment's measured confidence, if any.
+        let defaultConfidence = segment.averageWordConfidence
 
         return textWords.enumerated().map { index, word in
             let start = Float(segment.start + (Double(index) * wordDuration))

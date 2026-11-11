@@ -446,9 +446,13 @@ actor VibeVoiceTranscriptionService {
                     end: end,
                     text: text,
                     words: words,
-                    averageLogProb: -0.05,
-                    noSpeechProb: 0.05,
-                    diarizationQuality: 0.95
+                    // VibeVoice through mlx-audio exposes no token
+                    // likelihoods, no-speech probability or diarization
+                    // score. Leave them unknown rather than invent them.
+                    averageLogProb: nil,
+                    noSpeechProb: nil,
+                    diarizationQuality: nil,
+                    wordTimingSource: words == nil ? nil : .interpolated
                 )
             )
         }
@@ -509,10 +513,11 @@ actor VibeVoiceTranscriptionService {
     }
 
     /// VibeVoice doesn't emit per-word timings, so we synthesize them by linearly
-    /// distributing tokens across the segment duration. Confidence is set to a flat
-    /// high value because the model doesn't expose token-level probabilities through
-    /// the current mlx-audio API. Synthesized timings keep downstream code (export,
-    /// confidence merge, etc.) functional even though the timing is approximate.
+    /// distributing tokens across the segment duration and mark the segment
+    /// `.interpolated`. Word probability is `nil`: the model exposes no
+    /// token-level probabilities through the current mlx-audio API. The
+    /// synthetic times keep downstream alignment working; they are not a
+    /// measurement and must not be presented as one.
     private static func synthesizeWordTimings(
         text: String,
         segmentStart: TimeInterval,
@@ -533,7 +538,7 @@ actor VibeVoiceTranscriptionService {
                     word: token,
                     start: Float(start),
                     end: Float(end),
-                    probability: 0.95
+                    probability: nil
                 )
             )
         }
