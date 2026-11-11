@@ -8,5 +8,5 @@ public enum ConsensusVersion {
     /// CLI transcript JSON schema (10-consensus-spec.md, CLI.md).
     public static let transcriptSchema = "2.1"
     /// Vendored FluidAudio (TranscriboApp/Vendor/FluidAudio) that runs Parakeet.
-    public static let fluidAudio = "0.12.2"
+    public static let fluidAudio = "0.17.1"
 }

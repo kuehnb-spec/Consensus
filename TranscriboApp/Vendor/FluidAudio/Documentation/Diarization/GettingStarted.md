@@ -2,6 +2,42 @@
 
 Real-time speaker diarization for iOS and macOS, answering "who spoke when" in audio streams.
 
+## Model Choice
+
+Pick the diarizer based on the workflow:
+
+**LS-EEND** handles noisy environments and overlapping speakers well and supports up to 10 speakers. It is also much more lightweight than Sortformer, able to run entirely on an M4 MAX CPU at a comparable speed to Sortformer on ANE. However, it is more prone to false alarms and usually less stable than Sortformer, unless many speakers are talking simultaneously. Streaming updates occur every 100ms with about 900ms of tentative predictions. 
+
+**Sortformer** handles noisy environments and overlapping speakers well, but is limited to 4 speakers. Speaker identities are extremely stable, but it struggles when many loud voices are present. It also misses quiet speech as it's trained to ignore background conversations. The most common source of error is missed speech. Streaming updates occur every 480ms, with 560ms of tentative predictions.
+
+**DiarizerManager** Legacy online diarizer. Struggles with background noise, background conversations, overlapping speech with more than 2 speakers, short utterances, and similar-sounding speakers. The most common source of error is incorrect labeling. Performs poorly for low-latency streaming. Requires external timestamp alignment between chunks if operating on a sliding window. This is also the most computationally heavy online diarizer.
+
+**Offline VBx pipeline** is the best offline-quality option when you want a full batch pipeline with segmentation, embedding extraction, and clustering over a complete file.
+
+| Environment | Sortformer | DiarizerManager | LS-EEND | 
+|-------------|:----------:|:---------------:|:-------:|
+| Clean/silent room | Best | Good | Best |
+| Background noise | Best | Poor | Good |
+| Speech from another room | Poor | Good | Good |
+| Whispers | Poor | Good | Best |
+| High overlap | Good | Poor | Best |
+| Max speakers | 4 | No max | 10 |
+| Benchmarks | Good | Poor | Best |
+| Remembering speakers across meetings | Great | Best | Good |
+| Pre-enrolled speaker mapping | Best | Good | Weak |
+
+### Speaker Enrollment: Sortformer vs LS-EEND
+
+For workflows that pre-enroll known speakers before live audio, Sortformer is the stronger choice:
+
+- **Sortformer** auto-maps all speakers with high confidence, even when two voices are similar. It benefits from training on a large volume of real-world data and uses past context effectively through its speaker cache.
+- **LS-EEND** can fail enrollment when voices are too similar ("too close to existing speaker" collision). Its scores are bounded to roughly 0.2–0.8 due to the internal sigmoid-over-cosine architecture. An external score-extraction + global assignment fallback avoids hard rejection but produces weaker mappings.
+- **LS-EEND** is an end-to-end model, which makes it difficult to force speaker registration into a specific slot. There is no API for per-slot similarity outputs or explicit slot-lock assignment.
+
+LS-EEND was trained primarily on simulated data (fine-tuned on real data), while Sortformer was trained on predominantly real-world data. This training data difference is the main reason for the enrollment accuracy gap.
+
+See [LS-EEND.md](LS-EEND.md#enrollment-limitations-integration-feedback) and [Sortformer.md](Sortformer.md#enrollment-strengths-integration-feedback) for details.
+
 ## Quick Start
 
 ```swift
@@ -155,6 +191,8 @@ let diarizer = DiarizerManager(config: config)
 
 > Requires macOS 14 / iOS 17 or later. The offline stack uses native C++ clustering and AsyncStream coordination that are unavailable on older OS releases.
 
+> **Known OS issue — macOS 14 can crash in BNNS.** macOS 14 (all patch levels through at least 14.8.7) carries an Apple bug that crashes Core ML predictions on the BNNS CPU path (`EXC_BAD_ACCESS` in `libBNNS`, `BNNSGraphContextExecute_v2` → `_platform_memmove`). With models routed to `.cpuAndNeuralEngine`, the [#878](https://github.com/FluidInference/FluidAudio/issues/878) CI matrix reproduced it 1200/1200 on macOS 14 runners and 0/N on macOS 15 and 26 (see also [#661](https://github.com/FluidInference/FluidAudio/issues/661)). Serialized pipelines and single-model runs crash just the same. On machines without a Neural Engine (VMs, CI runners) the crash is deterministic; on Apple Silicon it is intermittent, striking when predictions fall back from the ANE to BNNS. Only `.cpuAndNeuralEngine` was matrix-tested. The reporter's harness notes that GPU-enabled routing (`.all`, the default) stops reproduction, but that has not been verified as a mitigation and the FBank model stays on CPU regardless of configuration. Apple fixed the bug in macOS 15; updating the OS is the confirmed remedy. `OfflineDiarizerManager` logs a warning when initialized on an affected build. (This is a distinct bug from the macOS/iOS 26.4–26.5 BNNS crash documented for Kokoro TTS in [KokoroAne.md](../TTS/KokoroAne.md).)
+
 When you need full parity with the pyannote/Core ML exporter (powerset segmentation + VBx clustering), use `OfflineDiarizerManager`. It orchestrates segmentation, soft mask interpolation, WeSpeaker embedding extraction, PLDA/VBx clustering, and timeline reconstruction in one place:
 
 ```swift
@@ -181,6 +219,38 @@ let result = try await manager.process(url)
 
 The file-based API internally uses memory-mapped streaming to avoid materializing the entire buffer in memory.
 
+#### Progress Tracking
+
+All three `process` overloads accept an optional `progressCallback` that fires after each segmentation chunk, reporting `(chunksProcessed, totalChunks)`:
+
+```swift
+let result = try await manager.process(audio: samples) { chunksProcessed, totalChunks in
+    let percent = Int(Double(chunksProcessed) / Double(totalChunks) * 100)
+    print("Progress: \(percent)% (\(chunksProcessed)/\(totalChunks) chunks)")
+}
+```
+
+The callback is invoked on an unspecified executor — not guaranteed to be a background thread or the main actor. To update UI state, hop to `@MainActor` from inside the callback:
+
+```swift
+@MainActor
+class TranscriptionViewModel: ObservableObject {
+    @Published var progress: Double = 0
+
+    func run(url: URL) async throws {
+        let manager = OfflineDiarizerManager()
+        let result = try await manager.process(url) { chunksProcessed, totalChunks in
+            Task { @MainActor in
+                self.progress = Double(chunksProcessed) / Double(totalChunks)
+            }
+        }
+        // use result...
+    }
+}
+```
+
+`totalChunks` is derived from the audio length and `OfflineDiarizerConfig.samplesPerStep` before processing starts, so it is consistent across all callback invocations. The final call always has `chunksProcessed == totalChunks`.
+
 The offline controller mirrors the reference pipeline:
 
 - **Segmentation:** `SegmentationRunner` feeds 10 s/160 k sample chunks through the Core ML segmentation model. Each chunk yields 589 frame-level log probabilities over the 7 local powerset classes.
@@ -199,6 +269,18 @@ The offline controller mirrors the reference pipeline:
 - `postProcessing`: Minimum gap duration when stitching segments back together.
 - `export`: Optional `embeddingsPath` for dumping per-speaker vectors to JSON.
 
+#### Why VBx has no transition (self-loop) prior
+
+BUT's original VBx runs an HMM over one time-ordered sequence of x-vectors, and its `loopProb` (the probability of staying with the current speaker) is the knob for "how readily may the speaker change". This pipeline deliberately has no such prior, and none is exposed on `OfflineDiarizerConfig.VBx`. That is pyannote parity, not an omission in the port: pyannote's `utils/vbx.py` replaces the forward-backward pass with a per-frame GMM update (its own comment reads `# use GMM update`), and `VBxClustering` mirrors it.
+
+The reason is the observation sequence. VBx here refines clusters over *per-chunk speaker embeddings*, and a chunk with overlapping speech yields several embeddings for the same time span. An HMM over that flattened array would read simultaneous speakers as rapid speaker switches. So the VB step only decides *which* speakers exist and *which embedding belongs to which*; temporal structure is left to the segmentation model.
+
+Consequences for tuning ([#879](https://github.com/FluidInference/FluidAudio/issues/879)):
+
+- `clustering.warmStartFa` / `warmStartFb` scale the evidence in the ELBO. They change how many clusters survive, not how often the speaker may change; a sweep can move the speaker count from 9 to 22 while leaving DER and turn alternation bit-identical.
+- Turn-taking sensitivity lives in segmentation. A smaller `segmentation.stepRatio` (denser windows) and a lower `minSegmentDurationSeconds` recover short turns that a coarser step absorbs into their neighbours, at the cost of more segments. On far-field meetings with rapid exchanges, `stepRatio 0.1` is the setting that has measured best for alternation.
+- Adding a transition prior would mean diverging from the pyannote recipe and building a temporally meaningful observation sequence that handles overlapping local tracks first. It is not planned.
+
 `prepareModels` captures Core ML compilation timings (and download durations when a fresh fetch is needed), so `DiarizationResult.timings` reflects audio loading, segmentation, embedding, clustering, and post-processing costs in one place. Per-speaker embeddings are exposed in `speakerDatabase` for downstream analytics without toggling debug flags.
 
 #### CLI shortcut
@@ -206,8 +288,8 @@ The offline controller mirrors the reference pipeline:
 The CLI exposes the same controller via `fluidaudio process` and the diarization benchmark tooling:
 
 ```bash
-swift run fluidaudio process meeting.wav --mode offline --threshold 0.6 --debug --chunk-seconds 10.0 --overlap-seconds 0.0
-swift run fluidaudio diarization-benchmark --mode offline --dataset ami-sdm --threshold 0.6 --auto-download
+swift run fluidaudiocli process meeting.wav --mode offline --threshold 0.6 --debug --chunk-seconds 10.0 --overlap-seconds 0.0
+swift run fluidaudiocli diarization-benchmark --mode offline --dataset ami-sdm --threshold 0.6 --auto-download
 ```
 
 Add `--rttm path/to/meeting.rttm` when you have ground-truth annotations to emit DER/JER directly on the console, or `--export-embeddings embeddings.json` to inspect cluster assignments. The GitHub Actions workflow [`offline-pipeline.yml`](../.github/workflows/offline-pipeline.yml) executes the single-file AMI benchmark on every PR, keeping downloads, PLDA transforms, and VBx clustering guard-railed.
@@ -248,6 +330,64 @@ For most use cases, the simpler `manager.process(url)` API is recommended.
 
 ## Streaming/Real-time Processing
 
+For online diarization, prefer LS-EEND or Sortformer first, and use WeSpeaker/Pyannote only when you specifically need its speaker-database behavior.
+
+### LS-EEND Streaming
+
+Use `LSEENDDiarizer` when you want live diarizer with low latency and up to 10 speakers. It is very eager to detect speech, and performs well even when many simultaneous speakers are present.
+
+```swift
+import FluidAudio
+
+let diarizer = LSEENDDiarizer()
+try await diarizer.initialize(variant: .dihard3)
+
+try diarizer.addAudio(audioChunk, sourceSampleRate: 16_000)
+if let update = try diarizer.process() {
+    for segment in update.finalizedSegments {
+        print("Speaker \(segment.speakerId): \(segment.startTimeSeconds)s - \(segment.endTimeSeconds)s")
+    }
+}
+```
+
+Notes:
+
+- Supports streaming and complete-buffer inference with the same API.
+- Returns `DiarizerTimelineUpdate` values with finalized and tentative segments.
+- Use `enrollSpeaker(withSamples:named:overwritingAssignedSpeakerName:)` to pre-enroll speakers before streaming. This keeps the warmed LS-EEND session state while resetting the visible timeline.
+- See [LS-EEND.md](LS-EEND.md) for the full API and call flow.
+
+### Sortformer Streaming
+
+Use `SortformerDiarizer` when you want robust low-latency streaming with stronger speaker identity stability, and the 4-speaker limit is acceptable. It attempts to ignore background speakers, so it may miss quiet speech. It also sometimes gets overwhelmed when too many speakers are talking simultaneously.
+
+```swift
+import FluidAudio
+
+let diarizer = SortformerDiarizer()
+let models = try await SortformerModels.loadFromHuggingFace(config: .default)
+diarizer.initialize(models: models)
+
+try diarizer.addAudio(audioChunk, sourceSampleRate: 16_000)
+if let update = try diarizer.process() {
+    for segment in update.finalizedSegments {
+        print("Speaker \(segment.speakerId): \(segment.startTimeSeconds)s - \(segment.endTimeSeconds)s")
+    }
+}
+```
+
+Notes:
+
+- Best when speaker ordering and identity stability matter more than maximum speaker count.
+- Limited to 4 speakers and can miss quiet speech more often than LS-EEND.
+- Use `enrollSpeaker(withAudio:named:overwritingAssignedSpeakerName:)` to pre-enroll speakers before streaming. This preserves the speaker cache/FIFO state and clears the visible timeline.
+- Also returns `DiarizerTimelineUpdate` / `DiarizerTimeline` so the integration shape matches LS-EEND.
+- See [Sortformer.md](Sortformer.md) for model loading, tuning, and behavior details.
+
+### WeSpeaker/Pyannote Streaming
+
+Pyannote 3.1 pipeline for online/streaming use. Use `DiarizerManager` when you need the classic segmentation + embedding + speaker-database pipeline. This is the slowest streaming option and works best with larger chunks.
+
 Process audio in chunks for real-time applications:
 
 ```swift
@@ -280,6 +420,7 @@ Notes:
 - Always rebase per-chunk timestamps by `(chunkStartSample / sampleRate)`.
 - Provide 16 kHz mono Float32 samples; pad final chunk to the model window.
 - Tune `speakerThreshold` and `embeddingThreshold` to trade off ID stability vs. sensitivity.
+- Prefer chunk sizes of at least 5 seconds; 10 seconds is usually better.
 
 **Speaker Enrollment:** The `Speaker` class includes a `name` field for enrollment workflows. When users introduce themselves ("My name is Alice"), update the speaker's name from the default (e.g. "Speaker_1") to enable personalized identification.
 
@@ -531,7 +672,7 @@ Evaluate performance on your audio:
 
 ```bash
 # Command-line benchmark
-swift run fluidaudio diarization-benchmark --single-file ES2004a
+swift run fluidaudiocli diarization-benchmark --single-file ES2004a
 
 # Results:
 # DER: 17.7% (Miss: 10.3%, FA: 1.6%, Speaker Error: 5.8%)

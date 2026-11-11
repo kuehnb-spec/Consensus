@@ -34,7 +34,10 @@ extension ConsensusCLI {
         func makeProvider(config: ConsensusConfig) -> WordWitnessProvider {
             switch self {
             case .parakeet:
-                if let cli = config.paths.fluidAudioCLI { return ParakeetCLIWitness(binary: cli) }
+                // fable/fluidaudio-0.17 trial: the vendored copy is 0.17.1, so
+                // in process is the default; the external CLI only on request.
+                if ProcessInfo.processInfo.environment["CONSENSUS_WITNESS_EXTERNAL"] == "1",
+                   let cli = config.paths.fluidAudioCLI { return ParakeetCLIWitness(binary: cli) }
                 return ParakeetWitness()
             }
         }
