@@ -85,15 +85,16 @@ public enum ConsensusCLI {
             lines.append("")
         }
 
-        let witness = config.witnessRequirement
-        lines.append("[\(witness.found ? "OK  " : "--  ")] \(witness.name)")
-        if witness.found, let path = witness.path {
-            lines.append("       \(path.path)")
-            if let source = witness.source { lines.append("       via \(source)") }
-        } else {
-            lines.append("       \(witness.remedy)")
+        for witness in [config.witnessRequirement, config.fluidAudioCLIRequirement] {
+            lines.append("[\(witness.found ? "OK  " : "--  ")] \(witness.name)")
+            if witness.found, let path = witness.path {
+                lines.append("       \(path.path)")
+                if let source = witness.source { lines.append("       via \(source)") }
+            } else {
+                lines.append("       \(witness.remedy)")
+            }
+            lines.append("")
         }
-        lines.append("")
 
         lines.append(config.isComplete
             ? "Ready — `consensus transcribe <file>` should work on this machine."
@@ -174,12 +175,22 @@ public enum ConsensusCLI {
         runnerOptions.vibeVoiceContext = options.hints
 
         let pass: TranscriptPass
+        var reusedPrimary = false
         do {
+            if let reuse = ProcessInfo.processInfo.environment["CONSENSUS_DEV_PRIMARY_JSON"], !reuse.isEmpty {
+                // Test hook (undocumented for users): take the primary
+                // transcript from an existing .consensus.json instead of
+                // running VibeVoice, to exercise the witness and output path
+                // when the GPU or memory is busy. Provenance says so.
+                pass = try loadPrimaryPass(from: URL(fileURLWithPath: reuse))
+                reusedPrimary = true
+            } else {
             pass = try await runner.run(audioURL: input, options: runnerOptions) { progress in
                 guard !options.quiet else { return }
                 // One machine-parsable line per event; never transcript text.
                 let percent = Int((progress.fraction * 100).rounded())
                 FileHandle.standardError.write(Data("progress \(percent) \(progress.label)\n".utf8))
+            }
             }
         } catch {
             fail("Transcription failed: \(error.localizedDescription)")
@@ -197,6 +208,12 @@ public enum ConsensusCLI {
         // Asked-for disputes that silently go missing would read as "no
         // disputes", so a witness failure fails the run.
         var engines = vibeVoiceEngines(config: config)
+        if reusedPrimary {
+            engines = engines.map {
+                EngineDescriptor(role: $0.role, id: $0.id, name: $0.name + " (reused from existing JSON)",
+                                 model: $0.model, version: nil)
+            }
+        }
         var witnessReport: WitnessReport?
         if let witness = options.witness {
             log("Running word witness \(witness.rawValue)", options: options)
@@ -237,6 +254,34 @@ public enum ConsensusCLI {
 
         log("Wrote \(jsonURL.lastPathComponent)\(options.jsonOnly ? "" : " and \(markdownURL.lastPathComponent)")", options: options)
         return .success
+    }
+
+    /// Reads segments and words back from a CLI transcript (any schema).
+    /// Word confidence is not carried over: 2.0 files hold invented values.
+    static func loadPrimaryPass(from url: URL) throws -> TranscriptPass {
+        let data = try Data(contentsOf: url)
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let raw = root["segments"] as? [[String: Any]] else {
+            throw UsageError("not a Consensus transcript JSON: \(url.lastPathComponent)", code: .inputUnreadable)
+        }
+        let segments: [TranscriptionSegment] = raw.compactMap { seg in
+            guard let start = (seg["start"] as? NSNumber)?.doubleValue,
+                  let end = (seg["end"] as? NSNumber)?.doubleValue,
+                  let text = seg["text"] as? String else { return nil }
+            let words = (seg["words"] as? [[String: Any]])?.compactMap { w -> TranscriptionSegment.WordTiming? in
+                guard let word = w["word"] as? String,
+                      let ws = (w["start"] as? NSNumber)?.floatValue,
+                      let we = (w["end"] as? NSNumber)?.floatValue else { return nil }
+                return TranscriptionSegment.WordTiming(word: word, start: ws, end: we, probability: nil)
+            }
+            let timing = (seg["word_timing"] as? String).flatMap(TranscriptionSegment.WordTimingSource.init(rawValue:))
+            return TranscriptionSegment(
+                speakerID: seg["speaker"] as? String ?? "SPEAKER_?",
+                start: start, end: end, text: text, words: words,
+                wordTimingSource: words == nil ? nil : (timing ?? .interpolated)
+            )
+        }
+        return TranscriptPass(kind: .standard, segments: segments)
     }
 
     // MARK: - Atomic write

@@ -24,12 +24,17 @@ public struct ConsensusConfig: Sendable {
         public var model: URL?
         /// `witness_align.py`, used only by `transcribe --witness`.
         public var witnessAligner: URL?
+        /// External `fluidaudiocli` (>= 0.17) for the Parakeet witness. The
+        /// vendored FluidAudio 0.12.2 drops long runs of words on 10-minute
+        /// files (2026-11-11), so the witness prefers this when present.
+        public var fluidAudioCLI: URL?
 
         /// Where each value came from, for `doctor` output.
         public var pythonSource: String?
         public var sidecarSource: String?
         public var modelSource: String?
         public var witnessAlignerSource: String?
+        public var fluidAudioCLISource: String?
     }
 
     /// Path to the config file that was actually loaded, if any.
@@ -73,6 +78,12 @@ public struct ConsensusConfig: Sendable {
             ("alongside binary", binaryDirectory?.appendingPathComponent("WitnessSidecar/witness_align.py")),
             ("repository checkout", repositoryRoot()?.appendingPathComponent(witnessSuffix)),
         ], into: &config.paths.witnessAlignerSource)
+
+        config.paths.fluidAudioCLI = firstExisting([
+            ("CONSENSUS_FLUIDAUDIO_CLI env", environmentPath("CONSENSUS_FLUIDAUDIO_CLI")),
+            ("config file", fileValues["fluidaudio_cli"].map(expand)),
+            ("~/.consensus/tools", home.appendingPathComponent(".consensus/tools/fluidaudiocli")),
+        ], into: &config.paths.fluidAudioCLISource)
 
         return config
     }
@@ -247,6 +258,18 @@ public struct ConsensusConfig: Sendable {
 
     /// Needed only for `transcribe --witness`; reported by `doctor` but does
     /// not make the machine "not ready" for a plain transcription.
+    public var fluidAudioCLIRequirement: Requirement {
+        Requirement(
+            name: "fluidaudiocli >= 0.17 (optional, Parakeet witness)",
+            path: paths.fluidAudioCLI,
+            source: paths.fluidAudioCLISource,
+            found: paths.fluidAudioCLI != nil,
+            remedy: "Without it the witness uses the vendored FluidAudio 0.12.2, which drops words "
+                + "on long files. Put a 0.17.x build (with its resource bundles) in ~/.consensus/tools/ "
+                + "or set CONSENSUS_FLUIDAUDIO_CLI."
+        )
+    }
+
     public var witnessRequirement: Requirement {
         Requirement(
             name: "Word-witness aligner (optional, for --witness)",

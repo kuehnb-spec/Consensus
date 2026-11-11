@@ -31,9 +31,11 @@ extension ConsensusCLI {
         // case nemotron35  — future: MLX sidecar, untimed words hung on the
         // primary's clock (Scripts/proving-ground/align_untimed_words.py).
 
-        func makeProvider() -> WordWitnessProvider {
+        func makeProvider(config: ConsensusConfig) -> WordWitnessProvider {
             switch self {
-            case .parakeet: return ParakeetWitness()
+            case .parakeet:
+                if let cli = config.paths.fluidAudioCLI { return ParakeetCLIWitness(binary: cli) }
+                return ParakeetWitness()
             }
         }
     }
@@ -67,6 +69,49 @@ extension ConsensusCLI {
                                 end: segment.start + Double(i + 1) * step)
                 }
             }
+        }
+    }
+
+    /// Parakeet TDT v3 through an external `fluidaudiocli` (>= 0.17), the
+    /// build the Proving Ground measured. Used in preference to the vendored
+    /// 0.12.2, which on 2026-11-11 dropped ~11% of a 10-minute clip's words
+    /// in long runs and took 160 s against 5 s; retire this path once the
+    /// vendored FluidAudio is upgraded to 0.17.1.
+    struct ParakeetCLIWitness: WordWitnessProvider {
+        let binary: URL
+
+        var descriptor: EngineDescriptor {
+            EngineDescriptor(
+                role: .witness,
+                id: WitnessEngine.parakeet.rawValue,
+                name: "Parakeet TDT",
+                model: "parakeet-tdt-0.6b-v3 (CoreML)",
+                version: "fluidaudiocli (external; version not reported)"
+            )
+        }
+
+        func words(for audioURL: URL, progress: @escaping @Sendable (Double) -> Void) async throws -> [WitnessWord] {
+            let out = FileManager.default.temporaryDirectory
+                .appendingPathComponent("consensus-witness-\(UUID().uuidString).json")
+            defer { try? FileManager.default.removeItem(at: out) }
+            let process = Process()
+            process.executableURL = binary
+            process.arguments = ["transcribe", audioURL.path, "--word-timestamps", "--output-json", out.path]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            progress(0.05)
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0, let data = try? Data(contentsOf: out) else {
+                throw WitnessError.alignerFailed("fluidaudiocli exited \(process.terminationStatus)")
+            }
+            struct Raw: Decodable {
+                struct Word: Decodable { let word: String; let startTime: Double; let endTime: Double }
+                let wordTimings: [Word]?
+            }
+            let raw = try JSONDecoder().decode(Raw.self, from: data)
+            progress(1.0)
+            return (raw.wordTimings ?? []).map { WitnessWord(word: $0.word, start: $0.startTime, end: $0.endTime) }
         }
     }
 
@@ -143,7 +188,7 @@ extension ConsensusCLI {
         guard let python = config.paths.python, let aligner = config.paths.witnessAligner else {
             throw WitnessError.alignerMissing
         }
-        let provider = engine.makeProvider()
+        let provider = engine.makeProvider(config: config)
         let witnessWords = try await provider.words(for: audioURL, progress: progress)
 
         let primary: [[String]] = pass.segments.map { segment in

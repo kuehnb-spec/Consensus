@@ -67,7 +67,7 @@ For input `2026-07-25 Board Sync.m4a`, write two files:
 
 ```json
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "source": {
     "filename": "2026-07-25 Board Sync.m4a",
     "sha256": "…",
@@ -76,7 +76,7 @@ For input `2026-07-25 Board Sync.m4a`, write two files:
   },
   "provenance": {
     "app_version": "2.0.0",
-    "engines": [{ "name": "…", "model": "…", "version": "…" }],
+    "engines": [{ "role": "asr", "name": "…", "model": "…", "version": "…" }],
     "config": { "speakers_hint": null, "language": "en" },
     "processed_at": "2026-07-25T16:40:03-04:00",
     "processing_seconds": 412.7
@@ -88,7 +88,7 @@ For input `2026-07-25 Board Sync.m4a`, write two files:
       "end": 19.02,
       "speaker": "SPEAKER_A",
       "text": "Let's get started — Sam, where did the contractor bid land?",
-      "confidence": 0.94
+      "confidence": null
     }
   ]
 }
@@ -101,7 +101,7 @@ Rules:
 - **Atomic writes**: write to a temp name, rename on completion. The watcher must never see a half-written output.
 - **Idempotent**: if the `.consensus.json` for this input already exists (match by name and source hash), exit 4 without work unless `--force`.
 - **Timestamps are start-of-segment seconds** from the beginning of the recording; keep them accurate across any internal chunking.
-- Confidence per segment if the engine provides it; `null` otherwise — do not fabricate.
+- Confidence per segment if the engine provides it; `null` otherwise — do not fabricate. *(Not true until CLI 2.1.1, 2026-11-11: through 2.1.0 the VibeVoice path wrote an invented 0.951 per segment and 0.95 per word. It now writes `null`, and synthetic word times are marked `"word_timing": "interpolated"`. See CLI.md §Schema 2.1.)*
 - Speaker labels are stable within a file (`SPEAKER_A` is the same voice throughout) and carry no identity claim.
 
 ## Configuration and secrets
@@ -137,7 +137,7 @@ Rules:
 - Word-level timestamps in the JSON.
 - `--stt-hints "Brant, Kuehn, PADD"` — a proper-noun hint list to improve name/term accuracy.
 - Language auto-detection reported in provenance.
-- Multi-engine "consensus" reconciliation surfaced in the JSON (per-segment alternates), if that is what the existing core already does.
+- Multi-engine "consensus" reconciliation surfaced in the JSON (per-segment alternates), if that is what the existing core already does. *(First step shipped 2026-11-11 as `--witness parakeet` → `disputes[]`; CLI.md §Disputes.)*
 
 ---
 
@@ -153,3 +153,14 @@ Deferred / not yet true:
 - **2-hour audio** is untested; the longest fixture on hand is 36 minutes, which passes cleanly (150 segments, monotonic, full coverage, 0.21x real-time — about 4.8x faster than realtime). VibeVoice's own ceiling is 60 minutes / 64K tokens, so anything longer needs internal chunking that does not exist yet — a real gap for the spec's "2+ hours must work" requirement.
 - **Bare launchd** verified only by construction (no `NSApplication` is ever instantiated) plus a detached run; a true `launchctl` daemon test on the Mac Studio is still worth doing.
 - Word-level timestamps *are* emitted when the engine provides them (listed in the spec as a nice-to-have).
+
+## Implementation status — November 11, 2026 (CLI 2.1.1, schema 2.1)
+
+The output no longer claims what the engine cannot support: `confidence` is
+`null` for VibeVoice (it reports none), interpolated word times are labelled,
+and `provenance.engines[]` is a typed list of `{role, name, model, version}`
+instead of a reflection dump. `consensus export` re-renders a transcript JSON
+to any app format with `--speaker`/`--roster` names. `--witness parakeet`
+emits `disputes[]`, the first piece of the measured witness design to reach the
+product. Schema details and the 2.0 compatibility note are in CLI.md. Still
+open: chunking past VibeVoice's 60-minute ceiling, a true launchd daemon test.
