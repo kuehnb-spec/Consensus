@@ -26,7 +26,7 @@
   "project": "Consensus",
   "tagline": "Privacy-first macOS transcription with multi-engine consensus review",
   "status": "active",
-  "updated": "2026-10-29",
+  "updated": "2026-11-11",
   "private": false,
   "tags": [
     "swift",
@@ -34,48 +34,43 @@
     "asr",
     "diarization"
   ],
-  "summary": "Nemotron 3.5 Transcribe evaluated (2026-10-29), the day after NVIDIA released it. On the 15-clip Proving Ground (4-bit MLX port on the Studio) it trails VibeVoice on words (6.6% vs 5.5% WER; 5.6% vs 5.2% with the plain prompt, excluding one runaway repetition loop), merges speakers (29.8% cpWER on its own labels) and emits no timestamps on the Mac. As a word witness for VibeVoice it is the best measured: 65% of VibeVoice's errors fall in its disputes vs 59% for Parakeet, at a 6% flag rate. Decision: VibeVoice stays primary; Nemotron 3.5 becomes the word witness. Memo: Brainstorming/2026-10-nemotron35/. Earlier (2026-09-23): Proving Ground built; Nemotron 3 Diarization adopted as speaker witness.",
+  "summary": "CLI 2.1.1 (2026-11-11, schema 2.1): the output stops claiming what VibeVoice cannot support. Confidence is null instead of an invented 0.951/0.95, interpolated word times are labelled, provenance.engines is a typed {role, name, model, version} list, and the version lives in one file. `consensus export` (ported from wip/macbook) re-renders a transcript with --speaker/--roster names. `--witness parakeet` brings the measured witness design into the product: disputes[] where Parakeet disagrees with VibeVoice. On four Proving Ground clips words and speakers are identical to the stored runs (5.30% WER, 6.54% cpWER, 2.13% DER), and the disputes cover 59.2% of VibeVoice's word errors at a 5.5% flag rate, matching the 59%/~6% benchmark. Installed at ~/.local/bin/consensus (2.0.0 kept beside it). The witness uses an external fluidaudiocli 0.17 because the vendored FluidAudio 0.12.2 drops words; the app itself was not rebuilt (Metal Toolchain uninstalled for Xcode 27.2).",
   "next": [
     {
-      "text": "Brant: approve an 8-bit/full-precision Nemotron 3.5 run on the MacBook Pro (96 GB) to measure the 4-bit quantization cost",
+      "text": "Upgrade vendored FluidAudio 0.12.2 -> 0.17.1 (re-apply the Swift 6 AsrManager patches); gates Second Chair's streaming work and retires the external fluidaudiocli the Parakeet witness now needs",
       "priority": "high"
     },
     {
-      "text": "Wire Nemotron 3.5 into Deep Review as the word witness (Python MLX sidecar; text aligned to VibeVoice words via align_untimed_words.py); guard against runaway repetition",
+      "text": "Streaming latency bench for Parakeet/FluidAudio 0.17.1 (first-word and per-chunk latency on the Studio)",
       "priority": "high"
     },
     {
-      "text": "Measure how many of Nemotron's insertions are real cross-talk the Oyez references omit (listen-list from experiment_word_witness.py)",
+      "text": "Roster-based speaker naming: let sibling tools pass a roster at transcribe time and record it in provenance (export --roster exists)",
       "priority": "med"
     },
     {
-      "text": "Brant: run `xcodebuild -downloadComponent MetalToolchain` so the app can be rebuilt",
+      "text": "Chunk audio past VibeVoice's 60-minute ceiling so 2-hour hearings transcribe in one run",
       "priority": "high"
     },
     {
-      "text": "Brant: decide visual direction, library model, disk budget, and work order (proposal, 'Four decisions')",
-      "priority": "high"
-    },
-    {
-      "text": "Experiment A: measure disagreement recall (share of true errors inside disputed spans)",
-      "priority": "high"
-    },
-    {
-      "text": "Upgrade vendored FluidAudio to pinned 0.17.1; re-validate CLI",
+      "text": "Brant: notarize 2.1.x (needs his notarytool credentials); the 2.1.0 draft release and dist/ are untouched",
       "priority": "med"
     },
     {
-      "text": "CLI: emit null word-level confidence for VibeVoice (currently copies segment 0.95 to every word)",
+      "text": "Brant: reinstall the Metal Toolchain for Xcode 27.2 (xcodebuild -showComponent MetalToolchain says uninstalled) before the app or a release can be rebuilt",
       "priority": "med"
     },
     {
-      "text": "Add Earnings-21 fetcher (whole-file cpWER) and a synthetic stress lab",
+      "text": "Set HF_HUB_OFFLINE in the VibeVoice sidecar: it currently contacts the Hugging Face Hub at load (log: 'unauthenticated requests to the HF Hub')",
+      "priority": "med"
+    },
+    {
+      "text": "Add nemotron35 as a second WitnessEngine behind the same disputes[] schema (65% recall, 18 GB; only when Ollama is idle)",
       "priority": "low"
     }
   ],
   "open_questions": [
-    "Copy audio into a local .consensus library vs index in place?",
-    "Adopt the legal-record identity (replaces indigo/glass rules in AGENTS.md)?"
+    "Copy audio into a local .consensus library vs index in place?"
   ],
   "decisions": [
     {
@@ -93,12 +88,24 @@
     {
       "date": "2026-10-29",
       "text": "Nemotron 3.5 Transcribe adopted as VibeVoice's word witness, not as primary: best measured witness (65% error recall), but trails on words, merges speakers, has no Mac timestamps, and needs 18 GB of GPU (measured on Proving Ground)."
+    },
+    {
+      "date": "2026-11-11",
+      "text": "CLI schema 2.1: unknown confidence is null, never invented; synthetic word times are labelled; witness disagreements ship as disputes[] (Parakeet first, measured 59.2% error coverage at 5.5% flag rate on 4 clips)."
     }
   ],
   "links": [
     {
       "label": "README",
       "href": "README.md"
+    },
+    {
+      "label": "Results 2026-11-11 (CLI 2.1.1 regression + disputes)",
+      "href": "TestCorpus/results-2026-11-11.md"
+    },
+    {
+      "label": "CLI and schema 2.1",
+      "href": "CLI.md"
     },
     {
       "label": "Nemotron 3.5 results (2026-10-29)",

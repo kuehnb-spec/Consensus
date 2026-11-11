@@ -121,11 +121,11 @@ writes:
 
 ```json
 "witness": {"id": "parakeet", "normalization": "whisper-english+collapse-repeats",
-            "primary_tokens": 1931, "witness_tokens": 1950, "disputed_tokens": 131,
-            "dispute_rate": 0.0678, "processing_seconds": 9.4},
+            "primary_tokens": 1931, "witness_tokens": 1920, "disputed_tokens": 130,
+            "dispute_rate": 0.0673, "processing_seconds": 10},
 "disputes": [
-  {"segment": 12, "word_start": 4, "word_end": 6, "primary": "Loper Bride", "witness": "Loper Bright",
-   "witness_id": "parakeet", "kind": "substitution", "witness_start": 61.2, "witness_end": 61.9}
+  {"segment": 20, "word_start": 7, "word_end": 8, "primary": "interpretive", "witness": "interpreted",
+   "witness_id": "parakeet", "kind": "substitution", "witness_start": 242.48, "witness_end": 243.04}
 ]
 ```
 
@@ -146,6 +146,14 @@ writes:
 - A witness failure fails the run (exit 3, nothing written): a transcript
   silently missing its disputes would read as "no disputes".
 
+(Real values from the Loper Bright Proving Ground clip.) Parakeet runs through
+an external `fluidaudiocli` 0.17.x when one is installed
+(`~/.consensus/tools/fluidaudiocli`, or `CONSENSUS_FLUIDAUDIO_CLI`), because the
+vendored FluidAudio 0.12.2 dropped about 11% of a 10-minute clip's words in
+long runs (doubling the flag rate to 14%) and took 160 s instead of 10 s. It
+falls back to the vendored copy otherwise; `consensus doctor` shows which.
+Retire the external path when the vendored FluidAudio moves to 0.17.1.
+
 The alignment step is `Scripts/WitnessSidecar/witness_align.py` (standard
 library plus a vendored copy of the normaliser, MIT), run with the Consensus
 Python; installed at `~/.consensus/sidecar/witness/`. It is the runtime port of
@@ -155,6 +163,11 @@ offline (60.3% of VibeVoice's errors inside a dispute at a 6.4% flag rate over
 witness is one `WitnessEngine` case plus a `WordWitnessProvider`
 (`Transcribo/CLI/WordWitness.swift`); `nemotron35` can be added behind the same
 schema.
+
+Test hook: with `CONSENSUS_DEV_PRIMARY_JSON=existing.consensus.json`, `transcribe`
+takes the primary words from that file instead of running VibeVoice (provenance
+says "reused from existing JSON"). It exists to exercise the witness and output
+path while the GPU is busy; it is not a user feature.
 
 ## Running from launchd
 

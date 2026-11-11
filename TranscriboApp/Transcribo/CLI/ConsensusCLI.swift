@@ -315,7 +315,10 @@ public enum ConsensusCLI {
             "schema \(schemaVersion)",
             "engine VibeVoice-ASR 4-bit MLX\(mlxAudio)",
             "diarization VibeVoice-ASR (joint, in-model)",
-            "witnesses \(WitnessEngine.allCases.map(\.rawValue).joined(separator: ", ")) (FluidAudio \(ConsensusVersion.fluidAudio))",
+            "witnesses " + WitnessEngine.allCases.map { engine in
+                let descriptor = engine.makeProvider(config: config).descriptor
+                return "\(engine.rawValue) (\(descriptor.version ?? "version unknown"))"
+            }.joined(separator: ", "),
         ]
         FileHandle.standardOutput.write(Data((lines.joined(separator: "\n") + "\n").utf8))
     }
