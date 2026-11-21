@@ -38,6 +38,8 @@ public enum ConsensusCLI {
                 return ExitCode.success.rawValue
             case .doctor:
                 return runDoctor().rawValue
+            case .export(let options):
+                return await runExport(options).rawValue
             case .transcribe(let options):
                 return await runTranscribe(options).rawValue
             }
@@ -237,7 +239,7 @@ public enum ConsensusCLI {
         FileHandle.standardError.write(Data("\(message)\n".utf8))
     }
 
-    private static func fail(_ message: String) {
+    static func fail(_ message: String) {
         FileHandle.standardError.write(Data("error: \(message)\n".utf8))
     }
 
